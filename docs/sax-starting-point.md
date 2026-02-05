@@ -194,6 +194,132 @@ myproc HL, DE
 
 ---
 
+## 6.1 `op` (Inline Macro-Instructions)
+
+SAX also supports `op` declarations: **opcode-like inline macros** that expand to Z80 mnemonics at compile time.
+
+Goals:
+* Keep call sites opcode-like.
+* Allow operand-driven implementations (because Z80 has implicit accumulators like `A`/`HL`).
+
+**Definition**
+* `op` expands inline (no call/ret).
+* Parameters are **typed operands** (AST operands), not text.
+* Operands are substituted structurally into emitted mnemonics.
+* Multiple `op` declarations with the same name are allowed; the compiler selects the best match based on operand classes and fixed-register patterns.
+
+**Operand matcher types (patterns)**
+`op` parameters use matcher types that constrain what the call site may supply:
+* `reg8` / `reg16` (register operands)
+* `imm8` / `imm16` (immediate values: literals, `const`, `enum` values, simple expressions)
+* `mem8` / `mem16` (dereferenced memory operands: `(expr)` where width is known)
+* `ea` (effective address expressions: symbols, `rec.field`, `arr[i]`, pointer-ish address arithmetic; i.e., something you can take the address of without dereferencing)
+* Fixed-register matchers like `HL`, `DE`, `BC`, `A` may be used as patterns for accumulator-shaped ops.
+
+Notes:
+* Matchers are about **shape**, not runtime type checks.
+* A call site can pass registers *or* values depending on the matcher (e.g., `src: imm16` vs `src: reg16`).
+
+**Matcher definitions and examples**
+`reg8`
+* Matches one of: `A B C D E H L`
+* Example call: `inc8 A`
+
+`reg16`
+* Matches one of: `HL DE BC SP` (and optionally `IX/IY` if you ever enable them)
+* Example call: `mov16 DE, HL`
+
+`imm8` / `imm16`
+* Matches a compile-time constant expression.
+* Allowed forms (v1): literals (`42`, `$2A`), `const`/`enum` names, `+ - * /` with other `imm` values, and parentheses.
+* Examples:
+  * `add8 A, 1`
+  * `add16 HL, MaxValue + 2`
+
+`ea` (effective address)
+* Matches an expression that denotes an address (not a dereferenced value).
+* Allowed forms (v1):
+  * storage symbols: globals in `var`, items in `data`, `bin` base names
+  * record fields: `hero.x`
+  * array elements: `table[8]`, `table[C]`, `grid[B][C]`
+  * address arithmetic with constants: `buffer + 16`, `legacy + $0030`
+* Examples:
+  * `lea HL, table[8]`
+  * `lea DE, hero.flags`
+
+`mem8` / `mem16`
+* Matches a dereference operand written as `(ea)`.
+* Width is determined by the matcher:
+  * `mem8` reads/writes 1 byte
+  * `mem16` reads/writes 2 bytes (little endian)
+* Examples:
+  * `load8 A, (banner[2])`
+  * `load16 HL, (table[C])`
+
+**Autosave clobber policy**
+To keep expansions transparent, `op` uses **autosave**:
+* An `op` expansion must preserve all registers and flags **except** the instruction's explicit destination(s).
+* The compiler may use scratch registers and `push`/`pop` internally, but the net stack delta must be zero.
+* This is required because function locals/args are SP-relative; the compiler tracks stack depth during expansion.
+
+Tradeoff:
+* Autosave makes `op` feel like a real instruction but can be slower than handwritten sequences. A future `unsafe op` could relax preservation rules if needed.
+
+**`op` usage inside `asm` and inside other `op`s**
+* In any `asm` stream (inside `func` or `op`), a line may be either:
+  * a raw Z80 mnemonic, or
+  * an `op` invocation (which expands inline).
+* `op`s may call other `op`s. The compiler must detect and reject cyclic expansions.
+
+**Examples**
+```
+op add16(dst: HL, src: reg16) {
+  asm
+    add hl, src
+}
+
+op add16(dst: DE, src: reg16) {
+  asm
+    ; autosave scratch + flags as needed
+    ex de, hl
+    add hl, src
+    ex de, hl
+}
+
+op lea(dst: reg16, src: ea) {
+  asm
+    ; compute address of src into dst
+    ld dst, src
+}
+
+op load16(dst: reg16, src: mem16) {
+  asm
+    ; conceptually: dst = *(word*)src
+    ; compiler may expand and autosave as needed
+    ld dst, src
+}
+
+op store16(dst: mem16, src: reg16) {
+  asm
+    ; conceptually: *(word*)dst = src
+    ld dst, src
+}
+
+op add16(dst: HL, src: imm16) {
+  asm
+    ; expand via a scratch regpair if needed
+    ; (autosave policy applies)
+    add16 HL, DE
+}
+
+; call sites look like opcodes
+add16 HL, DE
+add16 DE, BC
+lea HL, table[C]
+load16 BC, (table[8])
+store16 (table[C]), HL
+```
+
 ## 7. Stack Frames and Locals
 
 **No base pointer**
@@ -232,10 +358,9 @@ SAX supports **compile‑time annotations** only. Types exist to define layout, 
 * `ptr` (16‑bit pointer; may be parameterized later, e.g., `ptr<word>`)
 
 **Type declarations (module‑scope only)**
-SAX uses a TypeScript‑style `type` alias with Pascal‑style ranges and enums:
+SAX uses a TypeScript‑style `type` alias and enums:
 ```
-type Index = 0..255
-type Small = -16..15
+type Index = byte
 type Mode = enum { Read, Write, Append }
 type WordPtr = ptr
 ```
@@ -245,6 +370,7 @@ type WordPtr = ptr
 * Indexing is nested postfix: `a[r][c]`.
 * Layout is contiguous **row‑major** (C‑style): `a[r][c]` addresses `base + (r*COLS + c) * sizeof(T)`.
 * For v1, indices inside `[]` should be simple (constant, 8‑bit register, or `(HL)`).
+* Arrays are **0-based**. Valid indices are `0..len-1`. No runtime bounds checks are emitted by default.
 
 **Records (structs)**
 Records are compile-time layout descriptions (like C structs).
@@ -276,14 +402,6 @@ Layout rules (v1):
   * `LD A, (expr)` reads a byte.
   * `LD HL, (expr)` reads a word.
   * `LD (expr), HL` writes a word.
-
-**Ranges**
-* `lo..hi` defines a subrange of an integer type.
-* Ranges are **compile‑time only** (no bounds checks emitted).
-* Range width defaults to the smallest fitting integer width:
-  * `0..255` → `byte`
-  * `-128..127` → `byte` (signed)
-  * Otherwise `word` (signed if range is negative)
 
 **Enums**
 * `enum { A, B, C }` defines sequential constants starting at 0.
@@ -348,7 +466,7 @@ import IO
 import Mem
 import "vendor/legacy_io.sax"
 
-type Index = 0..255
+type Index = byte
 type WordPtr = ptr
 
 enum Mode = { Read, Write, Append }
