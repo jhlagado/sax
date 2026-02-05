@@ -14,12 +14,6 @@ This document is a single, opinionated starting point that synthesizes the curre
 * Minimal type annotations for byte/word and address clarity.
 * Clear memory model and stack‑frame conventions.
 
-**Out of scope (for v1)**
-* Full Pascal type system (records/arrays with runtime semantics).
-* Macro system or textual preprocessing.
-* Exception handling.
-* Large runtime library.
-
 ---
 
 ## 2. Design Philosophy
@@ -73,6 +67,70 @@ All locals/args are 16‑bit words unless explicitly declared as byte.
 * No semicolons are used for termination.
 * Newlines terminate declarations and directives.
 * Any **multi‑line construct must be wrapped in `{ ... }`**.
+
+---
+
+## 4.1 Module File Structure (Sections)
+
+At module scope, sections act as **delimiters**. Each section switches parsing mode.
+
+Allowed top‑level sections (order is flexible unless otherwise noted):
+* `module` (optional, must be first if present)
+* `import`
+* `type`
+* `enum`
+* `const`
+* `var`
+* `data`
+* `func` (function declarations)
+
+Rules:
+* Declarations are **one per line**.
+* No inner functions.
+* `var` and `data` define storage; `func` defines code.
+* `asm` only appears **inside** a function body.
+* `export` is **inline only** (no separate export section).
+* `import` accepts a **module ID** (default) or a **quoted file path**.
+* External symbols and binary includes are module‑scope declarations (see below).
+
+**Directive/declaration style (standardized)**
+To keep syntax predictable, SAX uses a small set of clause keywords across declarations:
+* `from "<path>"` specifies a file source.
+* `in <section>` specifies which section receives emitted bytes.
+* `at <expr>` binds a name to an absolute address or computed address.
+
+This yields consistent forms:
+```
+import IO
+import "vendor/legacy_io.sax"
+
+section code at $8000
+align 2
+
+bin legacy in code from "asm80/legacy.bin"
+hex bios from "rom/bios.hex"
+
+extern func bios_putc(ch: byte): void at $F003
+```
+
+**External code/data and binary includes**
+To interop with external assemblers (e.g., asm80), SAX supports:
+* `bin` / `hex` declarations to **emit raw bytes** into a target segment and bind a name to the base address.
+* `extern func` declarations to bind callable names to absolute addresses or offsets within a `bin`/`hex` include.
+* `extern <binName> { ... }` blocks to bind multiple entry points **relative to a `bin` base**.
+* Names declared inside an `extern <binName> { ... }` block are regular top‑level symbols; to avoid collisions, prefer the convention `<binName>_name` (e.g., `legacy_putc`).
+
+Example patterns:
+```
+bin legacy in code from "legacy.bin"    ; legacy: addr (base of blob)
+extern legacy {
+  func legacy_init(): void at $0000
+  func legacy_putc(ch: byte): void at $0030
+}
+
+hex bios from "rom/bios.hex"            ; writes bytes at absolute addresses from HEX records
+extern func bios_print(ch: byte): void at $F003
+```
 
 ---
 
@@ -139,9 +197,8 @@ myproc HL, DE
 ## 7. Stack Frames and Locals
 
 **No base pointer**
-* SAX does **not** use `IX`/`IY` as a frame pointer.
-* Stack access is computed from `SP` using known counts of locals and args.
-* This avoids `IX`/`IY` overhead and keeps access fast.
+* SAX uses `SP`‑relative addressing with known counts of locals and args.
+* Offsets are computed in `HL`, then added to `SP`.
 
 **Access pattern (SP‑relative)**
 * The compiler knows:
@@ -182,6 +239,43 @@ type Small = -16..15
 type Mode = enum { Read, Write, Append }
 type WordPtr = ptr
 ```
+
+**Arrays (nested, C‑style)**
+* Arrays are declared as nested fixed-size arrays: `T[rows][cols]` (not `T[rows, cols]`).
+* Indexing is nested postfix: `a[r][c]`.
+* Layout is contiguous **row‑major** (C‑style): `a[r][c]` addresses `base + (r*COLS + c) * sizeof(T)`.
+* For v1, indices inside `[]` should be simple (constant, 8‑bit register, or `(HL)`).
+
+**Records (structs)**
+Records are compile-time layout descriptions (like C structs).
+
+Syntax:
+```
+type Sprite = {
+  x: word
+  y: word
+  w: byte
+  h: byte
+  flags: byte
+}
+```
+
+Layout rules (v1):
+* Fields are laid out in source order.
+* Default layout is **packed** (no implicit padding).
+* `byte` fields consume 1 byte; `word` fields consume 2 bytes (little endian when accessed as a word).
+* If alignment is required, it must be explicit (e.g., via `align` directives around storage, or a future `aligned(N)` type wrapper).
+
+**Address expressions: arrays and fields**
+* `name` (for `var`, `data`, `bin`) denotes the **address** of the storage.
+* `const` and `enum` names denote immediate values.
+* `rec.field` denotes the **address** of the field.
+* `arr[i]` denotes the **address** of the element.
+* Parentheses dereference memory in operands: `(expr)` means “memory at address `expr`”.
+* Dereference width is implied by the instruction operand size:
+  * `LD A, (expr)` reads a byte.
+  * `LD HL, (expr)` reads a word.
+  * `LD (expr), HL` writes a word.
 
 **Ranges**
 * `lo..hi` defines a subrange of an integer type.
@@ -240,3 +334,78 @@ Meaning:
 * Expand this into a full specification (syntax, grammar, examples).
 * Write 2–3 example programs to validate the calling convention.
 * Define a precise stack layout table with offsets and sizes.
+
+---
+
+## 13. Representative Module Example
+
+This example exercises **imports/exports, types, enums, consts, vars, data, and functions**.
+
+```
+module Math
+
+import IO
+import Mem
+import "vendor/legacy_io.sax"
+
+type Index = 0..255
+type WordPtr = ptr
+
+enum Mode = { Read, Write, Append }
+
+type Sprite = {
+  x: word
+  y: word
+  w: byte
+  h: byte
+  flags: byte
+}
+
+export const MaxValue = 1024
+const TableSize = 8
+
+var
+  total: word
+  mode: byte
+  hero: Sprite
+
+data
+  table: word = { 1, 2, 3, 4, 5, 6, 7, 8 }
+  banner: byte = { 72, 69, 76, 76, 79 } ; "HELLO"
+
+bin legacy in code from "asm80/legacy.bin"
+extern legacy {
+  func legacy_print(msg: addr): void at $0000
+  func legacy_read(out: addr): void at $0040
+}
+
+export func add(a: word, b: word): word {
+  var
+    temp: word
+  asm
+    ld hl, (a)
+    add hl, (b)
+    ld (temp), hl
+    ld hl, (temp)
+    ret
+}
+
+export func mul(a: word, b: word): word {
+  asm
+    ; naive multiply (placeholder)
+    ld hl, 0
+    ret
+}
+
+func demo(): word {
+  asm
+    ; imported functions are callable like opcodes
+    print HL
+    read DE
+    ; code inside an included binary can be called by extern-bound name
+    legacy_print HL
+    ; record field access is address arithmetic + dereference
+    ld hl, (hero.x)
+    ret
+}
+```
