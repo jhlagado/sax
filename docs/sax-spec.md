@@ -77,9 +77,9 @@ Escapes in string/char literals:
 ZAX treats the following as **reserved** (case-insensitive):
 * Z80 mnemonics and assembler keywords used inside `asm` (e.g., `ld`, `add`, `ret`, `jp`, ...).
 * Register names: `A B C D E H L HL DE BC SP`.
-* Condition codes used by structured control flow: `Z NZ C NC M P`.
+* Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
 * Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `end`.
-* Module and declaration keywords: `module`, `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`, `end`.
+* Module and declaration keywords: `module`, `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
 
 User-defined symbol names (modules, types, enums, consts, vars/data/bins, funcs, ops) must not collide with any reserved name, ignoring case.
 
@@ -206,6 +206,9 @@ Enum name binding (v0.1):
   * Example: after `enum Mode Read, Write`, `Read` and `Write` may be used in `imm` expressions.
 * Qualified member access (e.g., `Mode.Read`) is not supported in v0.1.
 
+Notes (v0.1):
+* Trailing commas are not permitted in enum member lists.
+
 ### 4.4 Consts
 Syntax:
 ```
@@ -215,6 +218,9 @@ export const Public = $8000
 
 * `const` values are compile-time `imm` expressions.
 * `export` is inline only (e.g., `export const ...`, `export func ...`).
+
+Notes (v0.1):
+* There is no built-in `sizeof`/`offsetof` in v0.1. If you need sizes or offsets, define them as explicit `const` values.
 
 ---
 
@@ -299,6 +305,9 @@ Lowering guarantees and rejected patterns (v0.1):
   * memory-to-memory forms (e.g., `LD (ea1), (ea2)`).
   * instructions where both operands require lowering and a correct sequence cannot be produced without clobbering non-destination registers or flags that must be preserved.
 
+Non-guarantees (v0.1):
+* Arithmetic/logical instruction forms that are not directly encodable on Z80 (e.g., `add hl, (ea)`) are not guaranteed to be accepted, even though they may be expressible via a multi-instruction sequence.
+
 ### 6.2 `var` (Uninitialized Storage)
 Syntax:
 ```
@@ -331,6 +340,22 @@ Type vs initializer (v0.1):
   * Example: write `table: word[3] = { 1, 2, 3 }`, not `table: word = { 1, 2, 3 }`.
 * For array types (e.g., `word[8]` or `Sprite[4]`), the initializer element count must match the total number of scalar elements implied by the array type.
 * Record initializers must supply field values in field order; for arrays of records, initializers are flattened in element order.
+
+Nested record initializer example (v0.1):
+```
+type Point
+  x: word
+  y: word
+end
+
+type Rect
+  topLeft: Point
+  bottomRight: Point
+end
+
+data
+  r: Rect = { 0, 0, 100, 100 } ; tl.x, tl.y, br.x, br.y
+```
 
 ### 6.4 `bin` / `hex` (External Bytes)
 `bin` emits a contiguous byte blob into a target section and binds a base name to its start address:
@@ -413,8 +438,8 @@ export func add(a: word, b: word): word
     temp: word
   asm
     ld hl, (a)
-    ; Lowered by the compiler (Z80 cannot encode `add hl, (ea)` directly).
-    add hl, (b)
+    ld de, (b)
+    add hl, de
     ret
 end
 ```
@@ -495,6 +520,7 @@ Other SP-mutating instructions are compile errors in v0.1 (e.g., `ld sp, hl`, `a
 
 Stack-depth constraints (v0.1):
 * At any structured-control-flow join (end of `if`/`else`, loop back-edges, and loop exits), stack depth must match across all paths.
+  * Paths that terminate (e.g., `ret`, or an unconditional `jp`/`jr` that exits the construct) do not participate in join stack-depth matching.
 * The net stack delta of an `op` expansion must be 0.
 
 ---
@@ -524,6 +550,7 @@ Rules:
 * `op` is module-scope only.
 * `op` bodies contain an `asm` stream.
 * `end` terminates the `op` body.
+* `asm` bodies may be empty.
 * `op` invocations are permitted inside `asm` streams of `func` and `op`.
 * Cyclic `op` expansion is a compile error.
 
@@ -546,6 +573,14 @@ Notes (v0.1):
 * Matchers constrain call sites, but the `op` body must still be valid for all matched operands. If an expansion yields an illegal instruction form for a given call, compilation fails at that call site.
 * In `op` parameters, `mem8` and `mem16` disambiguate dereference width. In raw Z80 mnemonics, dereference width is implied by the instruction form (destination/source registers).
 * `reg16` includes `SP`; `op` authors should use fixed-register matchers if an expansion is only valid for a subset of register pairs.
+
+Operand substitution (v0.1):
+* `op` parameters bind to parsed operands (AST operands), not text.
+  * `reg8`/`reg16` parameters substitute the matched register token(s).
+  * `imm8`/`imm16` parameters substitute the immediate expression value.
+  * `ea` parameters substitute the effective-address expression (without implicit parentheses).
+  * `mem8`/`mem16` parameters substitute the full dereference operand including parentheses.
+    * Example: if `src: mem8` matches `(hero.flags)`, then `ld a, src` emits `ld a, (hero.flags)`.
 
 ### 9.4 Overload Resolution
 * `op` overloads are selected by best match on matcher types and fixed-register patterns.
@@ -574,6 +609,7 @@ ZAX supports structured control flow only inside `asm` blocks. Conditions are fl
 ### 10.1 Condition Codes (v0.1)
 * `Z` / `NZ`: zero flag set / not set
 * `C` / `NC`: carry flag set / not set
+* `PE` / `PO`: parity even / parity odd (parity/overflow flag set / not set)
 * `M` / `P`: sign flag set (minus) / not set (plus)
 
 ### 10.2 Forms
@@ -607,6 +643,15 @@ repeat
   dec a
   or a
 until Z
+
+; nesting is allowed
+or a
+if NZ
+  while NZ
+    dec a
+    or a
+  end
+end
 ```
 
 ### 10.4 Local Labels (Discouraged, Allowed)
@@ -614,6 +659,7 @@ ZAX discourages labels in favor of structured control flow, but allows **local l
 
 Label definition syntax (v0.1):
 * `<ident>:` at the start of an `asm` line defines a local label at the current code location.
+  * A label definition may be followed by an instruction on the same line (e.g., `loop: djnz loop`) or may stand alone.
 
 Scope and resolution (v0.1):
 * Local labels are scoped to the enclosing `func` or `op` body and are not exported.
@@ -671,7 +717,8 @@ export func add(a: word, b: word): word
     temp: word
   asm
     ld hl, (a)
-    add hl, (b)
+    ld de, (b)
+    add hl, de
     ld (temp), hl
     ld hl, (temp)
     ret
