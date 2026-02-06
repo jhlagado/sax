@@ -1,0 +1,35 @@
+module ControlFlowAndLabels
+
+; Example showing:
+; - enum syntax and unqualified members
+; - if/else/end structured control flow
+; - local labels and relative branches (djnz)
+; - extern func call with a byte argument
+
+enum Mode Read, Write
+
+; BIOS entry point example (address is illustrative)
+extern func bios_putc(ch: byte): void at $F003
+
+func print_mode(mode: byte): void
+  asm
+    ld a, (mode)
+    or a
+    if Z
+      ld a, 'R'
+    else
+      ld a, 'W'
+    end
+    bios_putc A
+    ret
+end
+
+export func main(): void
+  asm
+    ld b, 3
+loop:
+    print_mode Read
+    djnz loop
+    ret
+end
+
