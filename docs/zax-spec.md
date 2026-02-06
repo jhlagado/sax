@@ -157,7 +157,7 @@ ZAX produces a final image by **packing per-section** across all imported module
 Section kinds:
 * `code`
 * `data`
-* `bss`
+* `var`
 
 Each section has an independent location counter.
 
@@ -166,7 +166,7 @@ Directives:
 * `section <kind>`: selects section without changing its current counter.
 * `align <imm>`: advances the current section counter to the next multiple of `<imm>`. `<imm>` must be > 0.
 
-`<kind>` is one of: `code`, `data`, `bss`.
+`<kind>` is one of: `code`, `data`, `var`.
 
 Scope rules (v0.1):
 * `section` and `align` directives are module-scope only. They may not appear inside `func`/`op` bodies or inside `asm` streams.
@@ -175,7 +175,7 @@ Emission rules (v0.1):
 * Declarations emit to fixed section kinds, independent of the currently selected section:
   * `func` emits into `code`
   * `data` emits into `data`
-  * `var` emits into `bss`
+  * `var` emits into `var`
 * `bin` emits into the section specified by its required `in <kind>` clause.
 * `hex` writes bytes to absolute addresses in the final address space and does not affect section counters.
 * The currently selected `section` only affects which location counter is advanced by `align` (and which counter is set by `section <kind> at ...`).
@@ -188,13 +188,13 @@ Address rules (v0.1):
 Packing order:
 1. Resolve imports and determine a deterministic module order (topological; ties broken by canonical module ID, then by a compiler-defined normalized module path as a final tiebreaker).
   * “Normalized module path” is implementation-defined, but must be deterministic within a build (i.e., given the same set of input files and resolved import graph, it must not depend on filesystem enumeration order).
-2. For each section kind in fixed order `code`, `data`, `bss`, concatenate module contributions in module order.
+2. For each section kind in fixed order `code`, `data`, `var`, concatenate module contributions in module order.
 3. Within a module, preserve source order within each section.
 
 Default placement (if not specified):
 * `code at $8000`
 * `data` begins immediately after `code`, aligned to 2
-* `bss` begins immediately after `data`, aligned to 2
+* `var` begins immediately after `data`, aligned to 2
 
 ---
 
@@ -407,7 +407,7 @@ var
   mode: byte
 ```
 
-* Declares storage in `bss`.
+* Declares storage in `var` (uninitialized; emits no bytes).
 * One declaration per line; no initializers.
 * A `var` block continues until the next line whose first non-comment token starts a new module-scope declaration/directive (`type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `import`, `module`, `section`, `align`, `export`) or until end of file/scope.
 * For function-local `var` blocks, see Section 8.1.
@@ -478,7 +478,7 @@ hex bios from "rom/bios.hex"
 * `hex <name> from "<path>"` binds `<name>` to the lowest address written by the HEX file (type `addr`). If the HEX file contains no data records, it is a compile error.
 * HEX output is written to absolute addresses in the final address space and does not advance any section’s location counter.
 * If a HEX-written byte overlaps any byte emitted by section packing (`code`/`data`/`bin`) or another HEX include, it is a compile error.
-* The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address, filling gaps with `$00`. `bss` contributes no bytes.
+* The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address, filling gaps with `$00`. `var` contributes no bytes.
   * When producing Intel HEX output, the compiler emits only written bytes/records; it does not emit gap fill records.
 
 ### 6.5 `extern` (Binding Names to Addresses)

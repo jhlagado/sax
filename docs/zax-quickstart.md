@@ -202,5 +202,5 @@ bin legacy in code from "asm80/legacy.bin"
 hex bios from "rom/bios.hex"
 ```
 
-- `bin` emits a contiguous blob into a section (`in code|data|bss` required).
+- `bin` emits a contiguous blob into a section (`in code|data|var` required).
 - `hex` writes bytes to absolute addresses in final address space (see spec §6.4).
