@@ -54,6 +54,9 @@ Multi-line constructs (v0.1):
   * `end` terminates `func`, `op`, `type` record bodies, `extern <binName>` blocks, and `if`/`while` blocks.
   * `until <cc>` terminates a `repeat` block.
 
+Labels (v0.1):
+* A local label is defined by `<ident>:` at the start of an `asm` line. The `:` token separates the label from any instruction that follows on the same line; the newline still terminates that instruction normally.
+
 ### 1.2 Comments
 * `;` starts a comment that runs to end of line.
 * Comments are allowed everywhere.
@@ -78,10 +81,10 @@ ZAX treats the following as **reserved** (case-insensitive):
 * Z80 mnemonics and assembler keywords used inside `asm` (e.g., `ld`, `add`, `ret`, `jp`, ...).
 * Register names: `A F AF B C D E H L HL DE BC SP IX IY I R`.
 * Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
-* Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `end`.
+* Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`.
 * Module and declaration keywords: `module`, `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
 
-User-defined symbol names (modules, types, enums, consts, vars/data/bins, funcs, ops) must not collide with any reserved name, ignoring case.
+User-defined identifiers (module-scope symbols, locals/args, and labels) must not collide with any reserved name, ignoring case.
 
 In addition, the compiler reserves the prefix `__zax_` for internal temporaries (including generated labels). User-defined symbols and user labels must not start with `__zax_`.
 
@@ -112,16 +115,18 @@ Section kinds:
 Each section has an independent location counter.
 
 Directives:
-* `section <name> at <imm16>`: selects section and sets its starting address.
-* `section <name>`: selects section without changing its current counter.
-* `align <imm>`: advances the current section counter to the next multiple of `<imm>`.
+* `section <kind> at <imm16>`: selects section and sets its starting address.
+* `section <kind>`: selects section without changing its current counter.
+* `align <imm>`: advances the current section counter to the next multiple of `<imm>`. `<imm>` must be > 0.
+
+`<kind>` is one of: `code`, `data`, `bss`.
 
 Scope rules (v0.1):
 * `section` and `align` directives are module-scope only. They may not appear inside `func`/`op` bodies or inside `asm` streams.
 
 Address rules (v0.1):
-* A section’s starting address may be set at most once. A second `section <name> at <imm16>` for the same section is a compile error.
-* `section <name>` (without `at`) may be used any number of times to switch the active section.
+* A section’s starting address may be set at most once. A second `section <kind> at <imm16>` for the same section is a compile error.
+* `section <kind>` (without `at`) may be used any number of times to switch the active section.
 
 Packing order:
 1. Resolve imports and determine a deterministic module order (topological; ties broken by module ID/path string).
@@ -224,6 +229,7 @@ export const Public = $8000
 
 Notes (v0.1):
 * There is no built-in `sizeof`/`offsetof` in v0.1. If you need sizes or offsets, define them as explicit `const` values.
+* `export op` is not supported in v0.1 (ops are always available for resolution once imported, and v0.1 has no visibility model).
 
 ---
 
@@ -244,7 +250,7 @@ Layout:
 
 Index forms (v0.1):
 * constant immediate
-* 8-bit register
+* 8-bit register (`A B C D E H L`)
 * `(HL)` (byte read from memory at `HL`)
 
 Notes (v0.1):
@@ -323,6 +329,7 @@ var
 * Declares storage in `bss`.
 * One declaration per line; no initializers.
 * A `var` block continues until the next line whose first non-comment token starts a new module-scope declaration/directive (`type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `import`, `module`, `section`, `align`, `export`) or until end of file/scope.
+* For function-local `var` blocks, see Section 8.1.
 
 ### 6.3 `data` (Initialized Storage)
 Syntax:
@@ -369,10 +376,19 @@ bin legacy in code from "asm80/legacy.bin"
 
 * The name `legacy` becomes an address-valued symbol of type `addr`.
 
+`bin` placement rule (v0.1):
+* `in <kind>` is required. There is no default section for `bin`.
+
 `hex` reads Intel HEX and emits bytes at absolute addresses specified by records:
 ```
 hex bios from "rom/bios.hex"
 ```
+
+`hex` binding and placement rules (v0.1):
+* `hex <name> from "<path>"` binds `<name>` to the lowest address written by the HEX file (type `addr`). If the HEX file contains no data records, it is a compile error.
+* HEX output is written to absolute addresses in the final address space and does not advance any section’s location counter.
+* If a HEX-written byte overlaps any byte emitted by section packing (`code`/`data`/`bin`) or another HEX include, it is a compile error.
+* The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address, filling gaps with `$00`. `bss` contributes no bytes.
 
 ### 6.5 `extern` (Binding Names to Addresses)
 Bind callable names to absolute addresses:
@@ -499,7 +515,8 @@ Argument values (v0.1):
 Calls follow the calling convention in 8.2 (compiler emits the required pushes, call, and any temporary saves/restores).
 
 Parsing and name resolution (v0.1):
-* The first token of an `asm` line is interpreted as:
+* If an `asm` line begins with `<ident>:` it defines a local label. Any remaining tokens on the line are parsed as another `asm` line (mnemonic/`op`/call/etc.).
+* Otherwise, the first token of an `asm` line is interpreted as:
   1) a structured-control keyword (`if`, `else`, `while`, `repeat`, `until`), else
   2) a Z80 mnemonic, else
   3) an `op` invocation, else
@@ -507,12 +524,25 @@ Parsing and name resolution (v0.1):
   5) a compile error (unknown instruction/op/function).
 * Because Z80 mnemonics and register names are reserved, user-defined symbols cannot shadow instructions/registers.
 
+Operand identifier resolution (v0.1):
+* For identifiers used inside operands, resolution proceeds as:
+  1) local labels
+  2) locals/args (stack slots)
+  3) module-scope symbols (including `const` and enum members)
+  otherwise a compile error (unknown symbol).
+
 ### 8.4 Stack Frames and Locals (SP-relative, no base pointer)
 * ZAX does not use `IX`/`IY` as a frame pointer.
 * Locals and arguments are addressed as `SP + constant offset` computed into `HL`.
 * The compiler knows local/arg counts from the signature and `var` block.
 
 At the start of the user-authored `asm` block, the compiler has already reserved space for locals (if any) by adjusting `SP` by the local frame size. The local frame size is the packed byte size of locals rounded up to an even number of bytes.
+
+Function prologue/epilogue (v0.1):
+* The compiler emits a prologue before the user-authored `asm` stream to reserve the local frame (adjusting `SP` by `-frameSize`).
+* The compiler emits an epilogue to deallocate the local frame (restoring `SP` by `+frameSize`) immediately before returning from the function.
+  * Any return instruction in the user-authored `asm` stream (e.g., `ret`, `retn`, `reti`, and conditional `ret <cc>`) is lowered to execute the epilogue first, then perform the return.
+  * Implementation note: this is typically done by branching to a compiler-generated hidden return label that performs epilogue + return.
 
 Conceptual layout at the start of `asm`:
 * locals occupy space at the top of the frame (if any), starting at `SP + 0`
@@ -529,7 +559,7 @@ The compiler tracks stack depth across the `asm` block to keep SP-relative local
 The compiler tracks SP deltas for:
 * `push`, `pop`, `call`, `ret`, `rst`, `ex (sp), hl`
 
-Other SP-mutating instructions are compile errors in v0.1 (e.g., `ld sp, hl`, `add sp, n`, `inc sp`, `dec sp`).
+Other SP-mutating instructions are compile errors in v0.1 (e.g., `ld sp, hl`, `inc sp`, `dec sp`).
 
 Stack-depth constraints (v0.1):
 * At any structured-control-flow join (end of `if`/`else`, loop back-edges, and loop exits), stack depth must match across all paths.
@@ -590,6 +620,7 @@ Notes (v0.1):
 * Matchers constrain call sites, but the `op` body must still be valid for all matched operands. If an expansion yields an illegal instruction form for a given call, compilation fails at that call site.
 * In `op` parameters, `mem8` and `mem16` disambiguate dereference width. In raw Z80 mnemonics, dereference width is implied by the instruction form (destination/source registers).
 * `reg16` includes `SP`; `op` authors should use fixed-register matchers if an expansion is only valid for a subset of register pairs.
+* `IX`/`IY` are usable in raw Z80 mnemonics but are not supported by `op` matchers in v0.1.
 
 Operand substitution (v0.1):
 * `op` parameters bind to parsed operands (AST operands), not text.
@@ -647,7 +678,7 @@ Notes:
 Condition evaluation points (v0.1):
 * `if <cc> ... end`: `<cc>` is evaluated at the `if` keyword using the current flags.
 * `while <cc> ... end`: `<cc>` is evaluated at the `while` keyword on entry and after each iteration. The back-edge jumps to the `while` keyword. The loop body is responsible for establishing flags for the next condition check.
-* `repeat ... until <cc>`: `<cc>` is evaluated at the `until` keyword using the current flags.
+* `repeat ... until <cc>`: `<cc>` is evaluated at the `until` keyword using the current flags. The loop body is responsible for establishing flags for the `until` check.
 
 ### 10.3 Examples
 ```
