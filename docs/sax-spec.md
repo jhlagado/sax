@@ -76,7 +76,7 @@ Escapes in string/char literals:
 ### 1.5 Reserved Names and Keywords (v0.1)
 ZAX treats the following as **reserved** (case-insensitive):
 * Z80 mnemonics and assembler keywords used inside `asm` (e.g., `ld`, `add`, `ret`, `jp`, ...).
-* Register names: `A B C D E H L HL DE BC SP`.
+* Register names: `A F AF B C D E H L HL DE BC SP IX IY I R`.
 * Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
 * Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `end`.
 * Module and declaration keywords: `module`, `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
@@ -153,6 +153,9 @@ Default placement (if not specified):
   * two modules export the same name
   * an import conflicts with a local symbol
   * `bin` base names and `extern` names must also be unique
+
+Namespace rule (v0.1):
+* `type`, `enum`, `const`, storage symbols (`var`/`data`/`bin`), `func`, and `op` names share the same global namespace. Defining a `func` and an `op` with the same name is a compile error.
 
 Forward references (v0.1):
 * ZAX is whole-program compiled: symbols may be referenced before they are declared, as long as they resolve by the end of compilation.
@@ -260,6 +263,7 @@ end
 ```
 
 Layout rules:
+* Records must contain at least one field (empty records are a compile error in v0.1).
 * Fields are laid out in source order.
 * Default layout is packed (no implicit padding).
 * `byte` fields are 1 byte; `word` fields are 2 bytes.
@@ -413,6 +417,12 @@ Operator precedence and associativity (v0.1), highest to lowest:
 6. `^` (left-associative)
 7. `|` (left-associative)
 
+Integer semantics (v0.1):
+* Immediate expressions evaluate over mathematical integers.
+* Division/modulo by zero is a compile error.
+* Shift counts must be non-negative; shifting by a negative count is a compile error.
+* When an `imm` value is encoded as `imm8`/`imm16`, the encoded value is the low 8/16 bits of the integer (two’s complement truncation).
+
 ### 7.2 `ea` (Effective Address) Expressions
 `ea` denotes an address, not a value. Allowed:
 * storage symbols: `var` names, `data` names, `bin` base names
@@ -425,6 +435,9 @@ Conceptually, an `ea` is a base address plus a sequence of **address-path** segm
 
 Precedence (v0.1):
 * Address-path segments (`.field`, `[index]`) bind tighter than address arithmetic (`ea + imm`, `ea - imm`).
+
+Notes (v0.1):
+* `imm + ea` is not permitted; write `ea + imm`.
 
 ---
 
@@ -554,6 +567,10 @@ Rules:
 * `op` invocations are permitted inside `asm` streams of `func` and `op`.
 * Cyclic `op` expansion is a compile error.
 
+Zero-parameter ops (v0.1):
+* `op name` (with no parameter list) is permitted and defines a zero-parameter op.
+* A zero-parameter op is invoked by writing just `name` on an `asm` line.
+
 ### 9.3 Operand Matchers
 `op` parameters use matcher types (patterns). These constrain call-site operands.
 
@@ -599,6 +616,10 @@ To keep `op` expansions transparent:
 * Net stack delta must be zero.
 
 The simplest implementation is permitted: always preserve flags (save/restore `AF`) unless `AF` is an explicit destination.
+
+Destination parameters (v0.1):
+* By convention, any `op` parameter whose name starts with `dst` or `out` (e.g., `dst`, `dst2`, `out`) is treated as a destination.
+* If an `op` declares no `dst*`/`out*` parameters, the first parameter is treated as the destination.
 
 ---
 
