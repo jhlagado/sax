@@ -39,6 +39,18 @@ This spec intentionally avoids “future ideas”; anything not defined here is 
 Escapes in string/char literals:
 * `\\`, `\"`, `\'`, `\n`, `\r`, `\t`, `\0`, `\xNN`
 
+### 1.5 Reserved Names and Keywords (v0.1)
+ZAX treats the following as **reserved** (case-insensitive):
+* Z80 mnemonics and assembler keywords used inside `asm` (e.g., `ld`, `add`, `ret`, `jp`, ...).
+* Register names: `A B C D E H L HL DE BC SP`.
+* Condition codes used by structured control flow: `Z NZ C NC M P`.
+* Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`.
+* Module and declaration keywords: `module`, `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
+
+User-defined symbol names (modules, types, enums, consts, vars/data/bins, funcs, ops) must not collide with any reserved name, ignoring case.
+
+In addition, the compiler reserves the prefix `__zax_` for internal temporaries (including generated labels). User-defined symbols and user labels must not start with `__zax_`.
+
 ---
 
 ## 2. Program Structure
@@ -100,6 +112,10 @@ Default placement (if not specified):
   * two modules export the same name
   * an import conflicts with a local symbol
   * `bin` base names and `extern` names must also be unique
+
+Forward references (v0.1):
+* ZAX is whole-program compiled: symbols may be referenced before they are declared, as long as they resolve by the end of compilation.
+* Circular imports are a compile error.
 
 ---
 
@@ -164,6 +180,9 @@ Index forms (v1):
 * 8-bit register
 * `(HL)` (byte read from memory at `HL`)
 
+Notes (v0.1):
+* The index grammar is intentionally small. Parenthesized expressions are not permitted inside `[]`; `(HL)` is a special-case index form.
+
 ### 5.2 Records (Packed Structs)
 Record types are layout descriptions:
 ```
@@ -196,6 +215,11 @@ Field access:
   * `LD HL, (ea)` reads a word
   * `LD (ea), HL` writes a word
 
+Notes (v0.1):
+* In instruction-operand position, parentheses always mean dereference/indirection. They are not grouping parentheses.
+  * Example: `LD A, (X)` always means “load `A` from memory at address `X`”, even if `X` is a `const`.
+* Grouping parentheses apply only inside `imm` expressions (e.g., `const X = (1+2)*3`, or `ea + (1+2)`).
+
 ### 6.1.1 Lowering of Non-Encodable Operands
 Many `ea` forms (locals/args, `rec.field`, `arr[i]`, and address arithmetic) are not directly encodable in a single Z80 instruction. In these cases, the compiler lowers the instruction to an equivalent instruction sequence.
 
@@ -215,6 +239,7 @@ var
 
 * Declares storage in `bss`.
 * One declaration per line; no initializers.
+* A `var` block continues until the next line whose first non-comment token starts a new module-scope declaration/directive (`type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `import`, `module`, `section`, `align`, `export`) or until end of file/scope.
 
 ### 6.3 `data` (Initialized Storage)
 Syntax:
@@ -229,6 +254,7 @@ Initialization:
 * `byte = { imm8, ... }` emits bytes.
 * `word = { imm16, ... }` emits little-endian words.
 * `byte = "TEXT"` emits the ASCII bytes of the string, no terminator.
+* A `data` block continues until the next line whose first non-comment token starts a new module-scope declaration/directive (`type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `import`, `module`, `section`, `align`, `export`) or until end of file/scope.
 
 ### 6.4 `bin` / `hex` (External Bytes)
 `bin` emits a contiguous byte blob into a target section and binds a base name to its start address:
@@ -273,6 +299,15 @@ Allowed:
 * operators: unary `+ - ~`, binary `* / % + - & ^ | << >>`
 * parentheses for grouping
 
+Operator precedence and associativity (v0.1), highest to lowest:
+1. Unary `+ - ~` (right-associative)
+2. `* / %` (left-associative)
+3. `+ -` (left-associative)
+4. `<< >>` (left-associative)
+5. `&` (left-associative)
+6. `^` (left-associative)
+7. `|` (left-associative)
+
 ### 7.2 `ea` (Effective Address) Expressions
 `ea` denotes an address, not a value. Allowed:
 * storage symbols: `var` names, `data` names, `bin` base names
@@ -282,6 +317,9 @@ Allowed:
 * address arithmetic: `ea + imm`, `ea - imm`
 
 Conceptually, an `ea` is a base address plus a sequence of **address-path** segments: `.field` selects a record field, and `[index]` selects an array element. Both forms produce an address; dereference requires parentheses as described in 6.1.
+
+Precedence (v0.1):
+* Address-path segments (`.field`, `[index]`) bind tighter than address arithmetic (`ea + imm`, `ea - imm`).
 
 ---
 
@@ -314,6 +352,7 @@ Rules:
 * Return values:
   * 16-bit return in `HL`
   * 8-bit return in `L`
+* Register/flag volatility (v0.1): unless explicitly documented otherwise, functions may clobber any registers and flags (other than producing the return value in `HL`/`L`). The caller must save anything it needs preserved.
 
 Notes (v0.1):
 * Arguments are stack slots, regardless of declared type. For `byte` parameters, the low byte carries the value and the high byte is ignored (recommended: push a zero-extended value).
@@ -334,6 +373,15 @@ Argument values (v0.1):
 * `(ea)` dereference: reads from memory and passes the loaded value (word or byte depending on the parameter type; `byte` is zero-extended).
 
 Calls follow the calling convention in 8.2 (compiler emits the required pushes, call, and any temporary saves/restores).
+
+Parsing and name resolution (v0.1):
+* The first token of an `asm` line is interpreted as:
+  1) a structured-control keyword (`if`, `else`, `while`, `repeat`, `until`), else
+  2) a Z80 mnemonic, else
+  3) an `op` invocation, else
+  4) a `func`/`extern func` call, else
+  5) a compile error (unknown instruction/op/function).
+* Because Z80 mnemonics and register names are reserved, user-defined symbols cannot shadow instructions/registers.
 
 ### 8.4 Stack Frames and Locals (SP-relative, no base pointer)
 * ZAX does not use `IX`/`IY` as a frame pointer.
@@ -462,6 +510,21 @@ repeat {
   or a
 } until Z
 ```
+
+### 10.4 Local Labels (Discouraged, Allowed)
+ZAX discourages labels in favor of structured control flow, but allows **local labels** within an `asm` block for low-level control flow.
+
+Label definition syntax (v0.1):
+* `<ident>:` at the start of an `asm` line defines a local label at the current code location.
+
+Scope and resolution (v0.1):
+* Local labels are scoped to the enclosing `func` or `op` body and are not exported.
+* A local label may be referenced before its definition within the same `asm` block (forward reference).
+* When resolving an identifier in an instruction operand, local labels take precedence over global symbols.
+
+Usage (v0.1):
+* A local label name may be used anywhere a Z80 mnemonic expects an address/immediate (e.g., `jp loop`, `jr nz, loop`, `djnz loop`).
+* For relative branches (`jr`, `djnz`), the displacement must fit the instruction encoding; otherwise it is a compile error.
 
 ---
 

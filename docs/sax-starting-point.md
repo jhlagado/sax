@@ -153,6 +153,8 @@ Rules:
 * No GOTO in the core language (possible future extension).
 * Minimal nesting encouraged; syntax should compile to straightforward branch sequences.
 
+Note: the implementable v0.1 spec permits *local* labels inside an `asm` block (discouraged), scoped to a single function/op, for cases where structured control flow is insufficient.
+
 **Flag-based conditions**
 ZAX does not introduce expression-based boolean conditions. Instead, structured control flow branches on CPU flags that are set by the immediately preceding instructions, just like hand-written Z80.
 
@@ -203,7 +205,7 @@ repeat {
 
 ## 6. Procedures and Calls
 
-**Syntax model (TypeScript‑style)**
+**Syntax model**
 * Type annotations use `name: type`.
 * Blocks use `{ ... }`.
 * Function declarations use `func` and type‑annotated parameters.
@@ -245,6 +247,9 @@ myproc HL, DE
   * (Optional) 32‑bit in `HL:DE`
 
 **Registers are preserved only if specified.** By default, the callee is free to clobber registers unless it declares a preservation set.
+
+**Reserved identifiers**
+To keep parsing simple and assembly-like, ZAX reserves Z80 mnemonics, register names, and structured-control keywords. User-defined symbols must not collide with these names (case-insensitive).
 
 ---
 
