@@ -28,8 +28,12 @@ export func main(): void
   asm
     ld b, 3
 loop:
-    print_mode Read
+    select B
+      case 3
+        print_mode Read
+      else
+        print_mode Write
+    end
     djnz loop
     ret
 end
-

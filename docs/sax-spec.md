@@ -517,7 +517,7 @@ Calls follow the calling convention in 8.2 (compiler emits the required pushes, 
 Parsing and name resolution (v0.1):
 * If an `asm` line begins with `<ident>:` it defines a local label. Any remaining tokens on the line are parsed as another `asm` line (mnemonic/`op`/call/etc.).
 * Otherwise, the first token of an `asm` line is interpreted as:
-  1) a structured-control keyword (`if`, `else`, `while`, `repeat`, `until`), else
+  1) a structured-control keyword (`if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`), else
   2) a Z80 mnemonic, else
   3) an `op` invocation, else
   4) a `func`/`extern func` call, else
@@ -668,6 +668,7 @@ ZAX supports structured control flow only inside `asm` blocks. Conditions are fl
 * `if <cc> ... end` (optional `else`)
 * `while <cc> ... end`
 * `repeat ... until <cc>`
+* `select <operand> ... end` (case dispatch)
 
 These forms lower to compiler-generated hidden labels and conditional/unconditional jumps. Control-flow constructs do not themselves set flags.
 
@@ -675,10 +676,38 @@ Notes:
 * `else` is optional.
 * `else` must immediately follow the `if` body with only whitespace/comments/newlines in between.
 
+`select` notes (v0.1):
+* `select` does not use condition codes. It dispatches based on equality against a selector value.
+* `select` cases do not fall through in v0.1.
+
 Condition evaluation points (v0.1):
 * `if <cc> ... end`: `<cc>` is evaluated at the `if` keyword using the current flags.
 * `while <cc> ... end`: `<cc>` is evaluated at the `while` keyword on entry and after each iteration. The back-edge jumps to the `while` keyword. The loop body is responsible for establishing flags for the next condition check.
 * `repeat ... until <cc>`: `<cc>` is evaluated at the `until` keyword using the current flags. The loop body is responsible for establishing flags for the `until` check.
+
+### 10.2.1 `select` / `case` (v0.1)
+`select` introduces a multi-way branch based on a selector operand evaluated once.
+
+Syntax:
+```
+select <selector>
+  case <imm> ...
+  case <imm> ...
+  else ...
+end
+```
+
+Rules:
+* `<selector>` is evaluated once at `select` and treated as a 16-bit value.
+  * Allowed selector forms: `reg16`, `reg8` (zero-extended), `imm` expression, `ea` (address value), `(ea)` (loaded value).
+* Each `case` value must be a compile-time immediate (`imm`) and is compared against the selector.
+* `else` is optional and is taken if no `case` matches.
+* There is no fallthrough: after a `case` body finishes, control transfers to after the enclosing `end` (unless the case body terminates, e.g., `ret`).
+* Duplicate `case` values within the same `select` are a compile error.
+* Nested `select` is allowed.
+
+Lowering (informative):
+* The compiler may lower `select` either as a sequence of compares/branches or as a jump table, depending on target and case density. Behavior must be equivalent.
 
 ### 10.3 Examples
 ```
@@ -703,6 +732,17 @@ if NZ
     dec a
     or a
   end
+end
+
+; select/case (no fallthrough)
+ld a, (mode)
+select A
+  case Read
+    ld a, 'R'
+  case Write
+    ld a, 'W'
+  else
+    ld a, '?'
 end
 ```
 
