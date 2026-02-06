@@ -27,10 +27,11 @@ export func main(): void
       ; load byte at *p into A
       ld hl, (p)
       ld a, (hl)
-      bios_putc A
-
       inc hl
       ld (p), hl
+      push bc
+      bios_putc A
+      pop bc
 
       ; repeat until B reaches 0
       dec b

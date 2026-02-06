@@ -30,9 +30,13 @@ export func main(): void
 loop:
     select B
       case 3
+        push bc
         print_mode Read
+        pop bc
       else
+        push bc
         print_mode Write
+        pop bc
     end
     djnz loop
     ret
