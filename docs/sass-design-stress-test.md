@@ -1,5 +1,7 @@
 # SASS Design Stress Test
 
+Note (Feb 2026): this document predates the current naming. “SASS” here refers to an earlier name for what is now the CPU-agnostic **SAX** category; the Z80-specific instance is **ZAX**.
+
 Nice — this is already a **very sharp synthesis**, and it’s a genuinely usable project anchor. I’ll treat it not as something to praise, but as something to **stress-test** the way you asked: where are the tensions, hidden assumptions, and interesting forks in the road? I’ll also try to surface ideas you might not yet have fully articulated.
 
 I’ll go section by section, but quite tight.

@@ -1,0 +1,40 @@
+module Hello
+
+; Minimal example showing:
+; - module header
+; - extern absolute binding
+; - calling convention via function-call syntax inside `asm`
+; - simple control flow (repeat/until)
+
+; BIOS entry point example (address is illustrative)
+extern func bios_putc(ch: byte): void at $F003
+
+const MsgLen = 10
+
+data
+  msg: byte = "HELLO, ZAX"
+
+export func main(): void {
+  var
+    p: addr
+  asm
+    ; p = &msg
+    ld hl, msg
+    ld (p), hl
+
+    ld b, MsgLen
+    repeat {
+      ; load byte at *p into A
+      ld hl, (p)
+      ld a, (hl)
+      bios_putc A
+
+      inc hl
+      ld (p), hl
+
+      ; repeat until B reaches 0
+      dec b
+    } until Z
+
+    ret
+}

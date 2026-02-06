@@ -1,12 +1,14 @@
-# SAX Starting Point
+# ZAX Starting Point
 
-This document is a single, opinionated starting point that synthesizes the current design discussion for **SAX** (Structured Assembler). It is intended to seed a fuller specification.
+This document is a single, opinionated starting point that synthesizes the current design discussion for **ZAX**: the Z80-family instance of the broader **SAX** (“Structured Assembler”) category. It is intended to seed a fuller specification.
+
+For the implementable first draft spec, see `docs/sax-spec.md`.
 
 ---
 
 ## 1. Purpose and Scope
 
-**SAX** is a structured, register‑centric Z80 language that compiles directly to native machine code. It provides Pascal‑ and C‑style structure (clear control flow, procedures, simple scoping) without losing proximity to hardware.
+**SAX** is a CPU-agnostic category: a family of structured assemblers that compile directly to native machine code while keeping assembly-like semantics. **ZAX** is the Z80-family instance. It provides Pascal‑ and C‑style structure (clear control flow, procedures, simple scoping) without losing proximity to hardware.
 
 **In scope**
 * Structured control flow (`IF/ELSE`, `WHILE`, `REPEAT/UNTIL`, `FOR`).
@@ -46,7 +48,7 @@ This document is a single, opinionated starting point that synthesizes the curre
 
 ## 4. Memory and Variables
 
-SAX distinguishes:
+ZAX distinguishes:
 * **Code**
 * **Initialized data**
 * **Uninitialized data**
@@ -94,7 +96,7 @@ Rules:
 * External symbols and binary includes are module‑scope declarations (see below).
 
 **Directive/declaration style (standardized)**
-To keep syntax predictable, SAX uses a small set of clause keywords across declarations:
+To keep syntax predictable, ZAX uses a small set of clause keywords across declarations:
 * `from "<path>"` specifies a file source.
 * `in <section>` specifies which section receives emitted bytes.
 * `at <expr>` binds a name to an absolute address or computed address.
@@ -102,7 +104,7 @@ To keep syntax predictable, SAX uses a small set of clause keywords across decla
 This yields consistent forms:
 ```
 import IO
-import "vendor/legacy_io.sax"
+import "vendor/legacy_io.zax"
 
 section code at $8000
 align 2
@@ -114,7 +116,7 @@ extern func bios_putc(ch: byte): void at $F003
 ```
 
 **External code/data and binary includes**
-To interop with external assemblers (e.g., asm80), SAX supports:
+To interop with external assemblers (e.g., asm80), ZAX supports:
 * `bin` / `hex` declarations to **emit raw bytes** into a target segment and bind a name to the base address.
 * `extern func` declarations to bind callable names to absolute addresses or offsets within a `bin`/`hex` include.
 * `extern <binName> { ... }` blocks to bind multiple entry points **relative to a `bin` base**.
@@ -136,15 +138,66 @@ extern func bios_print(ch: byte): void at $F003
 
 ## 5. Control Flow (Structured)
 
+ZAX supports structured control flow inside function bodies (within `asm` blocks). These constructs compile to labels and conditional/unconditional jumps.
+
 Core forms:
-* `IF ... THEN ... ELSE`
-* `WHILE ... DO`
-* `REPEAT ... UNTIL`
-* `FOR ... TO/DOWNTO`
+* `if <cc> { ... } else { ... }`
+* `while <cc> { ... }`
+* `repeat { ... } until <cc>`
+* (Optional) `for` (defer until needed)
 
 Rules:
+* Conditions are **flag-based** (assembly-style). `<cc>` is one of: `Z NZ C NC M P` (extend later if needed).
+* Control-flow keywords are only recognized inside `asm` blocks.
+* No user labels; the compiler generates hidden labels for structured blocks.
 * No GOTO in the core language (possible future extension).
-* Minimal nesting encouraged; syntax should compile to labels and branches.
+* Minimal nesting encouraged; syntax should compile to straightforward branch sequences.
+
+**Flag-based conditions**
+ZAX does not introduce expression-based boolean conditions. Instead, structured control flow branches on CPU flags that are set by the immediately preceding instructions, just like hand-written Z80.
+
+Condition codes (v1):
+* `Z` / `NZ`: zero flag set / not set
+* `C` / `NC`: carry flag set / not set
+* `M` / `P`: sign flag set (minus) / not set (plus)
+
+The programmer is responsible for establishing flags before the control-flow statement. Typical flag-setting idioms:
+* Test `A` for zero/non-zero: `or a` (sets Z if A==0)
+* Compare `A` to an immediate: `cp 10` (sets Z/C/M based on `A-10`)
+* Compare two registers via `cp r` (for 8-bit comparisons)
+* 16-bit comparisons are typically sequences (e.g., compare high bytes then low bytes); ZAX does not hide this in v1.
+
+**Lowering model (what the compiler emits)**
+These forms are syntax for generating hidden labels and jumps:
+* `if <cc> { T } else { F }` lowers to a conditional branch around `T` or into `F`.
+* `while <cc> { B }` lowers to a loop header label, a conditional exit branch, then a back-edge jump.
+* `repeat { B } until <cc>` lowers to a body label, then a conditional exit branch (post-test).
+
+No flags or registers are implicitly modified by the control-flow construct itself; only your surrounding Z80 instructions affect flags.
+
+**Examples**
+```
+; if A == 0 then ...
+or a
+if Z {
+  ; A was zero
+} else {
+  ; A was non-zero
+}
+
+; while C is clear (e.g., after a compare)
+cp 10
+while NC {
+  ; ...
+  cp 10
+}
+
+; repeat-until A becomes zero
+repeat {
+  dec a
+  or a
+} until Z
+```
 
 ---
 
@@ -172,7 +225,8 @@ func name(a: word, b: word): word {
     temp: word
     flag: byte
   asm
-    ; raw Z80 mnemonics only
+    ; Z80 mnemonics + structured control flow
+    ; (structured control flow compiles to hidden labels + jumps)
     ...
 }
 ```
@@ -183,7 +237,7 @@ myproc HL, DE
 ```
 
 **Calling convention (C‑style)**
-* Caller pushes args (16‑bit each).
+* Caller pushes args right-to-left (last argument pushed first; 16‑bit each).
 * Caller cleans up after return.
 * Return values:
   * 16‑bit in `HL`
@@ -196,11 +250,12 @@ myproc HL, DE
 
 ## 6.1 `op` (Inline Macro-Instructions)
 
-SAX also supports `op` declarations: **opcode-like inline macros** that expand to Z80 mnemonics at compile time.
+ZAX also supports `op` declarations: **opcode-like inline macros** that expand to Z80 mnemonics at compile time.
 
 Goals:
 * Keep call sites opcode-like.
 * Allow operand-driven implementations (because Z80 has implicit accumulators like `A`/`HL`).
+* Keep compiler-level matching confined to `op` (functions use explicit control flow).
 
 **Definition**
 * `op` expands inline (no call/ret).
@@ -323,7 +378,7 @@ store16 (table[C]), HL
 ## 7. Stack Frames and Locals
 
 **No base pointer**
-* SAX uses `SP`‑relative addressing with known counts of locals and args.
+* ZAX uses `SP`‑relative addressing with known counts of locals and args.
 * Offsets are computed in `HL`, then added to `SP`.
 
 **Access pattern (SP‑relative)**
@@ -343,13 +398,13 @@ store16 (table[C]), HL
 * The **return address** is immediately above locals.
 * Formal arguments follow above the return address.
 
-This SP‑relative scheme is the default and preferred model in SAX.
+This SP‑relative scheme is the default and preferred model in ZAX.
 
 ---
 
 ## 8. Types (Minimal)
 
-SAX supports **compile‑time annotations** only. Types exist to define layout, width, and intent. There are no runtime checks by default.
+ZAX supports **compile‑time annotations** only. Types exist to define layout, width, and intent. There are no runtime checks by default.
 
 **Built‑in scalar types**
 * `byte` (8‑bit, unsigned)
@@ -358,11 +413,11 @@ SAX supports **compile‑time annotations** only. Types exist to define layout, 
 * `ptr` (16‑bit pointer; may be parameterized later, e.g., `ptr<word>`)
 
 **Type declarations (module‑scope only)**
-SAX uses a TypeScript‑style `type` alias and enums:
+ZAX uses a simple `type` alias and `enum` declarations:
 ```
-type Index = byte
-type Mode = enum { Read, Write, Append }
-type WordPtr = ptr
+type Index byte
+type WordPtr ptr
+enum Mode { Read, Write, Append }
 ```
 
 **Arrays (nested, C‑style)**
@@ -377,7 +432,7 @@ Records are compile-time layout descriptions (like C structs).
 
 Syntax:
 ```
-type Sprite = {
+type Sprite {
   x: word
   y: word
   w: byte
@@ -409,7 +464,7 @@ Layout rules (v1):
 * Enums are distinct type names for readability; no runtime checks.
 
 **Type vs interface**
-* SAX has **no `interface`** concept.  
+* ZAX has **no `interface`** concept.  
 * A single `type` system is used for layout and annotations only.
 * This keeps the language small and avoids a second, overlapping type mechanism.
 
@@ -431,10 +486,10 @@ Outputs:
 
 ## 10. Naming
 
-Project name: **SAX**  
-Meaning:
-* **AX** = assembler  
-* **S** = structured (or super)
+Names:
+* **SAX** = “Structured Assembler” (CPU-agnostic category).
+* **ZAX** = Z80-family SAX instance (this project).
+* File extension for ZAX source: `.zax`.
 
 ---
 
@@ -464,14 +519,14 @@ module Math
 
 import IO
 import Mem
-import "vendor/legacy_io.sax"
+	import "vendor/legacy_io.zax"
 
-type Index = byte
-type WordPtr = ptr
+type Index byte
+type WordPtr ptr
 
-enum Mode = { Read, Write, Append }
+enum Mode { Read, Write, Append }
 
-type Sprite = {
+type Sprite {
   x: word
   y: word
   w: byte
@@ -524,6 +579,13 @@ func demo(): word {
     legacy_print HL
     ; record field access is address arithmetic + dereference
     ld hl, (hero.x)
+    ; structured control flow uses flag conditions
+    or a
+    if Z {
+      ; ...
+    } else {
+      ; ...
+    }
     ret
 }
 ```
