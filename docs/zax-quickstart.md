@@ -17,6 +17,7 @@ module Hello
 
 ; Optional imports
 ; import IO
+; import "vendor/legacy_io.zax"
 
 ; Module-scope declarations
 const MsgLen = 10
@@ -184,6 +185,8 @@ op add16(dst: HL, src: reg16)
 end
 ```
 
+Note: `op` bodies are implicit `asm` streams in v0.1 (there is no `asm` keyword inside an `op`).
+
 Invoke an `op` in an `asm` stream like an instruction:
 
 ```zax
@@ -201,4 +204,3 @@ hex bios from "rom/bios.hex"
 
 - `bin` emits a contiguous blob into a section (`in code|data|bss` required).
 - `hex` writes bytes to absolute addresses in final address space (see spec §6.4).
-

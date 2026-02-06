@@ -130,6 +130,24 @@ Module header (v0.1):
   * otherwise, the file stem of the module’s path (basename without `.zax`)
 * If two modules in the same build have the same canonical ID, compilation fails (module ID collision).
 
+Example file skeleton (informative):
+```
+module Hello
+
+const MsgLen = 10
+
+data
+  msg: byte[10] = "HELLO, ZAX"
+
+extern func bios_putc(ch: byte): void at $F003
+
+export func main(): void
+  asm
+    ; ...
+    ret
+end
+```
+
 ### 2.2 File Extension
 ZAX source files use the `.zax` extension.
 
@@ -161,13 +179,15 @@ Emission rules (v0.1):
 * `bin` emits into the section specified by its required `in <kind>` clause.
 * `hex` writes bytes to absolute addresses in the final address space and does not affect section counters.
 * The currently selected `section` only affects which location counter is advanced by `align` (and which counter is set by `section <kind> at ...`).
+* If two emissions would write different bytes to the same absolute address in the final address→byte map, it is a compile error (overlap).
 
 Address rules (v0.1):
 * A section’s starting address may be set at most once. A second `section <kind> at <imm16>` for the same section is a compile error.
 * `section <kind>` (without `at`) may be used any number of times to switch the active section.
 
 Packing order:
-1. Resolve imports and determine a deterministic module order (topological; ties broken by canonical module ID, then by normalized module path as a final tiebreaker).
+1. Resolve imports and determine a deterministic module order (topological; ties broken by canonical module ID, then by a compiler-defined normalized module path as a final tiebreaker).
+  * “Normalized module path” is implementation-defined, but must be deterministic within a build (i.e., given the same set of input files and resolved import graph, it must not depend on filesystem enumeration order).
 2. For each section kind in fixed order `code`, `data`, `bss`, concatenate module contributions in module order.
 3. Within a module, preserve source order within each section.
 
@@ -193,7 +213,10 @@ Default placement (if not specified):
 * In v0.1, all module-scope names are exported (public). The `export` keyword is accepted for `const` and `func` declarations for clarity and future compatibility, but it does not affect visibility in v0.1.
 * All names from an imported module are brought into the importing module’s global namespace.
 * The program has a single global namespace across all modules.
-* Any symbol collision is a compile error (no implicit renaming):
+* Any symbol collision is a compile error (no implicit renaming).
+  * Collisions are detected ignoring case: you may not define two names that differ only by case (e.g., `Foo` and `foo`).
+  * This applies to all user-defined identifiers: module-scope symbols, locals/args, and labels.
+* Collisions include:
   * two modules export the same name
   * an import conflicts with a local symbol
   * `bin` base names and `extern` names must also be unique
@@ -278,6 +301,7 @@ export const Public = $8000
 Notes (v0.1):
 * There is no built-in `sizeof`/`offsetof` in v0.1. If you need sizes or offsets, define them as explicit `const` values.
 * `export op` is not supported in v0.1 (ops are always available for resolution once imported, and v0.1 has no visibility model).
+* Using `export` on any other declaration kind (e.g., `export var`, `export type`, `export data`, `export enum`, `export bin`, `export hex`, `export extern`) is a compile error in v0.1.
 
 ---
 
@@ -303,6 +327,7 @@ Index forms (v0.1):
 
 Notes (v0.1):
 * The index grammar is intentionally small. Parenthesized expressions are not permitted inside `[]`; `(HL)` is a special-case index form.
+* `arr[i]` is an effective address (an `ea`), not a dereference. Use parentheses to read/write memory: `ld a, (arr[i])`.
 
 ### 5.2 Records (Packed Structs)
 Record types are layout descriptions:
@@ -325,6 +350,13 @@ Layout rules:
 
 Field access:
 * `rec.field` denotes the **effective address** of the field.
+
+Example: arrays of records use `ea` paths (informative):
+```
+; `sprites[C].x` is an `ea` (address), not a value.
+ld hl, (sprites[C].x)     ; load word at sprites[C].x
+ld (sprites[C].x), hl     ; store word to sprites[C].x
+```
 
 ---
 
@@ -447,12 +479,16 @@ hex bios from "rom/bios.hex"
 * HEX output is written to absolute addresses in the final address space and does not advance any section’s location counter.
 * If a HEX-written byte overlaps any byte emitted by section packing (`code`/`data`/`bin`) or another HEX include, it is a compile error.
 * The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address, filling gaps with `$00`. `bss` contributes no bytes.
+  * When producing Intel HEX output, the compiler emits only written bytes/records; it does not emit gap fill records.
 
 ### 6.5 `extern` (Binding Names to Addresses)
 Bind callable names to absolute addresses:
 ```
 extern func bios_putc(ch: byte): void at $F003
 ```
+
+Standalone `extern func` rules (v0.1):
+* The `at <imm16>` clause is required.
 
 Bind multiple entry points relative to a `bin` base:
 ```
@@ -544,6 +580,7 @@ Rules:
 Function-body block termination (v0.1):
 * Inside a function body, a `var` block (if present) continues until the `asm` keyword.
 * `asm` bodies may be empty (no instructions).
+* If control reaches the end of the `asm` block (falls off the end), the compiler behaves as if a `ret` instruction were present at that point (i.e., it returns via the normal return/trampoline mechanism described in 8.4).
 
 ### 8.2 Calling Convention
 * Arguments are passed on the stack, each argument occupying 16 bits.
@@ -596,30 +633,64 @@ Operand identifier resolution (v0.1):
 * Locals and arguments are addressed as `SP + constant offset` computed into `HL`.
 * The compiler knows local/arg counts from the signature and `var` block.
 
-At the start of the user-authored `asm` block, the compiler has already reserved space for locals (if any) by adjusting `SP` by the local frame size. The local frame size is the packed byte size of locals rounded up to an even number of bytes.
+At the start of the user-authored `asm` block, the compiler may have reserved space for locals (if any) by adjusting `SP` by the local frame size. The local frame size is the packed byte size of locals rounded up to an even number of bytes.
 
-Function prologue/epilogue (v0.1):
-* The compiler emits a prologue before the user-authored `asm` stream to reserve the local frame (adjusting `SP` by `-frameSize`).
-* The compiler emits an epilogue to deallocate the local frame (restoring `SP` by `+frameSize`) immediately before returning from the function.
-  * Any return instruction in the user-authored `asm` stream (e.g., `ret`, `retn`, `reti`, and conditional `ret <cc>`) is lowered to execute the epilogue first, then perform the return.
-  * Implementation note: this is typically done by branching to a compiler-generated hidden return label that performs epilogue + return.
+Return trampoline mechanism (v0.1, used only when `frameSize > 0`):
+* To support `ret`/`ret <cc>` anywhere in the user-authored `asm` without rewriting returns to branches, the compiler uses a hidden return trampoline word on the stack.
+* Prologue (before user `asm`), when `frameSize > 0`:
+  1) Capture the incoming `SP` value (the “old SP”) into a temporary (implementation-defined sequence).
+  2) Reserve locals: `SP := SP - frameSize`
+  3) Push the saved old SP: `push oldSP`
+  4) Push a hidden return target: `push __zax_epilogue`
+* The user-visible effect is that `SP` at the start of user `asm` points at the trampoline word; locals begin at `SP + 4`.
+* A user-written `ret` or conditional `ret <cc>` transfers control to `__zax_epilogue` (by popping it into `PC`), where the compiler restores `SP` from the saved old SP and performs the real return to the caller.
+* Epilogue (`__zax_epilogue`), when `frameSize > 0`:
+  1) Pop the saved old SP into a temporary (e.g., `pop hl`)
+  2) Restore SP: `SP := oldSP` (e.g., `ld sp, hl`)
+  3) Return to caller: `ret`
+
+When `frameSize == 0`:
+* No trampoline word is installed. `ret` returns directly to the caller.
+
+Return instructions (v0.1):
+* Function returns in user-authored `asm` typically use `ret` or conditional `ret <cc>`.
+* `retn`/`reti` are permitted.
+  * If `frameSize == 0`, they return directly to the caller (as on raw Z80).
+  * If `frameSize > 0`, the return address at `SP + 0` is the trampoline word (`__zax_epilogue`), so `retn`/`reti` will return to `__zax_epilogue` (not to the caller). Their special side effects occur at that point; `__zax_epilogue` then restores `SP` and performs the final `ret` to the caller.
+    * Guidance: for interrupt handlers that require strict `reti`/`retn` semantics at the final return point, prefer `frameSize == 0` (no locals).
 
 Conceptual layout at the start of `asm`:
-* locals occupy space at the top of the frame (if any), starting at `SP + 0`
-* return address is at `SP + <frameSize>`
+* If `frameSize > 0`:
+  * trampoline word (`__zax_epilogue`) is at `SP + 0`
+  * saved old SP is at `SP + 2`
+  * locals occupy space at the top of the frame, starting at `SP + 4`
+  * return address is at `SP + 4 + <frameSize>`
+* If `frameSize == 0`:
+  * return address is at `SP + 0`
 * arguments follow the return address
 
 Argument offsets (given `argc` arguments and local frame size `frameSize`):
 * The first argument (`0`) is closest to the return address.
-* Argument `i` (0-based) is at `SP + frameSize + 2 + 2*i`.
+* If `frameSize > 0`: argument `i` (0-based) is at `SP + frameSize + 6 + 2*i`.
+* If `frameSize == 0`: argument `i` (0-based) is at `SP + 2 + 2*i`.
 
 The compiler tracks stack depth across the `asm` block to keep SP-relative locals/args resolvable.
 
 ### 8.5 SP Mutation Rules in `asm`
 The compiler tracks SP deltas for:
-* `push`, `pop`, `call`, `ret`, `rst`, `ex (sp), hl`
+* `push`, `pop`, `call`, `ret`, `retn`, `reti`, `rst`
+* `inc sp`, `dec sp`
+* `ex (sp), hl`, `ex (sp), ix`, `ex (sp), iy` (net delta 0)
 
-Other SP-mutating instructions are compile errors in v0.1 (e.g., `ld sp, hl`, `inc sp`, `dec sp`).
+Other SP assignment instructions (v0.1):
+* Instructions that assign to `SP` (e.g., `ld sp, hl`, `ld sp, ix`, `ld sp, iy`, `ld sp, imm16`) are permitted but the compiler does not track their effects.
+* When using untracked SP assignment:
+  * The programmer is responsible for ensuring SP is correct at structured-control-flow joins and at function exit.
+  * Local/arg slot references assume the compiler's tracked SP offset; untracked SP assignment may cause incorrect addressing unless SP is restored.
+  * If the function has locals (`frameSize > 0`), SP must point at the trampoline word (`__zax_epilogue`) at any `ret`/`ret <cc>` for the trampoline mechanism to work as intended.
+
+Note (v0.1):
+* The compiler may emit additional SP-mutating instructions in its own prologue/epilogue sequences.
 
 Stack-depth constraints (v0.1):
 * At any structured-control-flow join (end of `if`/`else`, loop back-edges, and loop exits), stack depth must match across all paths.
@@ -663,6 +734,10 @@ Notes (v0.1):
 Zero-parameter ops (v0.1):
 * `op name` (with no parameter list) is permitted and defines a zero-parameter op.
 * A zero-parameter op is invoked by writing just `name` on an `asm` line.
+
+Invocation shape (informative):
+* `op` invocations look like instructions:
+  * Example: `add16 HL, DE`
 
 ### 9.3 Operand Matchers
 `op` parameters use matcher types (patterns). These constrain call-site operands.
@@ -748,7 +823,7 @@ Notes:
 
 Condition evaluation points (v0.1):
 * `if <cc> ... end`: `<cc>` is evaluated at the `if` keyword using the current flags.
-* `while <cc> ... end`: `<cc>` is evaluated at the `while` keyword on entry and after each iteration. The back-edge jumps to the `while` keyword. The loop body is responsible for establishing flags for the next condition check.
+* `while <cc> ... end`: `<cc>` is evaluated at the `while` keyword on entry and after each iteration. The back-edge jumps to the condition test at the top of the loop, which re-tests `<cc>` using the current flags. The loop body is responsible for establishing flags for the next condition check.
 * `repeat ... until <cc>`: `<cc>` is evaluated at the `until` keyword using the current flags. The loop body is responsible for establishing flags for the `until` check.
 
 ### 10.2.1 `select` / `case` (v0.1)
@@ -768,6 +843,8 @@ Rules:
   * Allowed selector forms: `reg16`, `reg8` (zero-extended), `imm` expression, `ea` (address value), `(ea)` (loaded value).
   * `(ea)` selectors read a 16-bit word from memory.
 * Each `case` value must be a compile-time immediate (`imm`) and is compared against the selector.
+  * Comparisons are by 16-bit equality.
+  * For `reg8` selectors, the selector value is in the range `0..255` (zero-extended). `case` values outside `0..255` can never match; the compiler may warn.
 * `else` is optional and is taken if no `case` matches. If no `else` is present and no `case` matches, control transfers to after the enclosing `end`.
 * There is no fallthrough: after a `case` body finishes, control transfers to after the enclosing `end` (unless the case body terminates, e.g., `ret`).
 * Duplicate `case` values within the same `select` are a compile error.
@@ -782,8 +859,10 @@ Notes:
 
 Lowering (informative):
 * The compiler may lower `select` either as a sequence of compares/branches or as a jump table, depending on target and case density. Behavior must be equivalent.
-  * For `reg8` selectors, lowering naturally uses 8-bit compares (e.g., `cp imm8`); for `reg16` selectors, lowering may require multi-instruction comparison sequences.
+  * For `reg8` selectors, lowering naturally uses 8-bit compares (e.g., `ld a, <reg8>` then `cp imm8`) because the selector’s high byte is always zero.
+  * For `reg16` selectors, lowering may require multi-instruction comparison sequences.
   * The compiler may test `case` values in any order.
+    * Do not rely on any particular case-test order or intermediate dispatch effects.
   * If the selector is a compile-time `imm` expression, the compiler may resolve the match at compile time and emit only the matching arm (or nothing).
 
 ### 10.3 Examples
@@ -846,9 +925,6 @@ Usage (v0.1):
 
 ```
 module Math
-
-import IO
-import Mem
 import "vendor/legacy_io.zax"
 
 enum Mode Read, Write, Append
@@ -881,6 +957,9 @@ extern legacy
   func legacy_print(msg: addr): void at $0000
 end
 
+; Debug helper (address is illustrative)
+extern func print(val: word): void at $F000
+
 export func add(a: word, b: word): word
   var
     temp: word
@@ -895,7 +974,6 @@ end
 
 func demo(): word
   asm
-    ; `print` is assumed to be provided by the imported `IO` module (not shown).
     print HL
     legacy_print HL
     ld hl, (hero.x)
