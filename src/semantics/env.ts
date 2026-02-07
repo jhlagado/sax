@@ -139,84 +139,95 @@ function collectEnumMembers(items: ModuleItemNode[]): EnumDeclNode[] {
 /**
  * Build the PR2 compile environment by resolving module-scope `enum` and `const` declarations.
  *
- * PR2 implementation note:
- * - Only evaluates a single module file (PR1/PR2 are single-file).
- * - Constants may reference previously defined constants and enum members.
+ * Implementation note:
+ * - Resolves names across all parsed module files (entry + imports) in program order.
+ * - Constants may reference previously defined constants and enum members (forward refs not yet supported).
  */
 export function buildEnv(program: ProgramNode, diagnostics: Diagnostic[]): CompileEnv {
   const consts = new Map<string, number>();
   const enums = new Map<string, number>();
   const types = new Map<string, TypeDeclNode>();
 
-  const moduleFile = program.files[0];
-  if (!moduleFile) {
+  if (program.files.length === 0) {
     diag(diagnostics, program.entryFile, 'No module files to compile.');
     return { consts, enums, types };
   }
 
-  const constDeclNames = new Set(
-    moduleFile.items.filter((i): i is ConstDeclNode => i.kind === 'ConstDecl').map((i) => i.name),
-  );
-  const enumDeclNames = new Set<string>();
-
-  for (const item of moduleFile.items) {
-    if (item.kind !== 'TypeDecl') continue;
-    if (types.has(item.name)) {
-      diag(diagnostics, item.span.file, `Duplicate type name "${item.name}".`);
-      continue;
+  const declaredConstsLower = new Set<string>();
+  for (const mf of program.files) {
+    for (const item of mf.items) {
+      if (item.kind !== 'ConstDecl') continue;
+      declaredConstsLower.add(item.name.toLowerCase());
     }
-    types.set(item.name, item);
   }
 
-  for (const e of collectEnumMembers(moduleFile.items)) {
-    if (enumDeclNames.has(e.name)) {
-      diag(diagnostics, e.span.file, `Duplicate enum name "${e.name}".`);
-    } else {
-      enumDeclNames.add(e.name);
+  const globalLower = new Map<string, { kind: string; name: string; file: string }>();
+  const claim = (kind: string, name: string, file: string): boolean => {
+    const k = name.toLowerCase();
+    const prev = globalLower.get(k);
+    if (prev) {
+      diag(diagnostics, file, `Name "${name}" collides with ${prev.kind} "${prev.name}".`);
+      return false;
     }
-    if (types.has(e.name)) {
-      diag(diagnostics, e.span.file, `Enum name "${e.name}" collides with a type name.`);
-    }
-    if (constDeclNames.has(e.name)) {
-      diag(diagnostics, e.span.file, `Enum name "${e.name}" collides with a const name.`);
-    }
+    globalLower.set(k, { kind, name, file });
+    return true;
+  };
 
-    for (let idx = 0; idx < e.members.length; idx++) {
-      const name = e.members[idx]!;
-      if (types.has(name)) {
-        diag(diagnostics, e.span.file, `Enum member name "${name}" collides with a type name.`);
-        continue;
+  for (const mf of program.files) {
+    for (const item of mf.items) {
+      if (item.kind !== 'TypeDecl') continue;
+      if (!claim('type', item.name, item.span.file)) continue;
+      types.set(item.name, item);
+    }
+  }
+
+  for (const mf of program.files) {
+    for (const e of collectEnumMembers(mf.items)) {
+      // Note: enum names are tracked for collision purposes even though PR4 does not use them.
+      claim('enum', e.name, e.span.file);
+
+      for (let idx = 0; idx < e.members.length; idx++) {
+        const name = e.members[idx]!;
+        if (types.has(name)) {
+          diag(diagnostics, e.span.file, `Enum member name "${name}" collides with a type name.`);
+          continue;
+        }
+        if (declaredConstsLower.has(name.toLowerCase())) {
+          diag(diagnostics, e.span.file, `Enum member name "${name}" collides with a const name.`);
+          continue;
+        }
+        if (!claim('enum member', name, e.span.file)) continue;
+        enums.set(name, idx);
       }
-      if (constDeclNames.has(name)) {
-        diag(diagnostics, e.span.file, `Enum member name "${name}" collides with a const name.`);
-        continue;
-      }
-      if (enums.has(name)) {
-        diag(diagnostics, e.span.file, `Duplicate enum member name "${name}".`);
-        continue;
-      }
-      enums.set(name, idx);
     }
   }
 
   const env: CompileEnv = { consts, enums, types };
 
-  for (const item of moduleFile.items) {
-    if (item.kind !== 'ConstDecl') continue;
-    if (consts.has(item.name)) {
-      diag(diagnostics, item.span.file, `Duplicate const name "${item.name}".`);
-      continue;
+  for (const mf of program.files) {
+    for (const item of mf.items) {
+      if (item.kind !== 'ConstDecl') continue;
+      if (types.has(item.name)) {
+        diag(diagnostics, item.span.file, `Const name "${item.name}" collides with a type name.`);
+        continue;
+      }
+      if (enums.has(item.name)) {
+        diag(
+          diagnostics,
+          item.span.file,
+          `Const name "${item.name}" collides with an enum member.`,
+        );
+        continue;
+      }
+      if (!claim('const', item.name, item.span.file)) continue;
+
+      const v = evalImmExpr(item.value, env, diagnostics);
+      if (v === undefined) {
+        diag(diagnostics, item.span.file, `Failed to evaluate const "${item.name}".`);
+        continue;
+      }
+      consts.set(item.name, v);
     }
-    if (enums.has(item.name)) {
-      diag(diagnostics, item.span.file, `Const name "${item.name}" collides with an enum member.`);
-      continue;
-    }
-    const v = evalImmExpr(item.value, env, diagnostics);
-    if (v === undefined) {
-      diag(diagnostics, item.span.file, `Failed to evaluate const "${item.name}".`);
-      continue;
-    }
-    consts.set(item.name, v);
   }
 
   return env;

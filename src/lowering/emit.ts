@@ -52,20 +52,13 @@ export function emitProgram(
   const pending: PendingSymbol[] = [];
   const taken = new Set<string>();
 
-  if (program.files.length !== 1) {
-    diag(
-      diagnostics,
-      program.entryFile,
-      `PR1 supports single-file programs only (got ${program.files.length}).`,
-    );
-    return { map: { bytes }, symbols };
-  }
-
-  const module = program.files[0];
-  if (!module) {
+  const firstModule = program.files[0];
+  if (!firstModule) {
     diag(diagnostics, program.entryFile, 'No module files to compile.');
     return { map: { bytes }, symbols };
   }
+
+  const primaryFile = firstModule.span.file ?? program.entryFile;
 
   const alignTo = (n: number, a: number) => (a <= 0 ? n : Math.ceil(n / a) * a);
 
@@ -98,251 +91,255 @@ export function emitProgram(
     }
   };
 
-  for (const item of module.items) {
-    if (item.kind === 'ConstDecl') {
-      const v = env.consts.get(item.name);
-      if (v !== undefined) {
-        if (taken.has(item.name)) {
-          diag(diagnostics, item.span.file, `Duplicate symbol name "${item.name}".`);
-          continue;
-        }
-        taken.add(item.name);
-        symbols.push({
-          kind: 'constant',
-          name: item.name,
-          value: v,
-          address: v,
-          file: item.span.file,
-          line: item.span.start.line,
-          scope: 'global',
-        });
-      }
-      continue;
-    }
+  for (const module of program.files) {
+    activeSection = 'code';
 
-    if (item.kind === 'EnumDecl') {
-      const e = item as EnumDeclNode;
-      for (let idx = 0; idx < e.members.length; idx++) {
-        const name = e.members[idx]!;
-        if (env.enums.get(name) !== idx) continue;
-        if (taken.has(name)) {
-          diag(diagnostics, e.span.file, `Duplicate symbol name "${name}".`);
-          continue;
-        }
-        taken.add(name);
-        symbols.push({
-          kind: 'constant',
-          name,
-          value: idx,
-          address: idx,
-          file: e.span.file,
-          line: e.span.start.line,
-          scope: 'global',
-        });
-      }
-      continue;
-    }
-
-    if (item.kind === 'Section') {
-      const s = item as SectionDirectiveNode;
-      activeSection = s.section;
-      if (s.at) setBaseExpr(s.section, s.at, s.span.file);
-      continue;
-    }
-
-    if (item.kind === 'Align') {
-      const a = item as AlignDirectiveNode;
-      const v = evalImmExpr(a.value, env, diagnostics);
-      if (v === undefined) {
-        diag(diagnostics, a.span.file, `Failed to evaluate align value.`);
-        continue;
-      }
-      if (v <= 0) {
-        diag(diagnostics, a.span.file, `align value must be > 0.`);
-        continue;
-      }
-      advanceAlign(v);
-      continue;
-    }
-
-    if (item.kind === 'FuncDecl') {
-      for (const asmItem of item.asm.items) {
-        if (asmItem.kind === 'AsmLabel') {
-          if (taken.has(asmItem.name)) {
-            diag(diagnostics, asmItem.span.file, `Duplicate symbol name "${asmItem.name}".`);
+    for (const item of module.items) {
+      if (item.kind === 'ConstDecl') {
+        const v = env.consts.get(item.name);
+        if (v !== undefined) {
+          if (taken.has(item.name)) {
+            diag(diagnostics, item.span.file, `Duplicate symbol name "${item.name}".`);
             continue;
           }
-          taken.add(asmItem.name);
-          pending.push({
-            kind: 'label',
-            name: asmItem.name,
-            section: 'code',
-            offset: codeOffset,
-            file: asmItem.span.file,
-            line: asmItem.span.start.line,
+          taken.add(item.name);
+          symbols.push({
+            kind: 'constant',
+            name: item.name,
+            value: v,
+            address: v,
+            file: item.span.file,
+            line: item.span.start.line,
             scope: 'global',
           });
+        }
+        continue;
+      }
+
+      if (item.kind === 'EnumDecl') {
+        const e = item as EnumDeclNode;
+        for (let idx = 0; idx < e.members.length; idx++) {
+          const name = e.members[idx]!;
+          if (env.enums.get(name) !== idx) continue;
+          if (taken.has(name)) {
+            diag(diagnostics, e.span.file, `Duplicate symbol name "${name}".`);
+            continue;
+          }
+          taken.add(name);
+          symbols.push({
+            kind: 'constant',
+            name,
+            value: idx,
+            address: idx,
+            file: e.span.file,
+            line: e.span.start.line,
+            scope: 'global',
+          });
+        }
+        continue;
+      }
+
+      if (item.kind === 'Section') {
+        const s = item as SectionDirectiveNode;
+        activeSection = s.section;
+        if (s.at) setBaseExpr(s.section, s.at, s.span.file);
+        continue;
+      }
+
+      if (item.kind === 'Align') {
+        const a = item as AlignDirectiveNode;
+        const v = evalImmExpr(a.value, env, diagnostics);
+        if (v === undefined) {
+          diag(diagnostics, a.span.file, `Failed to evaluate align value.`);
           continue;
         }
-        if (asmItem.kind !== 'AsmInstruction') continue;
-
-        const encoded = encodeInstruction(asmItem, env, diagnostics);
-        if (!encoded) continue;
-        for (const b of encoded) {
-          codeBytes.set(codeOffset, b);
-          codeOffset++;
+        if (v <= 0) {
+          diag(diagnostics, a.span.file, `align value must be > 0.`);
+          continue;
         }
+        advanceAlign(v);
+        continue;
       }
-      continue;
-    }
 
-    if (item.kind === 'DataBlock') {
-      const dataBlock = item as DataBlockNode;
-      for (const decl of dataBlock.decls) {
-        const okToDeclareSymbol = !taken.has(decl.name);
-        if (!okToDeclareSymbol) {
-          diag(diagnostics, decl.span.file, `Duplicate symbol name "${decl.name}".`);
-        } else {
+      if (item.kind === 'FuncDecl') {
+        for (const asmItem of item.asm.items) {
+          if (asmItem.kind === 'AsmLabel') {
+            if (taken.has(asmItem.name)) {
+              diag(diagnostics, asmItem.span.file, `Duplicate symbol name "${asmItem.name}".`);
+              continue;
+            }
+            taken.add(asmItem.name);
+            pending.push({
+              kind: 'label',
+              name: asmItem.name,
+              section: 'code',
+              offset: codeOffset,
+              file: asmItem.span.file,
+              line: asmItem.span.start.line,
+              scope: 'global',
+            });
+            continue;
+          }
+          if (asmItem.kind !== 'AsmInstruction') continue;
+
+          const encoded = encodeInstruction(asmItem, env, diagnostics);
+          if (!encoded) continue;
+          for (const b of encoded) {
+            codeBytes.set(codeOffset, b);
+            codeOffset++;
+          }
+        }
+        continue;
+      }
+
+      if (item.kind === 'DataBlock') {
+        const dataBlock = item as DataBlockNode;
+        for (const decl of dataBlock.decls) {
+          const okToDeclareSymbol = !taken.has(decl.name);
+          if (!okToDeclareSymbol) {
+            diag(diagnostics, decl.span.file, `Duplicate symbol name "${decl.name}".`);
+          } else {
+            taken.add(decl.name);
+            pending.push({
+              kind: 'data',
+              name: decl.name,
+              section: 'data',
+              offset: dataOffset,
+              file: decl.span.file,
+              line: decl.span.start.line,
+              scope: 'global',
+            });
+          }
+
+          const type = decl.typeExpr;
+          const init = decl.initializer;
+
+          const emitByte = (b: number) => {
+            dataBytes.set(dataOffset, b & 0xff);
+            dataOffset++;
+          };
+          const emitWord = (w: number) => {
+            emitByte(w & 0xff);
+            emitByte((w >> 8) & 0xff);
+          };
+
+          const elementType =
+            type.kind === 'ArrayType'
+              ? type.element.kind === 'TypeName'
+                ? type.element.name
+                : undefined
+              : type.kind === 'TypeName'
+                ? type.name
+                : undefined;
+          const elementSize =
+            elementType === 'word' || elementType === 'addr'
+              ? 2
+              : elementType === 'byte'
+                ? 1
+                : undefined;
+          if (!elementType || !elementSize) {
+            diag(
+              diagnostics,
+              decl.span.file,
+              `Unsupported data type in PR2 subset for "${decl.name}".`,
+            );
+            continue;
+          }
+
+          const length = type.kind === 'ArrayType' ? type.length : 1;
+
+          if (init.kind === 'InitString') {
+            if (elementSize !== 1) {
+              diag(
+                diagnostics,
+                decl.span.file,
+                `String initializer requires byte element type for "${decl.name}".`,
+              );
+              continue;
+            }
+            if (length !== undefined && init.value.length !== length) {
+              diag(diagnostics, decl.span.file, `String length mismatch for "${decl.name}".`);
+              continue;
+            }
+            for (let idx = 0; idx < init.value.length; idx++) {
+              emitByte(init.value.charCodeAt(idx));
+            }
+            continue;
+          }
+
+          const values: number[] = [];
+          for (const e of init.elements) {
+            const v = evalImmExpr(e, env, diagnostics);
+            if (v === undefined) {
+              diag(
+                diagnostics,
+                decl.span.file,
+                `Failed to evaluate data initializer for "${decl.name}".`,
+              );
+              break;
+            }
+            values.push(v);
+          }
+
+          if (length !== undefined && values.length !== length) {
+            diag(diagnostics, decl.span.file, `Initializer length mismatch for "${decl.name}".`);
+            continue;
+          }
+
+          for (const v of values) {
+            if (elementSize === 1) emitByte(v);
+            else emitWord(v);
+          }
+        }
+        continue;
+      }
+
+      if (item.kind === 'VarBlock' && item.scope === 'module') {
+        const varBlock = item as VarBlockNode;
+        for (const decl of varBlock.decls) {
+          const size = sizeOfTypeExpr(decl.typeExpr, env, diagnostics);
+          if (size === undefined) continue;
+          if (env.consts.has(decl.name)) {
+            diag(diagnostics, decl.span.file, `Var name "${decl.name}" collides with a const.`);
+            varOffset += size;
+            continue;
+          }
+          if (env.enums.has(decl.name)) {
+            diag(
+              diagnostics,
+              decl.span.file,
+              `Var name "${decl.name}" collides with an enum member.`,
+            );
+            varOffset += size;
+            continue;
+          }
+          if (env.types.has(decl.name)) {
+            diag(diagnostics, decl.span.file, `Var name "${decl.name}" collides with a type name.`);
+            varOffset += size;
+            continue;
+          }
+          if (taken.has(decl.name)) {
+            diag(
+              diagnostics,
+              decl.span.file,
+              `Duplicate symbol name "${decl.name}" for var declaration.`,
+            );
+            varOffset += size;
+            continue;
+          }
           taken.add(decl.name);
           pending.push({
-            kind: 'data',
+            kind: 'var',
             name: decl.name,
-            section: 'data',
-            offset: dataOffset,
+            section: 'var',
+            offset: varOffset,
             file: decl.span.file,
             line: decl.span.start.line,
             scope: 'global',
+            size,
           });
-        }
-
-        const type = decl.typeExpr;
-        const init = decl.initializer;
-
-        const emitByte = (b: number) => {
-          dataBytes.set(dataOffset, b & 0xff);
-          dataOffset++;
-        };
-        const emitWord = (w: number) => {
-          emitByte(w & 0xff);
-          emitByte((w >> 8) & 0xff);
-        };
-
-        const elementType =
-          type.kind === 'ArrayType'
-            ? type.element.kind === 'TypeName'
-              ? type.element.name
-              : undefined
-            : type.kind === 'TypeName'
-              ? type.name
-              : undefined;
-        const elementSize =
-          elementType === 'word' || elementType === 'addr'
-            ? 2
-            : elementType === 'byte'
-              ? 1
-              : undefined;
-        if (!elementType || !elementSize) {
-          diag(
-            diagnostics,
-            decl.span.file,
-            `Unsupported data type in PR2 subset for "${decl.name}".`,
-          );
-          continue;
-        }
-
-        const length = type.kind === 'ArrayType' ? type.length : 1;
-
-        if (init.kind === 'InitString') {
-          if (elementSize !== 1) {
-            diag(
-              diagnostics,
-              decl.span.file,
-              `String initializer requires byte element type for "${decl.name}".`,
-            );
-            continue;
-          }
-          if (length !== undefined && init.value.length !== length) {
-            diag(diagnostics, decl.span.file, `String length mismatch for "${decl.name}".`);
-            continue;
-          }
-          for (let idx = 0; idx < init.value.length; idx++) {
-            emitByte(init.value.charCodeAt(idx));
-          }
-          continue;
-        }
-
-        const values: number[] = [];
-        for (const e of init.elements) {
-          const v = evalImmExpr(e, env, diagnostics);
-          if (v === undefined) {
-            diag(
-              diagnostics,
-              decl.span.file,
-              `Failed to evaluate data initializer for "${decl.name}".`,
-            );
-            break;
-          }
-          values.push(v);
-        }
-
-        if (length !== undefined && values.length !== length) {
-          diag(diagnostics, decl.span.file, `Initializer length mismatch for "${decl.name}".`);
-          continue;
-        }
-
-        for (const v of values) {
-          if (elementSize === 1) emitByte(v);
-          else emitWord(v);
-        }
-      }
-      continue;
-    }
-
-    if (item.kind === 'VarBlock' && item.scope === 'module') {
-      const varBlock = item as VarBlockNode;
-      for (const decl of varBlock.decls) {
-        const size = sizeOfTypeExpr(decl.typeExpr, env, diagnostics);
-        if (size === undefined) continue;
-        if (env.consts.has(decl.name)) {
-          diag(diagnostics, decl.span.file, `Var name "${decl.name}" collides with a const.`);
           varOffset += size;
-          continue;
         }
-        if (env.enums.has(decl.name)) {
-          diag(
-            diagnostics,
-            decl.span.file,
-            `Var name "${decl.name}" collides with an enum member.`,
-          );
-          varOffset += size;
-          continue;
-        }
-        if (env.types.has(decl.name)) {
-          diag(diagnostics, decl.span.file, `Var name "${decl.name}" collides with a type name.`);
-          varOffset += size;
-          continue;
-        }
-        if (taken.has(decl.name)) {
-          diag(
-            diagnostics,
-            decl.span.file,
-            `Duplicate symbol name "${decl.name}" for var declaration.`,
-          );
-          varOffset += size;
-          continue;
-        }
-        taken.add(decl.name);
-        pending.push({
-          kind: 'var',
-          name: decl.name,
-          section: 'var',
-          offset: varOffset,
-          file: decl.span.file,
-          line: decl.span.start.line,
-          scope: 'global',
-          size,
-        });
-        varOffset += size;
       }
     }
   }
@@ -375,7 +372,7 @@ export function emitProgram(
       ? alignTo(codeBase + codeOffset, 2)
       : (diag(
           diagnostics,
-          module.span.file,
+          primaryFile,
           `Cannot compute default data base address because code base address is invalid.`,
         ),
         0));
@@ -387,7 +384,7 @@ export function emitProgram(
       ? alignTo(dataBase + dataOffset, 2)
       : (diag(
           diagnostics,
-          module.span.file,
+          primaryFile,
           `Cannot compute default var base address because data base address is invalid.`,
         ),
         0));
@@ -408,8 +405,8 @@ export function emitProgram(
     }
   };
 
-  if (codeOk) writeSection(codeBase, codeBytes, module.span.file);
-  if (dataOk) writeSection(dataBase, dataBytes, module.span.file);
+  if (codeOk) writeSection(codeBase, codeBytes, primaryFile);
+  if (dataOk) writeSection(dataBase, dataBytes, primaryFile);
 
   for (const ps of pending) {
     const base = ps.section === 'code' ? codeBase : ps.section === 'data' ? dataBase : varBase;

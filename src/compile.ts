@@ -1,11 +1,13 @@
 import { readFile } from 'node:fs/promises';
+import { basename, dirname, extname, resolve } from 'node:path';
 
 import type { Diagnostic } from './diagnostics/types.js';
 import { DiagnosticIds } from './diagnostics/types.js';
 import type { CompileFn, CompilerOptions, CompileResult, PipelineDeps } from './pipeline.js';
 
 import type { ProgramNode } from './frontend/ast.js';
-import { parseProgram } from './frontend/parser.js';
+import type { ImportNode, ModuleFileNode } from './frontend/ast.js';
+import { parseModuleFile } from './frontend/parser.js';
 import { emitProgram } from './lowering/emit.js';
 import type { Artifact } from './formats/types.js';
 import { buildEnv } from './semantics/env.js';
@@ -30,6 +32,144 @@ function withDefaults(
   };
 }
 
+function normalizePath(p: string): string {
+  return resolve(p);
+}
+
+function canonicalModuleId(modulePath: string): string {
+  const base = basename(modulePath);
+  const ext = extname(base);
+  return ext.length > 0 ? base.slice(0, -ext.length) : base;
+}
+
+function importTargets(moduleFile: ModuleFileNode): ImportNode[] {
+  return moduleFile.items.filter((i): i is ImportNode => i.kind === 'Import');
+}
+
+function resolveImport(fromModulePath: string, imp: ImportNode): string {
+  const fromDir = dirname(fromModulePath);
+  if (imp.form === 'path') {
+    return normalizePath(resolve(fromDir, imp.specifier));
+  }
+  // moduleId
+  return normalizePath(resolve(fromDir, `${imp.specifier}.zax`));
+}
+
+async function loadProgram(
+  entryFile: string,
+  diagnostics: Diagnostic[],
+): Promise<ProgramNode | undefined> {
+  const entryPath = normalizePath(entryFile);
+  const modules = new Map<string, ModuleFileNode>();
+  const edges = new Map<string, Set<string>>();
+
+  const loadModule = async (modulePath: string, importer?: string): Promise<void> => {
+    const p = normalizePath(modulePath);
+    if (modules.has(p)) return;
+
+    let sourceText: string;
+    try {
+      sourceText = await readFile(p, 'utf8');
+    } catch (err) {
+      diagnostics.push({
+        id: DiagnosticIds.IoReadFailed,
+        severity: 'error',
+        message: importer
+          ? `Failed to read imported module "${p}" (imported by "${importer}"): ${String(err)}`
+          : `Failed to read entry file: ${String(err)}`,
+        file: importer ?? p,
+      });
+      return;
+    }
+
+    let moduleFile: ModuleFileNode;
+    try {
+      moduleFile = parseModuleFile(p, sourceText, diagnostics);
+    } catch (err) {
+      diagnostics.push({
+        id: DiagnosticIds.InternalParseError,
+        severity: 'error',
+        message: `Internal error during parse: ${String(err)}`,
+        file: p,
+      });
+      return;
+    }
+
+    modules.set(p, moduleFile);
+    edges.set(p, new Set());
+
+    for (const imp of importTargets(moduleFile)) {
+      const target = resolveImport(p, imp);
+      edges.get(p)!.add(target);
+      await loadModule(target, p);
+    }
+  };
+
+  await loadModule(entryPath);
+  if (hasErrors(diagnostics)) return undefined;
+
+  // Detect module-ID collisions (case-insensitive).
+  const idSeen = new Map<string, string>();
+  for (const p of modules.keys()) {
+    const id = canonicalModuleId(p);
+    const k = id.toLowerCase();
+    const prev = idSeen.get(k);
+    if (prev && prev !== p) {
+      diagnostics.push({
+        id: DiagnosticIds.SemanticsError,
+        severity: 'error',
+        message: `Module ID collision: "${id}" maps to both "${prev}" and "${p}".`,
+        file: entryPath,
+      });
+    } else {
+      idSeen.set(k, p);
+    }
+  }
+  if (hasErrors(diagnostics)) return undefined;
+
+  // Topological order (dependencies first), deterministic by (moduleId, path).
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const order: string[] = [];
+
+  const sortKey = (p: string) => `${canonicalModuleId(p).toLowerCase()}\n${p}`;
+
+  const visit = (p: string, stack: string[]) => {
+    if (visited.has(p)) return;
+    if (visiting.has(p)) {
+      const cycleStart = stack.indexOf(p);
+      const cycle = cycleStart >= 0 ? stack.slice(cycleStart).concat([p]) : stack.concat([p]);
+      diagnostics.push({
+        id: DiagnosticIds.SemanticsError,
+        severity: 'error',
+        message: `Import cycle detected: ${cycle.join(' -> ')}`,
+        file: entryPath,
+      });
+      return;
+    }
+    visiting.add(p);
+    const deps = Array.from(edges.get(p) ?? []).sort((a, b) =>
+      sortKey(a).localeCompare(sortKey(b)),
+    );
+    for (const d of deps) {
+      visit(d, stack.concat([p]));
+      if (hasErrors(diagnostics)) return;
+    }
+    visiting.delete(p);
+    visited.add(p);
+    order.push(p);
+  };
+
+  visit(entryPath, []);
+  if (hasErrors(diagnostics)) return undefined;
+
+  const moduleFiles = order.map((p) => modules.get(p)!).filter(Boolean);
+  const entryModule = modules.get(entryPath);
+  if (!entryModule) return undefined;
+
+  return { kind: 'Program', span: entryModule.span, entryFile: entryPath, files: moduleFiles };
+}
+
 /**
  * Compile a ZAX program starting from an entry file.
  *
@@ -46,32 +186,8 @@ export const compile: CompileFn = async (
   deps: PipelineDeps,
 ): Promise<CompileResult> => {
   const diagnostics: Diagnostic[] = [];
-
-  let sourceText: string;
-  try {
-    sourceText = await readFile(entryFile, 'utf8');
-  } catch (err) {
-    diagnostics.push({
-      id: DiagnosticIds.IoReadFailed,
-      severity: 'error',
-      message: `Failed to read entry file: ${String(err)}`,
-      file: entryFile,
-    });
-    return { diagnostics, artifacts: [] };
-  }
-
-  let program: ProgramNode;
-  try {
-    program = parseProgram(entryFile, sourceText, diagnostics);
-  } catch (err) {
-    diagnostics.push({
-      id: DiagnosticIds.InternalParseError,
-      severity: 'error',
-      message: `Internal error during parse: ${String(err)}`,
-      file: entryFile,
-    });
-    return { diagnostics, artifacts: [] };
-  }
+  const program = await loadProgram(entryFile, diagnostics);
+  if (!program) return { diagnostics, artifacts: [] };
 
   if (hasErrors(diagnostics)) {
     return { diagnostics, artifacts: [] };

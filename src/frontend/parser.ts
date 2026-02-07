@@ -1,5 +1,6 @@
 import type {
   AlignDirectiveNode,
+  ImportNode,
   AsmBlockNode,
   AsmInstructionNode,
   AsmItemNode,
@@ -440,19 +441,18 @@ function parseAsmInstruction(
 }
 
 /**
- * Parse a ZAX program from a single in-memory source file.
+ * Parse a single `.zax` module file from an in-memory source string.
  *
- * PR2 implementation note:
- * - Supports a minimal single-file subset: `const`, `data`, and `func ... asm ... end`.
- * - `imm` expressions are supported for `const` values and immediate operands.
- * - On errors, diagnostics are appended to `diagnostics`; parsing continues best-effort.
+ * Implementation note:
+ * - Parsing is best-effort: on errors, diagnostics are appended and parsing continues.
+ * - The module may include `import` statements, but import resolution/loading is handled by the compiler.
  */
-export function parseProgram(
-  entryFile: string,
+export function parseModuleFile(
+  modulePath: string,
   sourceText: string,
   diagnostics: Diagnostic[],
-): ProgramNode {
-  const file = makeSourceFile(entryFile, sourceText);
+): ModuleFileNode {
+  const file = makeSourceFile(modulePath, sourceText);
   const lineCount = file.lineStarts.length;
 
   function getRawLine(lineIndex: number): { raw: string; startOffset: number; endOffset: number } {
@@ -502,10 +502,49 @@ export function parseProgram(
     const exportPrefix = text.startsWith('export ') ? 'export ' : '';
     const rest = exportPrefix ? text.slice('export '.length).trimStart() : text;
 
+    if (rest.startsWith('import ')) {
+      if (exportPrefix.length > 0) {
+        diag(diagnostics, modulePath, `export not supported on import statements`, {
+          line: lineNo,
+          column: 1,
+        });
+        i++;
+        continue;
+      }
+
+      const spec = rest.slice('import '.length).trim();
+      const stmtSpan = span(file, lineStartOffset, lineEndOffset);
+      if (spec.startsWith('"') && spec.endsWith('"') && spec.length >= 2) {
+        const importNode: ImportNode = {
+          kind: 'Import',
+          span: stmtSpan,
+          specifier: spec.slice(1, -1),
+          form: 'path',
+        };
+        items.push(importNode);
+        i++;
+        continue;
+      }
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(spec)) {
+        const importNode: ImportNode = {
+          kind: 'Import',
+          span: stmtSpan,
+          specifier: spec,
+          form: 'moduleId',
+        };
+        items.push(importNode);
+        i++;
+        continue;
+      }
+      diag(diagnostics, modulePath, `Invalid import statement`, { line: lineNo, column: 1 });
+      i++;
+      continue;
+    }
+
     if (rest.startsWith('type ')) {
       const name = rest.slice('type '.length).trim();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diag(diagnostics, entryFile, `Invalid type name`, { line: lineNo, column: 1 });
+        diag(diagnostics, modulePath, `Invalid type name`, { line: lineNo, column: 1 });
         i++;
         continue;
       }
@@ -532,7 +571,7 @@ export function parseProgram(
 
         const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
         if (!m) {
-          diag(diagnostics, entryFile, `Invalid record field declaration`, {
+          diag(diagnostics, modulePath, `Invalid record field declaration`, {
             line: i + 1,
             column: 1,
           });
@@ -545,7 +584,7 @@ export function parseProgram(
         const fieldSpan = span(file, so, eo);
         const typeExpr = parseTypeExprFromText(typeText, fieldSpan);
         if (!typeExpr) {
-          diag(diagnostics, entryFile, `Unsupported field type`, { line: i + 1, column: 1 });
+          diag(diagnostics, modulePath, `Unsupported field type`, { line: i + 1, column: 1 });
           i++;
           continue;
         }
@@ -560,7 +599,7 @@ export function parseProgram(
       }
 
       if (!terminated) {
-        diag(diagnostics, entryFile, `Unterminated type "${name}": missing "end"`, {
+        diag(diagnostics, modulePath, `Unterminated type "${name}": missing "end"`, {
           line: lineNo,
           column: 1,
         });
@@ -595,7 +634,7 @@ export function parseProgram(
           if (m && TOP_LEVEL_KEYWORDS.has(m[1]!)) {
             diag(
               diagnostics,
-              entryFile,
+              modulePath,
               `Invalid var declaration name "${m[1]!}": collides with a top-level keyword.`,
               { line: i + 1, column: 1 },
             );
@@ -605,7 +644,7 @@ export function parseProgram(
 
         const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
         if (!m) {
-          diag(diagnostics, entryFile, `Invalid var declaration`, { line: i + 1, column: 1 });
+          diag(diagnostics, modulePath, `Invalid var declaration`, { line: i + 1, column: 1 });
           i++;
           continue;
         }
@@ -615,7 +654,7 @@ export function parseProgram(
         const declSpan = span(file, so, eo);
         const typeExpr = parseTypeExprFromText(typeText, declSpan);
         if (!typeExpr) {
-          diag(diagnostics, entryFile, `Unsupported type in var declaration`, {
+          diag(diagnostics, modulePath, `Unsupported type in var declaration`, {
             line: i + 1,
             column: 1,
           });
@@ -647,7 +686,7 @@ export function parseProgram(
       if (!m) {
         diag(
           diagnostics,
-          entryFile,
+          modulePath,
           `Invalid func header (PR1 supports only "func name(): void")`,
           {
             line: lineNo,
@@ -661,7 +700,7 @@ export function parseProgram(
       const name = m[1]!;
       const retType = m[2]!;
       if (retType !== 'void') {
-        diag(diagnostics, entryFile, `PR1 supports only return type void`, {
+        diag(diagnostics, modulePath, `PR1 supports only return type void`, {
           line: lineNo,
           column: 1,
         });
@@ -682,7 +721,7 @@ export function parseProgram(
         }
         asmStartOffset = so2;
         if (t2 !== 'asm') {
-          diag(diagnostics, entryFile, `PR1 expects "asm" immediately inside func`, {
+          diag(diagnostics, modulePath, `PR1 expects "asm" immediately inside func`, {
             line: i + 1,
             column: 1,
           });
@@ -692,7 +731,7 @@ export function parseProgram(
       }
 
       if (asmStartOffset === undefined) {
-        diag(diagnostics, entryFile, `Unterminated func "${name}": expected "asm"`, {
+        diag(diagnostics, modulePath, `Unterminated func "${name}": expected "asm"`, {
           line: lineNo,
           column: 1,
         });
@@ -743,20 +782,20 @@ export function parseProgram(
           const labelNode: AsmLabelNode = { kind: 'AsmLabel', span: fullSpan, name: label };
           asmItems.push(labelNode);
           if (remainder.trim().length > 0) {
-            const instrNode = parseAsmInstruction(entryFile, remainder, fullSpan, diagnostics);
+            const instrNode = parseAsmInstruction(modulePath, remainder, fullSpan, diagnostics);
             if (instrNode) asmItems.push(instrNode);
           }
           i++;
           continue;
         }
 
-        const instrNode = parseAsmInstruction(entryFile, content, fullSpan, diagnostics);
+        const instrNode = parseAsmInstruction(modulePath, content, fullSpan, diagnostics);
         if (instrNode) asmItems.push(instrNode);
         i++;
       }
 
       if (!terminated) {
-        diag(diagnostics, entryFile, `Unterminated func "${name}": missing "end"`, {
+        diag(diagnostics, modulePath, `Unterminated func "${name}": missing "end"`, {
           line: lineNo,
           column: 1,
         });
@@ -768,7 +807,7 @@ export function parseProgram(
 
     if (rest.startsWith('enum ')) {
       if (exportPrefix.length > 0) {
-        diag(diagnostics, entryFile, `export not supported on enum declarations in PR4 subset`, {
+        diag(diagnostics, modulePath, `export not supported on enum declarations in PR4 subset`, {
           line: lineNo,
           column: 1,
         });
@@ -777,7 +816,7 @@ export function parseProgram(
       const decl = rest.slice('enum '.length).trimStart();
       const nameMatch = /^([A-Za-z_][A-Za-z0-9_]*)(?:\s+(.*))?$/.exec(decl);
       if (!nameMatch) {
-        diag(diagnostics, entryFile, `Invalid enum declaration`, { line: lineNo, column: 1 });
+        diag(diagnostics, modulePath, `Invalid enum declaration`, { line: lineNo, column: 1 });
         i++;
         continue;
       }
@@ -785,7 +824,7 @@ export function parseProgram(
       const name = nameMatch[1]!;
       const membersText = (nameMatch[2] ?? '').trim();
       if (membersText.length === 0) {
-        diag(diagnostics, entryFile, `Enum "${name}" must declare at least one member`, {
+        diag(diagnostics, modulePath, `Enum "${name}" must declare at least one member`, {
           line: lineNo,
           column: 1,
         });
@@ -795,7 +834,7 @@ export function parseProgram(
 
       const rawParts = membersText.split(',').map((p) => p.trim());
       if (rawParts.some((p) => p.length === 0)) {
-        diag(diagnostics, entryFile, `Trailing commas are not permitted in enum member lists`, {
+        diag(diagnostics, modulePath, `Trailing commas are not permitted in enum member lists`, {
           line: lineNo,
           column: 1,
         });
@@ -806,7 +845,7 @@ export function parseProgram(
       const members: string[] = [];
       for (const m of rawParts) {
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(m)) {
-          diag(diagnostics, entryFile, `Invalid enum member name`, { line: lineNo, column: 1 });
+          diag(diagnostics, modulePath, `Invalid enum member name`, { line: lineNo, column: 1 });
           continue;
         }
         members.push(m);
@@ -821,7 +860,7 @@ export function parseProgram(
 
     if (rest === 'section' || rest.startsWith('section ')) {
       if (exportPrefix.length > 0) {
-        diag(diagnostics, entryFile, `export not supported on section directives`, {
+        diag(diagnostics, modulePath, `export not supported on section directives`, {
           line: lineNo,
           column: 1,
         });
@@ -832,7 +871,7 @@ export function parseProgram(
       const decl = rest === 'section' ? '' : rest.slice('section '.length).trimStart();
       const m = /^(code|data|var)(?:\s+at\s+(.+))?$/.exec(decl);
       if (!m) {
-        diag(diagnostics, entryFile, `Invalid section directive`, { line: lineNo, column: 1 });
+        diag(diagnostics, modulePath, `Invalid section directive`, { line: lineNo, column: 1 });
         i++;
         continue;
       }
@@ -840,7 +879,9 @@ export function parseProgram(
       const section = m[1]! as SectionDirectiveNode['section'];
       const atText = m[2]?.trim();
       const dirSpan = span(file, lineStartOffset, lineEndOffset);
-      const at = atText ? parseImmExprFromText(entryFile, atText, dirSpan, diagnostics) : undefined;
+      const at = atText
+        ? parseImmExprFromText(modulePath, atText, dirSpan, diagnostics)
+        : undefined;
 
       const sectionNode: SectionDirectiveNode = {
         kind: 'Section',
@@ -855,7 +896,7 @@ export function parseProgram(
 
     if (rest === 'align' || rest.startsWith('align ')) {
       if (exportPrefix.length > 0) {
-        diag(diagnostics, entryFile, `export not supported on align directives`, {
+        diag(diagnostics, modulePath, `export not supported on align directives`, {
           line: lineNo,
           column: 1,
         });
@@ -865,12 +906,12 @@ export function parseProgram(
 
       const exprText = rest === 'align' ? '' : rest.slice('align '.length).trimStart();
       if (exprText.length === 0) {
-        diag(diagnostics, entryFile, `Invalid align directive`, { line: lineNo, column: 1 });
+        diag(diagnostics, modulePath, `Invalid align directive`, { line: lineNo, column: 1 });
         i++;
         continue;
       }
       const dirSpan = span(file, lineStartOffset, lineEndOffset);
-      const value = parseImmExprFromText(entryFile, exprText, dirSpan, diagnostics);
+      const value = parseImmExprFromText(modulePath, exprText, dirSpan, diagnostics);
       if (!value) {
         i++;
         continue;
@@ -885,7 +926,7 @@ export function parseProgram(
       const decl = rest.slice('const '.length).trimStart();
       const eq = decl.indexOf('=');
       if (eq < 0) {
-        diag(diagnostics, entryFile, `Invalid const declaration`, { line: lineNo, column: 1 });
+        diag(diagnostics, modulePath, `Invalid const declaration`, { line: lineNo, column: 1 });
         i++;
         continue;
       }
@@ -893,13 +934,13 @@ export function parseProgram(
       const name = decl.slice(0, eq).trim();
       const rhs = decl.slice(eq + 1).trim();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diag(diagnostics, entryFile, `Invalid const name`, { line: lineNo, column: 1 });
+        diag(diagnostics, modulePath, `Invalid const name`, { line: lineNo, column: 1 });
         i++;
         continue;
       }
 
       const exprSpan = span(file, lineStartOffset, lineEndOffset);
-      const expr = parseImmExprFromText(entryFile, rhs, exprSpan, diagnostics);
+      const expr = parseImmExprFromText(modulePath, rhs, exprSpan, diagnostics);
       if (!expr) {
         i++;
         continue;
@@ -933,7 +974,7 @@ export function parseProgram(
 
         const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]+?)\s*=\s*(.+)$/.exec(t);
         if (!m) {
-          diag(diagnostics, entryFile, `Invalid data declaration`, { line: i + 1, column: 1 });
+          diag(diagnostics, modulePath, `Invalid data declaration`, { line: i + 1, column: 1 });
           i++;
           continue;
         }
@@ -946,7 +987,7 @@ export function parseProgram(
         const typeExpr = parseTypeExprFromText(typeText, lineSpan);
 
         if (!typeExpr) {
-          diag(diagnostics, entryFile, `Unsupported type in data declaration`, {
+          diag(diagnostics, modulePath, `Unsupported type in data declaration`, {
             line: i + 1,
             column: 1,
           });
@@ -962,12 +1003,12 @@ export function parseProgram(
           const parts = inner.length === 0 ? [] : inner.split(',').map((p) => p.trim());
           const elements: ImmExprNode[] = [];
           for (const part of parts) {
-            const e = parseImmExprFromText(entryFile, part, lineSpan, diagnostics);
+            const e = parseImmExprFromText(modulePath, part, lineSpan, diagnostics);
             if (e) elements.push(e);
           }
           initializer = { kind: 'InitArray', span: lineSpan, elements };
         } else {
-          const e = parseImmExprFromText(entryFile, initText, lineSpan, diagnostics);
+          const e = parseImmExprFromText(modulePath, initText, lineSpan, diagnostics);
           if (e) initializer = { kind: 'InitArray', span: lineSpan, elements: [e] };
         }
 
@@ -997,7 +1038,7 @@ export function parseProgram(
       continue;
     }
 
-    diag(diagnostics, entryFile, `Unsupported top-level construct in PR3 subset: ${text}`, {
+    diag(diagnostics, modulePath, `Unsupported top-level construct in PR3 subset: ${text}`, {
       line: lineNo,
       column: 1,
     });
@@ -1008,10 +1049,25 @@ export function parseProgram(
   const moduleFile: ModuleFileNode = {
     kind: 'ModuleFile',
     span: moduleSpan,
-    path: entryFile,
+    path: modulePath,
     items,
   };
 
+  return moduleFile;
+}
+
+/**
+ * Parse a ZAX program from a single in-memory source file.
+ *
+ * Note: this helper parses only the entry module. Import resolution/loading is handled by the compiler.
+ */
+export function parseProgram(
+  entryFile: string,
+  sourceText: string,
+  diagnostics: Diagnostic[],
+): ProgramNode {
+  const moduleFile = parseModuleFile(entryFile, sourceText, diagnostics);
+  const moduleSpan = moduleFile.span;
   const program: ProgramNode = {
     kind: 'Program',
     span: moduleSpan,

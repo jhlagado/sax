@@ -1,0 +1,10 @@
+; PR10 imports fixture: library module
+const LibConst = 42
+
+func lib(): void
+  asm
+    lib_start:
+    nop
+    ret
+end
+

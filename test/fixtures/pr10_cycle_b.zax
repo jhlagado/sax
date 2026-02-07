@@ -1,0 +1,8 @@
+; PR10 imports fixture: cycle B -> A
+import "pr10_cycle_a.zax"
+
+func lib(): void
+  asm
+    ret
+end
+
