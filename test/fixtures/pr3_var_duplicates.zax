@@ -1,0 +1,12 @@
+type Point
+  x: byte
+end
+
+var
+  p: Point
+  p: byte
+
+func main(): void
+asm
+  ret
+end

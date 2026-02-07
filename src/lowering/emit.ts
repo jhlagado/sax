@@ -191,11 +191,41 @@ export function emitProgram(
     (i): i is VarBlockNode => i.kind === 'VarBlock' && i.scope === 'module',
   );
   if (varBlocks.length > 0) {
+    const taken = new Set(symbols.map((s) => s.name));
     let varPc = align2(writtenEnd);
     for (const block of varBlocks) {
       for (const decl of block.decls) {
         const size = sizeOfTypeExpr(decl.typeExpr, env, diagnostics);
         if (size === undefined) continue;
+        if (env.consts.has(decl.name)) {
+          diag(diagnostics, decl.span.file, `Var name "${decl.name}" collides with a const.`);
+          varPc += size;
+          continue;
+        }
+        if (env.enums.has(decl.name)) {
+          diag(
+            diagnostics,
+            decl.span.file,
+            `Var name "${decl.name}" collides with an enum member.`,
+          );
+          varPc += size;
+          continue;
+        }
+        if (env.types.has(decl.name)) {
+          diag(diagnostics, decl.span.file, `Var name "${decl.name}" collides with a type name.`);
+          varPc += size;
+          continue;
+        }
+        if (taken.has(decl.name)) {
+          diag(
+            diagnostics,
+            decl.span.file,
+            `Duplicate symbol name "${decl.name}" for var declaration.`,
+          );
+          varPc += size;
+          continue;
+        }
+        taken.add(decl.name);
         symbols.push({
           kind: 'var',
           name: decl.name,

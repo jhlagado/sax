@@ -53,6 +53,13 @@ function immName(filePath: string, s: SourceSpan, name: string): ImmExprNode {
   return { kind: 'ImmName', span: { ...s, file: filePath }, name };
 }
 
+/**
+ * Parse a PR3 type-expression from a single line of text.
+ *
+ * Supported in the PR3 subset:
+ * - Named types (including scalars like `byte`, `word`, `addr`)
+ * - Fixed-length array suffixes like `byte[16]` or `Point[4]`
+ */
 function parseTypeExprFromText(typeText: string, typeSpan: SourceSpan): TypeExprNode | undefined {
   let rest = typeText.trim();
   const nameMatch = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
@@ -244,6 +251,14 @@ function parseImmExprFromText(
   return root;
 }
 
+/**
+ * Parse the `[...]` index portion of an EA expression (PR3 subset).
+ *
+ * Supported:
+ * - 8-bit registers (`A`..`L`)
+ * - `HL` (memory through HL)
+ * - Immediate expressions (reusing the `imm` parser)
+ */
 function parseEaIndexFromText(
   filePath: string,
   indexText: string,
@@ -259,6 +274,15 @@ function parseEaIndexFromText(
   return { kind: 'IndexImm', span: indexSpan, value: imm };
 }
 
+/**
+ * Parse an effective-address expression from text (PR3 subset).
+ *
+ * Supported:
+ * - `name`
+ * - field access: `name.field`
+ * - indexing: `name[idx]`
+ * - trailing offset: `+ imm` / `- imm`
+ */
 function parseEaExprFromText(
   filePath: string,
   exprText: string,
@@ -280,6 +304,7 @@ function parseEaExprFromText(
       continue;
     }
     if (rest.startsWith('[')) {
+      /* TODO: handle nested brackets like `arr[table[0]]` (PR3 does not need this yet). */
       const close = rest.indexOf(']');
       if (close < 0) return undefined;
       const inside = rest.slice(1, close);
@@ -445,6 +470,8 @@ export function parseProgram(
 
       const typeStart = lineStartOffset;
       const fields: RecordFieldNode[] = [];
+      let terminated = false;
+      let typeEndOffset = file.text.length;
       i++;
 
       while (i < lineCount) {
@@ -455,6 +482,8 @@ export function parseProgram(
           continue;
         }
         if (t === 'end') {
+          terminated = true;
+          typeEndOffset = eo;
           i++;
           break;
         }
@@ -488,7 +517,14 @@ export function parseProgram(
         i++;
       }
 
-      const typeEnd = i < lineCount ? (getRawLine(i).startOffset ?? typeStart) : file.text.length;
+      if (!terminated) {
+        diag(diagnostics, entryFile, `Unterminated type "${name}": missing "end"`, {
+          line: lineNo,
+          column: 1,
+        });
+      }
+
+      const typeEnd = terminated ? typeEndOffset : file.text.length;
       const typeSpan = span(file, typeStart, typeEnd);
       const typeNode: TypeDeclNode = {
         kind: 'TypeDecl',
@@ -512,7 +548,18 @@ export function parseProgram(
           i++;
           continue;
         }
-        if (isTopLevelStart(t)) break;
+        if (isTopLevelStart(t)) {
+          const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
+          if (m && TOP_LEVEL_KEYWORDS.has(m[1]!)) {
+            diag(
+              diagnostics,
+              entryFile,
+              `Invalid var declaration name "${m[1]!}": collides with a top-level keyword.`,
+              { line: i + 1, column: 1 },
+            );
+          }
+          break;
+        }
 
         const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
         if (!m) {

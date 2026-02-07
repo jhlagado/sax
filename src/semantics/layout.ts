@@ -62,15 +62,18 @@ export function sizeOfTypeExpr(
           return undefined;
         }
         visiting.add(te.name);
-        const decl = env.types.get(te.name);
-        if (!decl) {
-          diag(te.span.file, `Unknown type "${te.name}".`);
-          return undefined;
+        try {
+          const decl = env.types.get(te.name);
+          if (!decl) {
+            diag(te.span.file, `Unknown type "${te.name}".`);
+            return undefined;
+          }
+          const sz = sizeOfDecl(decl);
+          if (sz !== undefined) memo.set(te.name, sz);
+          return sz;
+        } finally {
+          visiting.delete(te.name);
         }
-        const sz = sizeOfDecl(decl);
-        if (sz !== undefined) memo.set(te.name, sz);
-        visiting.delete(te.name);
-        return sz;
       }
       case 'ArrayType': {
         const es = sizeOf(te.element);
