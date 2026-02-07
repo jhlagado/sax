@@ -1,9 +1,10 @@
 import type { Diagnostic } from '../diagnostics/types.js';
 import { DiagnosticIds } from '../diagnostics/types.js';
 import type { EmittedByteMap, SymbolEntry } from '../formats/types.js';
-import type { ProgramNode } from '../frontend/ast.js';
+import type { DataBlockNode, ProgramNode, VarBlockNode } from '../frontend/ast.js';
 import type { CompileEnv } from '../semantics/env.js';
 import { evalImmExpr } from '../semantics/env.js';
+import { sizeOfTypeExpr } from '../semantics/layout.js';
 import { encodeInstruction } from '../z80/encode.js';
 
 function diag(diagnostics: Diagnostic[], file: string, message: string): void {
@@ -82,107 +83,132 @@ export function emitProgram(
     }
   }
 
-  const dataBlocks = module.items.filter((i) => i.kind === 'DataBlock');
-  if (dataBlocks.length === 0) {
-    return { map: { bytes, writtenRange: { start: 0, end: pc } }, symbols };
-  }
-
-  // Pack data blocks after code (aligned to 2) per spec default.
   const align2 = (n: number) => (n + 1) & ~1;
-  let dataPc = align2(pc);
 
-  for (const item of dataBlocks) {
-    for (const decl of item.decls) {
-      symbols.push({
-        kind: 'data',
-        name: decl.name,
-        address: dataPc,
-        file: decl.span.file,
-        line: decl.span.start.line,
-        scope: 'global',
-      });
+  const dataBlocks = module.items.filter((i): i is DataBlockNode => i.kind === 'DataBlock');
+  let dataPc = pc;
+  if (dataBlocks.length > 0) {
+    // Pack data blocks after code (aligned to 2) per spec default.
+    dataPc = align2(pc);
 
-      const type = decl.typeExpr;
-      const init = decl.initializer;
+    for (const item of dataBlocks) {
+      for (const decl of item.decls) {
+        symbols.push({
+          kind: 'data',
+          name: decl.name,
+          address: dataPc,
+          file: decl.span.file,
+          line: decl.span.start.line,
+          scope: 'global',
+        });
 
-      const emitByte = (b: number) => {
-        bytes.set(dataPc, b & 0xff);
-        dataPc++;
-      };
-      const emitWord = (w: number) => {
-        emitByte(w & 0xff);
-        emitByte((w >> 8) & 0xff);
-      };
+        const type = decl.typeExpr;
+        const init = decl.initializer;
 
-      const elementType =
-        type.kind === 'ArrayType'
-          ? type.element.kind === 'TypeName'
-            ? type.element.name
-            : undefined
-          : type.kind === 'TypeName'
-            ? type.name
-            : undefined;
-      const elementSize =
-        elementType === 'word' || elementType === 'addr'
-          ? 2
-          : elementType === 'byte'
-            ? 1
-            : undefined;
-      if (!elementType || !elementSize) {
-        diag(
-          diagnostics,
-          decl.span.file,
-          `Unsupported data type in PR2 subset for "${decl.name}".`,
-        );
-        continue;
-      }
+        const emitByte = (b: number) => {
+          bytes.set(dataPc, b & 0xff);
+          dataPc++;
+        };
+        const emitWord = (w: number) => {
+          emitByte(w & 0xff);
+          emitByte((w >> 8) & 0xff);
+        };
 
-      const length = type.kind === 'ArrayType' ? type.length : 1;
-
-      if (init.kind === 'InitString') {
-        if (elementSize !== 1) {
+        const elementType =
+          type.kind === 'ArrayType'
+            ? type.element.kind === 'TypeName'
+              ? type.element.name
+              : undefined
+            : type.kind === 'TypeName'
+              ? type.name
+              : undefined;
+        const elementSize =
+          elementType === 'word' || elementType === 'addr'
+            ? 2
+            : elementType === 'byte'
+              ? 1
+              : undefined;
+        if (!elementType || !elementSize) {
           diag(
             diagnostics,
             decl.span.file,
-            `String initializer requires byte element type for "${decl.name}".`,
+            `Unsupported data type in PR2 subset for "${decl.name}".`,
           );
           continue;
         }
-        if (length !== undefined && init.value.length !== length) {
-          diag(diagnostics, decl.span.file, `String length mismatch for "${decl.name}".`);
+
+        const length = type.kind === 'ArrayType' ? type.length : 1;
+
+        if (init.kind === 'InitString') {
+          if (elementSize !== 1) {
+            diag(
+              diagnostics,
+              decl.span.file,
+              `String initializer requires byte element type for "${decl.name}".`,
+            );
+            continue;
+          }
+          if (length !== undefined && init.value.length !== length) {
+            diag(diagnostics, decl.span.file, `String length mismatch for "${decl.name}".`);
+            continue;
+          }
+          for (let idx = 0; idx < init.value.length; idx++) {
+            emitByte(init.value.charCodeAt(idx));
+          }
           continue;
         }
-        for (let idx = 0; idx < init.value.length; idx++) {
-          emitByte(init.value.charCodeAt(idx));
+
+        const values: number[] = [];
+        for (const e of init.elements) {
+          const v = evalImmExpr(e, env, diagnostics);
+          if (v === undefined) {
+            diag(
+              diagnostics,
+              decl.span.file,
+              `Failed to evaluate data initializer for "${decl.name}".`,
+            );
+            break;
+          }
+          values.push(v);
         }
-        continue;
-      }
 
-      const values: number[] = [];
-      for (const e of init.elements) {
-        const v = evalImmExpr(e, env);
-        if (v === undefined) {
-          diag(
-            diagnostics,
-            decl.span.file,
-            `Failed to evaluate data initializer for "${decl.name}".`,
-          );
-          break;
+        if (length !== undefined && values.length !== length) {
+          diag(diagnostics, decl.span.file, `Initializer length mismatch for "${decl.name}".`);
+          continue;
         }
-        values.push(v);
-      }
 
-      if (length !== undefined && values.length !== length) {
-        diag(diagnostics, decl.span.file, `Initializer length mismatch for "${decl.name}".`);
-        continue;
-      }
-
-      for (const v of values) {
-        if (elementSize === 1) emitByte(v);
-        else emitWord(v);
+        for (const v of values) {
+          if (elementSize === 1) emitByte(v);
+          else emitWord(v);
+        }
       }
     }
   }
 
-  return { map: { bytes, writtenRange: { start: 0, end: Math.max(pc, dataPc) } }, symbols };
+  const writtenEnd = Math.max(pc, dataPc);
+
+  const varBlocks = module.items.filter(
+    (i): i is VarBlockNode => i.kind === 'VarBlock' && i.scope === 'module',
+  );
+  if (varBlocks.length > 0) {
+    let varPc = align2(writtenEnd);
+    for (const block of varBlocks) {
+      for (const decl of block.decls) {
+        const size = sizeOfTypeExpr(decl.typeExpr, env, diagnostics);
+        if (size === undefined) continue;
+        symbols.push({
+          kind: 'var',
+          name: decl.name,
+          address: varPc,
+          file: decl.span.file,
+          line: decl.span.start.line,
+          scope: 'global',
+          size,
+        });
+        varPc += size;
+      }
+    }
+  }
+
+  return { map: { bytes, writtenRange: { start: 0, end: writtenEnd } }, symbols };
 }

@@ -1,0 +1,18 @@
+type Point
+  x: word
+  y: word
+end
+
+var
+  p: Point
+  xs: byte[3]
+
+data
+  msg: byte[2] = "HI"
+
+export func main(): void
+  asm
+    nop
+    ret
+end
+

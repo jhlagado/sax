@@ -23,7 +23,7 @@ export interface EmittedByteMap {
  * A symbol entry for debug maps and listings.
  */
 export interface SymbolEntry {
-  kind: 'label' | 'constant' | 'data' | 'unknown';
+  kind: 'label' | 'constant' | 'data' | 'var' | 'unknown';
   name: string;
   address: number;
   file?: string;

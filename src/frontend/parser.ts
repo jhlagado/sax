@@ -7,13 +7,19 @@ import type {
   ConstDeclNode,
   DataBlockNode,
   DataDeclNode,
+  EaExprNode,
+  EaIndexNode,
   FuncDeclNode,
   ImmExprNode,
   ModuleFileNode,
   ModuleItemNode,
   ProgramNode,
+  RecordFieldNode,
   SourceSpan,
+  TypeDeclNode,
   TypeExprNode,
+  VarBlockNode,
+  VarDeclNode,
 } from './ast.js';
 import { makeSourceFile, span } from './source.js';
 import type { Diagnostic } from '../diagnostics/types.js';
@@ -45,6 +51,27 @@ function immLiteral(filePath: string, s: SourceSpan, value: number): ImmExprNode
 
 function immName(filePath: string, s: SourceSpan, name: string): ImmExprNode {
   return { kind: 'ImmName', span: { ...s, file: filePath }, name };
+}
+
+function parseTypeExprFromText(typeText: string, typeSpan: SourceSpan): TypeExprNode | undefined {
+  let rest = typeText.trim();
+  const nameMatch = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
+  if (!nameMatch) return undefined;
+  const name = nameMatch[1]!;
+  rest = rest.slice(name.length).trimStart();
+
+  let typeExpr: TypeExprNode = { kind: 'TypeName', span: typeSpan, name };
+
+  while (rest.startsWith('[')) {
+    const m = /^\[\s*([0-9]+)\s*\]/.exec(rest);
+    if (!m) return undefined;
+    const len = Number.parseInt(m[1]!, 10);
+    typeExpr = { kind: 'ArrayType', span: typeSpan, element: typeExpr, length: len };
+    rest = rest.slice(m[0].length).trimStart();
+  }
+
+  if (rest.length > 0) return undefined;
+  return typeExpr;
 }
 
 function parseNumberLiteral(text: string): number | undefined {
@@ -217,6 +244,70 @@ function parseImmExprFromText(
   return root;
 }
 
+function parseEaIndexFromText(
+  filePath: string,
+  indexText: string,
+  indexSpan: SourceSpan,
+  diagnostics: Diagnostic[],
+): EaIndexNode | undefined {
+  const t = indexText.trim();
+  if (t.toUpperCase() === 'HL') return { kind: 'IndexMemHL', span: indexSpan };
+  if (/^(A|B|C|D|E|H|L)$/i.test(t)) return { kind: 'IndexReg8', span: indexSpan, reg: t };
+
+  const imm = parseImmExprFromText(filePath, t, indexSpan, diagnostics);
+  if (!imm) return undefined;
+  return { kind: 'IndexImm', span: indexSpan, value: imm };
+}
+
+function parseEaExprFromText(
+  filePath: string,
+  exprText: string,
+  exprSpan: SourceSpan,
+  diagnostics: Diagnostic[],
+): EaExprNode | undefined {
+  let rest = exprText.trim();
+  const baseMatch = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
+  if (!baseMatch) return undefined;
+  let expr: EaExprNode = { kind: 'EaName', span: exprSpan, name: baseMatch[1]! };
+  rest = rest.slice(baseMatch[0].length).trimStart();
+
+  while (rest.length > 0) {
+    if (rest.startsWith('.')) {
+      const m = /^\.([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
+      if (!m) return undefined;
+      expr = { kind: 'EaField', span: exprSpan, base: expr, field: m[1]! };
+      rest = rest.slice(m[0].length).trimStart();
+      continue;
+    }
+    if (rest.startsWith('[')) {
+      const close = rest.indexOf(']');
+      if (close < 0) return undefined;
+      const inside = rest.slice(1, close);
+      const index = parseEaIndexFromText(filePath, inside, exprSpan, diagnostics);
+      if (!index) return undefined;
+      expr = { kind: 'EaIndex', span: exprSpan, base: expr, index };
+      rest = rest.slice(close + 1).trimStart();
+      continue;
+    }
+    break;
+  }
+
+  // Optional offset: `+ imm` or `- imm` at the end.
+  if (rest.length > 0) {
+    const m = /^([+-])\s*(.+)$/.exec(rest);
+    if (!m) return undefined;
+    const off = parseImmExprFromText(filePath, m[2]!, exprSpan, diagnostics);
+    if (!off) return undefined;
+    expr =
+      m[1] === '+'
+        ? { kind: 'EaAdd', span: exprSpan, base: expr, offset: off }
+        : { kind: 'EaSub', span: exprSpan, base: expr, offset: off };
+    rest = '';
+  }
+
+  return rest.length === 0 ? expr : undefined;
+}
+
 function parseAsmOperand(
   filePath: string,
   operandText: string,
@@ -235,12 +326,22 @@ function parseAsmOperand(
     return { kind: 'Imm', span: operandSpan, expr: immLiteral(filePath, operandSpan, n) };
   }
 
+  if (t.startsWith('(') && t.endsWith(')')) {
+    const inner = t.slice(1, -1).trim();
+    const ea = parseEaExprFromText(filePath, inner, operandSpan, diagnostics);
+    if (ea) return { kind: 'Mem', span: operandSpan, expr: ea };
+  }
+  if (t.includes('.') || t.includes('[')) {
+    const ea = parseEaExprFromText(filePath, t, operandSpan, diagnostics);
+    if (ea) return { kind: 'Ea', span: operandSpan, expr: ea };
+  }
+
   const expr = parseImmExprFromText(filePath, t, operandSpan, diagnostics);
   if (expr) {
     return { kind: 'Imm', span: operandSpan, expr };
   }
 
-  diag(diagnostics, filePath, `Unsupported operand in PR2 subset: ${t}`, {
+  diag(diagnostics, filePath, `Unsupported operand in PR3 subset: ${t}`, {
     line: operandSpan.start.line,
     column: operandSpan.start.column,
   });
@@ -298,6 +399,29 @@ export function parseProgram(
 
   const items: ModuleItemNode[] = [];
 
+  const TOP_LEVEL_KEYWORDS = new Set([
+    'func',
+    'const',
+    'enum',
+    'data',
+    'import',
+    'type',
+    'union',
+    'var',
+    'extern',
+    'bin',
+    'hex',
+    'op',
+    'section',
+    'align',
+  ]);
+
+  function isTopLevelStart(t: string): boolean {
+    const w = t.startsWith('export ') ? t.slice('export '.length).trimStart() : t;
+    const keyword = w.split(/\s/, 1)[0] ?? '';
+    return TOP_LEVEL_KEYWORDS.has(keyword);
+  }
+
   let i = 0;
   while (i < lineCount) {
     const { raw, startOffset: lineStartOffset, endOffset: lineEndOffset } = getRawLine(i);
@@ -310,6 +434,120 @@ export function parseProgram(
 
     const exportPrefix = text.startsWith('export ') ? 'export ' : '';
     const rest = exportPrefix ? text.slice('export '.length).trimStart() : text;
+
+    if (rest.startsWith('type ')) {
+      const name = rest.slice('type '.length).trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        diag(diagnostics, entryFile, `Invalid type name`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+
+      const typeStart = lineStartOffset;
+      const fields: RecordFieldNode[] = [];
+      i++;
+
+      while (i < lineCount) {
+        const { raw: rawField, startOffset: so, endOffset: eo } = getRawLine(i);
+        const t = stripComment(rawField).trim();
+        if (t.length === 0) {
+          i++;
+          continue;
+        }
+        if (t === 'end') {
+          i++;
+          break;
+        }
+
+        const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
+        if (!m) {
+          diag(diagnostics, entryFile, `Invalid record field declaration`, {
+            line: i + 1,
+            column: 1,
+          });
+          i++;
+          continue;
+        }
+
+        const fieldName = m[1]!;
+        const typeText = m[2]!.trim();
+        const fieldSpan = span(file, so, eo);
+        const typeExpr = parseTypeExprFromText(typeText, fieldSpan);
+        if (!typeExpr) {
+          diag(diagnostics, entryFile, `Unsupported field type`, { line: i + 1, column: 1 });
+          i++;
+          continue;
+        }
+
+        fields.push({
+          kind: 'RecordField',
+          span: fieldSpan,
+          name: fieldName,
+          typeExpr,
+        });
+        i++;
+      }
+
+      const typeEnd = i < lineCount ? (getRawLine(i).startOffset ?? typeStart) : file.text.length;
+      const typeSpan = span(file, typeStart, typeEnd);
+      const typeNode: TypeDeclNode = {
+        kind: 'TypeDecl',
+        span: typeSpan,
+        name,
+        typeExpr: { kind: 'RecordType', span: typeSpan, fields },
+      };
+      items.push(typeNode);
+      continue;
+    }
+
+    if (rest === 'var') {
+      const blockStart = lineStartOffset;
+      i++;
+      const decls: VarDeclNode[] = [];
+
+      while (i < lineCount) {
+        const { raw: rawDecl, startOffset: so, endOffset: eo } = getRawLine(i);
+        const t = stripComment(rawDecl).trim();
+        if (t.length === 0) {
+          i++;
+          continue;
+        }
+        if (isTopLevelStart(t)) break;
+
+        const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
+        if (!m) {
+          diag(diagnostics, entryFile, `Invalid var declaration`, { line: i + 1, column: 1 });
+          i++;
+          continue;
+        }
+
+        const name = m[1]!;
+        const typeText = m[2]!.trim();
+        const declSpan = span(file, so, eo);
+        const typeExpr = parseTypeExprFromText(typeText, declSpan);
+        if (!typeExpr) {
+          diag(diagnostics, entryFile, `Unsupported type in var declaration`, {
+            line: i + 1,
+            column: 1,
+          });
+          i++;
+          continue;
+        }
+
+        decls.push({ kind: 'VarDecl', span: declSpan, name, typeExpr });
+        i++;
+      }
+
+      const blockEnd = i < lineCount ? (getRawLine(i).startOffset ?? blockStart) : file.text.length;
+      const varBlock: VarBlockNode = {
+        kind: 'VarBlock',
+        span: span(file, blockStart, blockEnd),
+        scope: 'module',
+        decls,
+      };
+      items.push(varBlock);
+      continue;
+    }
 
     if (rest.startsWith('func ')) {
       const exported = exportPrefix.length > 0;
@@ -480,29 +718,6 @@ export function parseProgram(
       i++;
       const decls: DataDeclNode[] = [];
 
-      const TOP_LEVEL_KEYWORDS = new Set([
-        'func',
-        'const',
-        'enum',
-        'data',
-        'import',
-        'type',
-        'union',
-        'var',
-        'extern',
-        'bin',
-        'hex',
-        'op',
-        'section',
-        'align',
-      ]);
-
-      const isTopLevelStart = (t: string): boolean => {
-        const w = t.startsWith('export ') ? t.slice('export '.length).trimStart() : t;
-        const keyword = w.split(/\s/, 1)[0] ?? '';
-        return TOP_LEVEL_KEYWORDS.has(keyword);
-      };
-
       while (i < lineCount) {
         const { raw: rawDecl, startOffset: so, endOffset: eo } = getRawLine(i);
         const t = stripComment(rawDecl).trim();
@@ -524,21 +739,7 @@ export function parseProgram(
         const initText = m[3]!.trim();
 
         const lineSpan = span(file, so, eo);
-
-        let typeExpr: TypeExprNode | undefined;
-        const arrMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*([0-9]+)\s*\]\s*$/.exec(typeText);
-        if (arrMatch) {
-          const base = arrMatch[1]!;
-          const len = Number.parseInt(arrMatch[2]!, 10);
-          typeExpr = {
-            kind: 'ArrayType',
-            span: lineSpan,
-            element: { kind: 'TypeName', span: lineSpan, name: base },
-            length: len,
-          };
-        } else if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(typeText)) {
-          typeExpr = { kind: 'TypeName', span: lineSpan, name: typeText };
-        }
+        const typeExpr = parseTypeExprFromText(typeText, lineSpan);
 
         if (!typeExpr) {
           diag(diagnostics, entryFile, `Unsupported type in data declaration`, {
@@ -592,7 +793,7 @@ export function parseProgram(
       continue;
     }
 
-    diag(diagnostics, entryFile, `Unsupported top-level construct in PR2 subset: ${text}`, {
+    diag(diagnostics, entryFile, `Unsupported top-level construct in PR3 subset: ${text}`, {
       line: lineNo,
       column: 1,
     });

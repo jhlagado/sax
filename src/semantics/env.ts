@@ -1,6 +1,12 @@
 import type { Diagnostic } from '../diagnostics/types.js';
 import { DiagnosticIds } from '../diagnostics/types.js';
-import type { EnumDeclNode, ImmExprNode, ModuleItemNode, ProgramNode } from '../frontend/ast.js';
+import type {
+  EnumDeclNode,
+  ImmExprNode,
+  ModuleItemNode,
+  ProgramNode,
+  TypeDeclNode,
+} from '../frontend/ast.js';
 
 /**
  * Immutable compilation environment for PR2: resolved constant and enum member values.
@@ -19,6 +25,13 @@ export interface CompileEnv {
    * PR2 supports only implicit 0..N-1 member values.
    */
   enums: Map<string, number>;
+
+  /**
+   * Map of type name -> type declaration.
+   *
+   * PR3 uses this for layout calculation for module-scope `var` declarations.
+   */
+  types: Map<string, TypeDeclNode>;
 }
 
 function diag(diagnostics: Diagnostic[], file: string, message: string): void {
@@ -139,18 +152,28 @@ function buildEnumMap(enums: EnumDeclNode[]): Map<string, number> {
 export function buildEnv(program: ProgramNode, diagnostics: Diagnostic[]): CompileEnv {
   const consts = new Map<string, number>();
   const enums = new Map<string, number>();
+  const types = new Map<string, TypeDeclNode>();
 
   const moduleFile = program.files[0];
   if (!moduleFile) {
     diag(diagnostics, program.entryFile, 'No module files to compile.');
-    return { consts, enums };
+    return { consts, enums, types };
+  }
+
+  for (const item of moduleFile.items) {
+    if (item.kind !== 'TypeDecl') continue;
+    if (types.has(item.name)) {
+      diag(diagnostics, item.span.file, `Duplicate type name "${item.name}".`);
+      continue;
+    }
+    types.set(item.name, item);
   }
 
   for (const [k, v] of buildEnumMap(collectEnumMembers(moduleFile.items))) {
     enums.set(k, v);
   }
 
-  const env: CompileEnv = { consts, enums };
+  const env: CompileEnv = { consts, enums, types };
 
   for (const item of moduleFile.items) {
     if (item.kind !== 'ConstDecl') continue;
