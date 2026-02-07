@@ -1,7 +1,7 @@
 import type { Diagnostic } from '../diagnostics/types.js';
 import { DiagnosticIds } from '../diagnostics/types.js';
 import type { EmittedByteMap, SymbolEntry } from '../formats/types.js';
-import type { DataBlockNode, ProgramNode, VarBlockNode } from '../frontend/ast.js';
+import type { DataBlockNode, EnumDeclNode, ProgramNode, VarBlockNode } from '../frontend/ast.js';
 import type { CompileEnv } from '../semantics/env.js';
 import { evalImmExpr } from '../semantics/env.js';
 import { sizeOfTypeExpr } from '../semantics/layout.js';
@@ -44,9 +44,11 @@ export function emitProgram(
     return { map: { bytes }, symbols };
   }
 
+  const taken = new Set<string>();
+
   for (const item of module.items) {
     if (item.kind === 'ConstDecl') {
-      const v = evalImmExpr(item.value, env);
+      const v = env.consts.get(item.name);
       if (v !== undefined) {
         symbols.push({
           kind: 'constant',
@@ -56,6 +58,7 @@ export function emitProgram(
           line: item.span.start.line,
           scope: 'global',
         });
+        taken.add(item.name);
       }
       continue;
     }
@@ -70,6 +73,7 @@ export function emitProgram(
           line: asmItem.span.start.line,
           scope: 'global',
         });
+        taken.add(asmItem.name);
         continue;
       }
       if (asmItem.kind !== 'AsmInstruction') continue;
@@ -83,6 +87,27 @@ export function emitProgram(
     }
   }
 
+  const enumDecls = module.items.filter((i): i is EnumDeclNode => i.kind === 'EnumDecl');
+  for (const e of enumDecls) {
+    for (let idx = 0; idx < e.members.length; idx++) {
+      const name = e.members[idx]!;
+      if (env.enums.get(name) !== idx) continue;
+      if (taken.has(name)) {
+        diag(diagnostics, e.span.file, `Duplicate symbol name "${name}".`);
+        continue;
+      }
+      taken.add(name);
+      symbols.push({
+        kind: 'constant',
+        name,
+        address: idx,
+        file: e.span.file,
+        line: e.span.start.line,
+        scope: 'global',
+      });
+    }
+  }
+
   const align2 = (n: number) => (n + 1) & ~1;
 
   const dataBlocks = module.items.filter((i): i is DataBlockNode => i.kind === 'DataBlock');
@@ -93,14 +118,22 @@ export function emitProgram(
 
     for (const item of dataBlocks) {
       for (const decl of item.decls) {
-        symbols.push({
-          kind: 'data',
-          name: decl.name,
-          address: dataPc,
-          file: decl.span.file,
-          line: decl.span.start.line,
-          scope: 'global',
-        });
+        const okToDeclareSymbol = !taken.has(decl.name);
+        if (taken.has(decl.name)) {
+          diag(diagnostics, decl.span.file, `Duplicate symbol name "${decl.name}".`);
+        } else {
+          taken.add(decl.name);
+        }
+        if (okToDeclareSymbol) {
+          symbols.push({
+            kind: 'data',
+            name: decl.name,
+            address: dataPc,
+            file: decl.span.file,
+            line: decl.span.start.line,
+            scope: 'global',
+          });
+        }
 
         const type = decl.typeExpr;
         const init = decl.initializer;
@@ -191,7 +224,6 @@ export function emitProgram(
     (i): i is VarBlockNode => i.kind === 'VarBlock' && i.scope === 'module',
   );
   if (varBlocks.length > 0) {
-    const taken = new Set(symbols.map((s) => s.name));
     let varPc = align2(writtenEnd);
     for (const block of varBlocks) {
       for (const decl of block.decls) {
