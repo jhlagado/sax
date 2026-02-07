@@ -1,0 +1,9 @@
+; PR1 minimal subset fixture
+export func main(): void
+  asm
+    nop
+    ld a, $2A
+    jp $1234
+    ret
+end
+

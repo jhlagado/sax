@@ -1,17 +1,35 @@
+/**
+ * Severity level for a diagnostic.
+ */
 export type DiagnosticSeverity = 'error' | 'warning' | 'info';
 
+/**
+ * A compiler diagnostic (error/warning/info) with an optional source location.
+ *
+ * Diagnostics must have stable IDs so downstream tooling can rely on them.
+ */
 export interface Diagnostic {
-  id: DiagnosticId; // stable (e.g., ZAX001)
+  /** Stable diagnostic identifier (e.g., `ZAX001`). */
+  id: DiagnosticId;
   severity: DiagnosticSeverity;
   message: string;
   file: string;
-  line?: number; // 1-based, optional when unknown
-  column?: number; // 1-based, optional when unknown
+  /** 1-based line number, when known. */
+  line?: number;
+  /** 1-based column number, when known. */
+  column?: number;
 }
 
-// Intentionally minimal starter set for PR0. Later PRs add IDs via contract-change PRs.
+/**
+ * Known diagnostic IDs.
+ *
+ * PR0 started with a minimal set; later PRs should extend this via contract changes.
+ */
 export const DiagnosticIds = {
   Unknown: 'ZAX000',
 } as const;
 
+/**
+ * Union type of all defined diagnostic IDs.
+ */
 export type DiagnosticId = (typeof DiagnosticIds)[keyof typeof DiagnosticIds];
