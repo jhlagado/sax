@@ -118,6 +118,11 @@ export function emitProgram(
 
     for (const item of dataBlocks) {
       for (const decl of item.decls) {
+        if (taken.has(decl.name)) {
+          diag(diagnostics, decl.span.file, `Duplicate symbol name "${decl.name}".`);
+        } else {
+          taken.add(decl.name);
+        }
         symbols.push({
           kind: 'data',
           name: decl.name,

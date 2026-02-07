@@ -30,7 +30,9 @@ describe('PR4 enum parsing', () => {
     }>;
     expect(symbols).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({ name: 'Read', kind: 'constant', address: 0 }),
         expect.objectContaining({ name: 'Write', kind: 'constant', address: 1 }),
+        expect.objectContaining({ name: 'Append', kind: 'constant', address: 2 }),
       ]),
     );
   });
