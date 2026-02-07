@@ -480,25 +480,27 @@ export function parseProgram(
       i++;
       const decls: DataDeclNode[] = [];
 
+      const TOP_LEVEL_KEYWORDS = new Set([
+        'func',
+        'const',
+        'enum',
+        'data',
+        'import',
+        'type',
+        'union',
+        'var',
+        'extern',
+        'bin',
+        'hex',
+        'op',
+        'section',
+        'align',
+      ]);
+
       const isTopLevelStart = (t: string): boolean => {
         const w = t.startsWith('export ') ? t.slice('export '.length).trimStart() : t;
-        return (
-          w.startsWith('func ') ||
-          w.startsWith('const ') ||
-          w.startsWith('enum ') ||
-          w === 'data' ||
-          w.startsWith('import ') ||
-          w.startsWith('type ') ||
-          w.startsWith('union ') ||
-          w === 'var' ||
-          w.startsWith('var ') ||
-          w.startsWith('extern ') ||
-          w.startsWith('bin ') ||
-          w.startsWith('hex ') ||
-          w.startsWith('op ') ||
-          w.startsWith('section ') ||
-          w.startsWith('align ')
-        );
+        const keyword = w.split(/\s/, 1)[0] ?? '';
+        return TOP_LEVEL_KEYWORDS.has(keyword);
       };
 
       while (i < lineCount) {
