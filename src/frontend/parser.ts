@@ -104,7 +104,9 @@ type ImmToken =
   | { kind: 'ident'; text: string }
   | { kind: 'op'; text: string }
   | { kind: 'lparen' }
-  | { kind: 'rparen' };
+  | { kind: 'rparen' }
+  | { kind: 'lbrack' }
+  | { kind: 'rbrack' };
 
 function tokenizeImm(text: string): ImmToken[] | undefined {
   const out: ImmToken[] = [];
@@ -123,6 +125,16 @@ function tokenizeImm(text: string): ImmToken[] | undefined {
     }
     if (ch === ')') {
       out.push({ kind: 'rparen' });
+      i++;
+      continue;
+    }
+    if (ch === '[') {
+      out.push({ kind: 'lbrack' });
+      i++;
+      continue;
+    }
+    if (ch === ']') {
+      out.push({ kind: 'rbrack' });
       i++;
       continue;
     }
@@ -226,12 +238,26 @@ function parseImmExprFromText(
         const arg = tokens[idx];
         if (!arg || arg.kind !== 'ident') return undefined;
         idx++;
+
+        let typeExpr: TypeExprNode = { kind: 'TypeName', span: exprSpan, name: arg.text };
+        while (tokens[idx]?.kind === 'lbrack') {
+          idx++;
+          const lenTok = tokens[idx];
+          if (!lenTok || lenTok.kind !== 'num') return undefined;
+          if (!/^[0-9]+$/.test(lenTok.text)) return undefined;
+          const len = Number.parseInt(lenTok.text, 10);
+          idx++;
+          if (tokens[idx]?.kind !== 'rbrack') return undefined;
+          idx++;
+          typeExpr = { kind: 'ArrayType', span: exprSpan, element: typeExpr, length: len };
+        }
+
         if (tokens[idx]?.kind !== 'rparen') return undefined;
         idx++;
         return {
           kind: 'ImmSizeof',
           span: exprSpan,
-          typeExpr: { kind: 'TypeName', span: exprSpan, name: arg.text },
+          typeExpr,
         };
       }
       idx++;

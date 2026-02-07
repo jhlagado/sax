@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { compile } from '../src/compile.js';
 import { defaultFormatWriters } from '../src/formats/index.js';
 import type { BinArtifact, D8mArtifact } from '../src/formats/types.js';
+import { DiagnosticIds } from '../src/diagnostics/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -33,6 +34,18 @@ describe('PR8 sizeof() in imm expressions', () => {
       expect.arrayContaining([
         expect.objectContaining({ name: 'SzPoint', kind: 'constant', value: 4 }),
       ]),
+    );
+  });
+
+  it('diagnoses unknown types used in sizeof()', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr8_sizeof_unknown.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics.map((d) => d.id)).toEqual(
+      expect.arrayContaining([DiagnosticIds.TypeError, DiagnosticIds.SemanticsError]),
+    );
+    expect(res.diagnostics.map((d) => d.message)).toEqual(
+      expect.arrayContaining(['Unknown type "Nope".', 'Failed to evaluate const "SzNope".']),
     );
   });
 });

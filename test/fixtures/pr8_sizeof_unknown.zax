@@ -1,0 +1,7 @@
+const SzNope = sizeof(Nope)
+
+export func main(): void
+  asm
+    ret
+end
+
