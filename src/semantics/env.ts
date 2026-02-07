@@ -1,0 +1,140 @@
+import type { Diagnostic } from '../diagnostics/types.js';
+import { DiagnosticIds } from '../diagnostics/types.js';
+import type { EnumDeclNode, ImmExprNode, ModuleItemNode, ProgramNode } from '../frontend/ast.js';
+
+/**
+ * Immutable compilation environment for PR2: resolved constant and enum member values.
+ */
+export interface CompileEnv {
+  /**
+   * Map of constant name -> evaluated numeric value.
+   *
+   * Values are plain JavaScript numbers; interpretation (imm8/imm16 wrapping, etc.) happens at use sites.
+   */
+  consts: Map<string, number>;
+
+  /**
+   * Map of enum member name -> evaluated numeric value.
+   *
+   * PR2 supports only implicit 0..N-1 member values.
+   */
+  enums: Map<string, number>;
+}
+
+function diag(diagnostics: Diagnostic[], file: string, message: string): void {
+  diagnostics.push({ id: DiagnosticIds.Unknown, severity: 'error', message, file });
+}
+
+/**
+ * Evaluate an `imm` expression using values from the provided environment.
+ *
+ * PR2 implementation note:
+ * - Supports literals, names, unary `+ - ~`, and binary `* / % + - & ^ | << >>`.
+ * - Division/modulo use JavaScript semantics and truncate toward zero.
+ */
+export function evalImmExpr(expr: ImmExprNode, env: CompileEnv): number | undefined {
+  switch (expr.kind) {
+    case 'ImmLiteral':
+      return expr.value;
+    case 'ImmName': {
+      const fromConst = env.consts.get(expr.name);
+      if (fromConst !== undefined) return fromConst;
+      const fromEnum = env.enums.get(expr.name);
+      if (fromEnum !== undefined) return fromEnum;
+      return undefined;
+    }
+    case 'ImmUnary': {
+      const v = evalImmExpr(expr.expr, env);
+      if (v === undefined) return undefined;
+      switch (expr.op) {
+        case '+':
+          return +v;
+        case '-':
+          return -v;
+        case '~':
+          return ~v;
+      }
+      // Exhaustive (future-proof)
+      return undefined;
+    }
+    case 'ImmBinary': {
+      const l = evalImmExpr(expr.left, env);
+      const r = evalImmExpr(expr.right, env);
+      if (l === undefined || r === undefined) return undefined;
+      switch (expr.op) {
+        case '*':
+          return l * r;
+        case '/':
+          return (l / r) | 0;
+        case '%':
+          return l % r;
+        case '+':
+          return l + r;
+        case '-':
+          return l - r;
+        case '&':
+          return l & r;
+        case '^':
+          return l ^ r;
+        case '|':
+          return l | r;
+        case '<<':
+          return l << r;
+        case '>>':
+          return l >> r;
+      }
+      return undefined;
+    }
+  }
+}
+
+function collectEnumMembers(items: ModuleItemNode[]): EnumDeclNode[] {
+  return items.filter((i): i is EnumDeclNode => i.kind === 'EnumDecl');
+}
+
+function buildEnumMap(enums: EnumDeclNode[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const e of enums) {
+    for (let i = 0; i < e.members.length; i++) {
+      const name = e.members[i]!;
+      if (!map.has(name)) map.set(name, i);
+    }
+  }
+  return map;
+}
+
+/**
+ * Build the PR2 compile environment by resolving module-scope `enum` and `const` declarations.
+ *
+ * PR2 implementation note:
+ * - Only evaluates a single module file (PR1/PR2 are single-file).
+ * - Constants may reference previously defined constants and enum members.
+ */
+export function buildEnv(program: ProgramNode, diagnostics: Diagnostic[]): CompileEnv {
+  const consts = new Map<string, number>();
+  const enums = new Map<string, number>();
+
+  const moduleFile = program.files[0];
+  if (!moduleFile) {
+    diag(diagnostics, program.entryFile, 'No module files to compile.');
+    return { consts, enums };
+  }
+
+  for (const [k, v] of buildEnumMap(collectEnumMembers(moduleFile.items))) {
+    enums.set(k, v);
+  }
+
+  const env: CompileEnv = { consts, enums };
+
+  for (const item of moduleFile.items) {
+    if (item.kind !== 'ConstDecl') continue;
+    const v = evalImmExpr(item.value, env);
+    if (v === undefined) {
+      diag(diagnostics, item.span.file, `Failed to evaluate const "${item.name}".`);
+      continue;
+    }
+    consts.set(item.name, v);
+  }
+
+  return env;
+}

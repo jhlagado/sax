@@ -8,6 +8,7 @@ import type { ProgramNode } from './frontend/ast.js';
 import { parseProgram } from './frontend/parser.js';
 import { emitProgram } from './lowering/emit.js';
 import type { Artifact } from './formats/types.js';
+import { buildEnv } from './semantics/env.js';
 
 function hasErrors(diagnostics: Diagnostic[]): boolean {
   return diagnostics.some((d) => d.severity === 'error');
@@ -74,7 +75,12 @@ export const compile: CompileFn = async (
     return { diagnostics, artifacts: [] };
   }
 
-  const { map, symbols } = emitProgram(program, diagnostics);
+  const env = buildEnv(program, diagnostics);
+  if (hasErrors(diagnostics)) {
+    return { diagnostics, artifacts: [] };
+  }
+
+  const { map, symbols } = emitProgram(program, env, diagnostics);
   if (hasErrors(diagnostics)) {
     return { diagnostics, artifacts: [] };
   }
