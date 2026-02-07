@@ -1,0 +1,10 @@
+section data at 0
+
+export func main(): void
+  asm
+    ret
+end
+
+data
+  msg: byte[1] = "A"
+

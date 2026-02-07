@@ -1,0 +1,13 @@
+func a(): void
+  asm
+    nop
+    ret
+end
+
+align 4
+
+func b(): void
+  asm
+    ret
+end
+

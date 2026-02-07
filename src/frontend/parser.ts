@@ -1,4 +1,5 @@
 import type {
+  AlignDirectiveNode,
   AsmBlockNode,
   AsmInstructionNode,
   AsmItemNode,
@@ -16,6 +17,7 @@ import type {
   ModuleItemNode,
   ProgramNode,
   RecordFieldNode,
+  SectionDirectiveNode,
   SourceSpan,
   TypeDeclNode,
   TypeExprNode,
@@ -813,6 +815,64 @@ export function parseProgram(
       const enumSpan = span(file, lineStartOffset, lineEndOffset);
       const enumNode: EnumDeclNode = { kind: 'EnumDecl', span: enumSpan, name, members };
       items.push(enumNode);
+      i++;
+      continue;
+    }
+
+    if (rest.startsWith('section ')) {
+      if (exportPrefix.length > 0) {
+        diag(diagnostics, entryFile, `export not supported on section directives`, {
+          line: lineNo,
+          column: 1,
+        });
+      }
+
+      const decl = rest.slice('section '.length).trimStart();
+      const m = /^(code|data|var)(?:\s+at\s+(.+))?$/.exec(decl);
+      if (!m) {
+        diag(diagnostics, entryFile, `Invalid section directive`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+
+      const section = m[1]! as SectionDirectiveNode['section'];
+      const atText = m[2]?.trim();
+      const dirSpan = span(file, lineStartOffset, lineEndOffset);
+      const at = atText ? parseImmExprFromText(entryFile, atText, dirSpan, diagnostics) : undefined;
+
+      const sectionNode: SectionDirectiveNode = {
+        kind: 'Section',
+        span: dirSpan,
+        section,
+        ...(at ? { at } : {}),
+      };
+      items.push(sectionNode);
+      i++;
+      continue;
+    }
+
+    if (rest.startsWith('align ')) {
+      if (exportPrefix.length > 0) {
+        diag(diagnostics, entryFile, `export not supported on align directives`, {
+          line: lineNo,
+          column: 1,
+        });
+      }
+
+      const exprText = rest.slice('align '.length).trimStart();
+      if (exprText.length === 0) {
+        diag(diagnostics, entryFile, `Invalid align directive`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+      const dirSpan = span(file, lineStartOffset, lineEndOffset);
+      const value = parseImmExprFromText(entryFile, exprText, dirSpan, diagnostics);
+      if (!value) {
+        i++;
+        continue;
+      }
+      const alignNode: AlignDirectiveNode = { kind: 'Align', span: dirSpan, value };
+      items.push(alignNode);
       i++;
       continue;
     }
