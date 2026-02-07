@@ -118,19 +118,22 @@ export function emitProgram(
 
     for (const item of dataBlocks) {
       for (const decl of item.decls) {
+        const okToDeclareSymbol = !taken.has(decl.name);
         if (taken.has(decl.name)) {
           diag(diagnostics, decl.span.file, `Duplicate symbol name "${decl.name}".`);
         } else {
           taken.add(decl.name);
         }
-        symbols.push({
-          kind: 'data',
-          name: decl.name,
-          address: dataPc,
-          file: decl.span.file,
-          line: decl.span.start.line,
-          scope: 'global',
-        });
+        if (okToDeclareSymbol) {
+          symbols.push({
+            kind: 'data',
+            name: decl.name,
+            address: dataPc,
+            file: decl.span.file,
+            line: decl.span.start.line,
+            scope: 'global',
+          });
+        }
 
         const type = decl.typeExpr;
         const init = decl.initializer;
