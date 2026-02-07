@@ -1,0 +1,24 @@
+{
+  "name": "zax",
+  "private": true,
+  "version": "0.0.0",
+  "description": "ZAX assembler (Node.js)",
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier -w .",
+    "format:check": "prettier -c ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.1",
+    "prettier": "^3.5.0",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9"
+  }
+}
