@@ -51,4 +51,19 @@ describe('PR9 sections + align', () => {
       expect.arrayContaining([expect.stringContaining('Byte overlap')]),
     );
   });
+
+  it('avoids cascaded overlap diagnostics when a section base is invalid', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr9_invalid_code_base_no_overlap.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics.map((d) => d.id)).toEqual(
+      expect.arrayContaining([DiagnosticIds.EmitError]),
+    );
+    expect(res.diagnostics.map((d) => d.message)).toEqual(
+      expect.arrayContaining([expect.stringContaining('base address out of range')]),
+    );
+    expect(res.diagnostics.map((d) => d.message)).toEqual(
+      expect.not.arrayContaining([expect.stringContaining('Byte overlap')]),
+    );
+  });
 });

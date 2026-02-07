@@ -353,18 +353,45 @@ export function emitProgram(
     const v = evalImmExpr(at, env, diagnostics);
     if (v === undefined) {
       diag(diagnostics, at.span.file, `Failed to evaluate section "${kind}" base address.`);
-      return 0;
+      return undefined;
     }
     if (v < 0 || v > 0xffff) {
       diag(diagnostics, at.span.file, `Section "${kind}" base address out of range (0..65535).`);
-      return 0;
+      return undefined;
     }
     return v;
   };
 
-  const codeBase = evalBase('code') ?? 0;
-  const dataBase = evalBase('data') ?? alignTo(codeBase + codeOffset, 2);
-  const varBase = evalBase('var') ?? alignTo(dataBase + dataOffset, 2);
+  const explicitCodeBase = evalBase('code');
+  const explicitDataBase = evalBase('data');
+  const explicitVarBase = evalBase('var');
+
+  const codeOk = explicitCodeBase !== undefined || !baseExprs.code;
+  const codeBase = explicitCodeBase ?? 0;
+
+  const dataBase =
+    explicitDataBase ??
+    (codeOk
+      ? alignTo(codeBase + codeOffset, 2)
+      : (diag(
+          diagnostics,
+          module.span.file,
+          `Cannot compute default data base address because code base address is invalid.`,
+        ),
+        0));
+  const dataOk = explicitDataBase !== undefined || (baseExprs.data === undefined && codeOk);
+
+  const varBase =
+    explicitVarBase ??
+    (dataOk
+      ? alignTo(dataBase + dataOffset, 2)
+      : (diag(
+          diagnostics,
+          module.span.file,
+          `Cannot compute default var base address because data base address is invalid.`,
+        ),
+        0));
+  const varOk = explicitVarBase !== undefined || (baseExprs.var === undefined && dataOk);
 
   const writeSection = (base: number, section: Map<number, number>, file: string) => {
     for (const [off, b] of section) {
@@ -381,11 +408,13 @@ export function emitProgram(
     }
   };
 
-  writeSection(codeBase, codeBytes, module.span.file);
-  writeSection(dataBase, dataBytes, module.span.file);
+  if (codeOk) writeSection(codeBase, codeBytes, module.span.file);
+  if (dataOk) writeSection(dataBase, dataBytes, module.span.file);
 
   for (const ps of pending) {
     const base = ps.section === 'code' ? codeBase : ps.section === 'data' ? dataBase : varBase;
+    const ok = ps.section === 'code' ? codeOk : ps.section === 'data' ? dataOk : varOk;
+    if (!ok) continue;
     const sym: SymbolEntry = {
       kind: ps.kind,
       name: ps.name,

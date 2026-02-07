@@ -819,15 +819,17 @@ export function parseProgram(
       continue;
     }
 
-    if (rest.startsWith('section ')) {
+    if (rest === 'section' || rest.startsWith('section ')) {
       if (exportPrefix.length > 0) {
         diag(diagnostics, entryFile, `export not supported on section directives`, {
           line: lineNo,
           column: 1,
         });
+        i++;
+        continue;
       }
 
-      const decl = rest.slice('section '.length).trimStart();
+      const decl = rest === 'section' ? '' : rest.slice('section '.length).trimStart();
       const m = /^(code|data|var)(?:\s+at\s+(.+))?$/.exec(decl);
       if (!m) {
         diag(diagnostics, entryFile, `Invalid section directive`, { line: lineNo, column: 1 });
@@ -851,15 +853,17 @@ export function parseProgram(
       continue;
     }
 
-    if (rest.startsWith('align ')) {
+    if (rest === 'align' || rest.startsWith('align ')) {
       if (exportPrefix.length > 0) {
         diag(diagnostics, entryFile, `export not supported on align directives`, {
           line: lineNo,
           column: 1,
         });
+        i++;
+        continue;
       }
 
-      const exprText = rest.slice('align '.length).trimStart();
+      const exprText = rest === 'align' ? '' : rest.slice('align '.length).trimStart();
       if (exprText.length === 0) {
         diag(diagnostics, entryFile, `Invalid align directive`, { line: lineNo, column: 1 });
         i++;
