@@ -46,30 +46,50 @@ function importTargets(moduleFile: ModuleFileNode): ImportNode[] {
   return moduleFile.items.filter((i): i is ImportNode => i.kind === 'Import');
 }
 
-function resolveImport(fromModulePath: string, imp: ImportNode): string {
+function importCandidatePath(imp: ImportNode): string {
+  if (imp.form === 'path') return imp.specifier;
+  return `${imp.specifier}.zax`;
+}
+
+function resolveImportCandidates(
+  fromModulePath: string,
+  imp: ImportNode,
+  includeDirs: string[],
+): string[] {
   const fromDir = dirname(fromModulePath);
-  if (imp.form === 'path') {
-    return normalizePath(resolve(fromDir, imp.specifier));
+  const candidateRel = importCandidatePath(imp);
+
+  const out: string[] = [];
+  out.push(normalizePath(resolve(fromDir, candidateRel)));
+  for (const inc of includeDirs) {
+    out.push(normalizePath(resolve(inc, candidateRel)));
   }
-  // moduleId
-  return normalizePath(resolve(fromDir, `${imp.specifier}.zax`));
+  // De-dupe while preserving order.
+  const seen = new Set<string>();
+  return out.filter((p) => (seen.has(p) ? false : (seen.add(p), true)));
 }
 
 async function loadProgram(
   entryFile: string,
   diagnostics: Diagnostic[],
+  options: Pick<CompilerOptions, 'includeDirs'>,
 ): Promise<ProgramNode | undefined> {
   const entryPath = normalizePath(entryFile);
   const modules = new Map<string, ModuleFileNode>();
   const edges = new Map<string, Set<string>>();
+  const includeDirs = (options.includeDirs ?? []).map(normalizePath);
 
-  const loadModule = async (modulePath: string, importer?: string): Promise<void> => {
+  const loadModule = async (
+    modulePath: string,
+    importer?: string,
+    preloadedText?: string,
+  ): Promise<void> => {
     const p = normalizePath(modulePath);
     if (modules.has(p)) return;
 
     let sourceText: string;
     try {
-      sourceText = await readFile(p, 'utf8');
+      sourceText = preloadedText ?? (await readFile(p, 'utf8'));
     } catch (err) {
       diagnostics.push({
         id: DiagnosticIds.IoReadFailed,
@@ -99,9 +119,36 @@ async function loadProgram(
     edges.set(p, new Set());
 
     for (const imp of importTargets(moduleFile)) {
-      const target = resolveImport(p, imp);
-      edges.get(p)!.add(target);
-      await loadModule(target, p);
+      const candidates = resolveImportCandidates(p, imp, includeDirs);
+      let resolved: string | undefined;
+      let resolvedText: string | undefined;
+
+      for (const c of candidates) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          resolvedText = await readFile(c, 'utf8');
+          resolved = c;
+          break;
+        } catch {
+          // keep trying
+        }
+      }
+
+      if (!resolved || resolvedText === undefined) {
+        const pretty = imp.form === 'path' ? `"${imp.specifier}"` : imp.specifier;
+        diagnostics.push({
+          id: DiagnosticIds.IoReadFailed,
+          severity: 'error',
+          message: `Failed to resolve import ${pretty} from "${p}". Tried:\n${candidates
+            .map((c) => `- ${c}`)
+            .join('\n')}`,
+          file: p,
+        });
+        continue;
+      }
+
+      edges.get(p)!.add(resolved);
+      await loadModule(resolved, p, resolvedText);
     }
   };
 
@@ -186,7 +233,7 @@ export const compile: CompileFn = async (
   deps: PipelineDeps,
 ): Promise<CompileResult> => {
   const diagnostics: Diagnostic[] = [];
-  const program = await loadProgram(entryFile, diagnostics);
+  const program = await loadProgram(entryFile, diagnostics, options);
   if (!program) return { diagnostics, artifacts: [] };
 
   if (hasErrors(diagnostics)) {

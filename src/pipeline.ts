@@ -7,7 +7,12 @@ import type { Artifact, FormatWriters } from './formats/types.js';
  * PR1 implementation note: most options are accepted but only a subset is currently honored.
  */
 export interface CompilerOptions {
-  /** Additional include/search directories used for module resolution (future). */
+  /**
+   * Additional include/search directories used for module resolution.
+   *
+   * These directories are consulted when resolving `import` statements after checking paths relative to the
+   * importing module.
+   */
   includeDirs?: string[];
   /** Primary output path used to derive sibling artifacts (future). */
   outputPath?: string;
