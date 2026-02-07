@@ -33,7 +33,7 @@ function diag(
   where?: { line: number; column: number },
 ): void {
   diagnostics.push({
-    id: DiagnosticIds.Unknown,
+    id: DiagnosticIds.ParseError,
     severity: 'error',
     message,
     file,

@@ -52,7 +52,7 @@ export const compile: CompileFn = async (
     sourceText = await readFile(entryFile, 'utf8');
   } catch (err) {
     diagnostics.push({
-      id: DiagnosticIds.Unknown,
+      id: DiagnosticIds.IoReadFailed,
       severity: 'error',
       message: `Failed to read entry file: ${String(err)}`,
       file: entryFile,
@@ -65,7 +65,7 @@ export const compile: CompileFn = async (
     program = parseProgram(entryFile, sourceText, diagnostics);
   } catch (err) {
     diagnostics.push({
-      id: DiagnosticIds.Unknown,
+      id: DiagnosticIds.InternalParseError,
       severity: 'error',
       message: `Internal error during parse: ${String(err)}`,
       file: entryFile,

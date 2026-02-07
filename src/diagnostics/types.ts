@@ -26,7 +26,39 @@ export interface Diagnostic {
  * PR0 started with a minimal set; later PRs should extend this via contract changes.
  */
 export const DiagnosticIds = {
+  /**
+   * Unknown/unclassified diagnostic.
+   *
+   * Use a more specific ID when possible; this remains for forward compatibility.
+   */
   Unknown: 'ZAX000',
+
+  /** Failed to read a source file from disk. */
+  IoReadFailed: 'ZAX001',
+
+  /** Internal error during parsing (unexpected exception). */
+  InternalParseError: 'ZAX002',
+
+  /** Generic parse error (syntax / unsupported in current PR subset). */
+  ParseError: 'ZAX100',
+
+  /** Generic instruction encoding error (unsupported mnemonic/operands, out-of-range imm, etc.). */
+  EncodeError: 'ZAX200',
+
+  /** Generic emission/lowering error (layout/packing/symbol collisions, etc.). */
+  EmitError: 'ZAX300',
+
+  /** Generic semantic evaluation error (env building, imm evaluation, etc.). */
+  SemanticsError: 'ZAX400',
+
+  /** Divide by zero in an imm expression. */
+  ImmDivideByZero: 'ZAX401',
+
+  /** Modulo by zero in an imm expression. */
+  ImmModuloByZero: 'ZAX402',
+
+  /** Type/layout error (unknown type, recursion, missing array length, etc.). */
+  TypeError: 'ZAX403',
 } as const;
 
 /**

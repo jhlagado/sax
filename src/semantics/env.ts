@@ -36,7 +36,7 @@ export interface CompileEnv {
 }
 
 function diag(diagnostics: Diagnostic[], file: string, message: string): void {
-  diagnostics.push({ id: DiagnosticIds.Unknown, severity: 'error', message, file });
+  diagnostics.push({ id: DiagnosticIds.SemanticsError, severity: 'error', message, file });
 }
 
 /**
@@ -85,7 +85,7 @@ export function evalImmExpr(
         case '/':
           if (r === 0) {
             diagnostics?.push({
-              id: DiagnosticIds.Unknown,
+              id: DiagnosticIds.ImmDivideByZero,
               severity: 'error',
               message: 'Divide by zero in imm expression.',
               file: expr.span.file,
@@ -98,7 +98,7 @@ export function evalImmExpr(
         case '%':
           if (r === 0) {
             diagnostics?.push({
-              id: DiagnosticIds.Unknown,
+              id: DiagnosticIds.ImmModuloByZero,
               severity: 'error',
               message: 'Modulo by zero in imm expression.',
               file: expr.span.file,

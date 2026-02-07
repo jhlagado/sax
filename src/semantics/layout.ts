@@ -19,7 +19,7 @@ export function sizeOfTypeExpr(
   const memo = new Map<string, number>();
 
   const diag = (file: string, message: string) => {
-    diagnostics?.push({ id: DiagnosticIds.Unknown, severity: 'error', message, file });
+    diagnostics?.push({ id: DiagnosticIds.TypeError, severity: 'error', message, file });
   };
 
   const scalarSize = (name: string): number | undefined => {

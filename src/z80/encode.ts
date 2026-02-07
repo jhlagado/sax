@@ -10,7 +10,7 @@ function diag(
   message: string,
 ): void {
   diagnostics.push({
-    id: DiagnosticIds.Unknown,
+    id: DiagnosticIds.EncodeError,
     severity: 'error',
     message,
     file: node.span.file,

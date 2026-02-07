@@ -8,7 +8,7 @@ import { sizeOfTypeExpr } from '../semantics/layout.js';
 import { encodeInstruction } from '../z80/encode.js';
 
 function diag(diagnostics: Diagnostic[], file: string, message: string): void {
-  diagnostics.push({ id: DiagnosticIds.Unknown, severity: 'error', message, file });
+  diagnostics.push({ id: DiagnosticIds.EmitError, severity: 'error', message, file });
 }
 
 /**

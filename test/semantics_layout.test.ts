@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Diagnostic } from '../src/diagnostics/types.js';
+import { DiagnosticIds } from '../src/diagnostics/types.js';
 import type { CompileEnv } from '../src/semantics/env.js';
 import { sizeOfTypeExpr } from '../src/semantics/layout.js';
 import type {
@@ -42,6 +43,7 @@ describe('sizeOfTypeExpr', () => {
     const env = emptyEnv();
     const res = sizeOfTypeExpr({ kind: 'TypeName', span: s(), name: 'Nope' }, env, diagnostics);
     expect(res).toBeUndefined();
+    expect(diagnostics[0]?.id).toBe(DiagnosticIds.TypeError);
     expect(diagnostics.map((d) => d.message)).toContain('Unknown type "Nope".');
   });
 
@@ -68,6 +70,7 @@ describe('sizeOfTypeExpr', () => {
 
     const res = sizeOfTypeExpr({ kind: 'TypeName', span: s(), name: 'A' }, env, diagnostics);
     expect(res).toBeUndefined();
+    expect(diagnostics[0]?.id).toBe(DiagnosticIds.TypeError);
     expect(diagnostics.map((d) => d.message)).toContain(
       'Recursive type definition detected for "A".',
     );
@@ -86,6 +89,7 @@ describe('sizeOfTypeExpr', () => {
       diagnostics,
     );
     expect(res).toBeUndefined();
+    expect(diagnostics[0]?.id).toBe(DiagnosticIds.TypeError);
     expect(diagnostics.map((d) => d.message)).toContain('Array length is required in PR3 subset.');
   });
 });
