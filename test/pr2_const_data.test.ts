@@ -26,11 +26,12 @@ describe('PR2 const + data', () => {
       name: string;
       kind: string;
       address: number;
+      value?: number;
       [k: string]: unknown;
     }>;
     expect(symbols).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ name: 'MsgLen', kind: 'constant', address: 5 }),
+        expect.objectContaining({ name: 'MsgLen', kind: 'constant', value: 5 }),
         expect.objectContaining({ name: 'msg', kind: 'data', address: 4 }),
       ]),
     );

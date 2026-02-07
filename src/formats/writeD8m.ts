@@ -29,11 +29,12 @@ export function writeD8m(
     symbols: symbols.map((s) => ({
       name: s.name,
       kind: s.kind,
-      address: s.address,
+      ...(s.kind === 'constant' ? { value: s.value } : { address: s.address }),
+      ...(s.kind === 'constant' && s.address !== undefined ? { address: s.address } : {}),
       ...(s.file !== undefined ? { file: s.file } : {}),
       ...(s.line !== undefined ? { line: s.line } : {}),
       ...(s.scope !== undefined ? { scope: s.scope } : {}),
-      ...(s.size !== undefined ? { size: s.size } : {}),
+      ...(s.kind !== 'constant' && s.size !== undefined ? { size: s.size } : {}),
     })),
   };
 

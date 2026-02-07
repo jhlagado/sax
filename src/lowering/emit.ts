@@ -53,6 +53,7 @@ export function emitProgram(
         symbols.push({
           kind: 'constant',
           name: item.name,
+          value: v,
           address: v,
           file: item.span.file,
           line: item.span.start.line,
@@ -100,6 +101,7 @@ export function emitProgram(
       symbols.push({
         kind: 'constant',
         name,
+        value: idx,
         address: idx,
         file: e.span.file,
         line: e.span.start.line,
