@@ -27,6 +27,13 @@ function regName(op: AsmOperandNode): string | undefined {
   return op.kind === 'Reg' ? op.name.toUpperCase() : undefined;
 }
 
+/**
+ * Encode a single `asm` instruction node into Z80 machine-code bytes.
+ *
+ * PR1 implementation note:
+ * - Supports only a tiny subset: `nop`, `ret`, `jp imm16`, `ld A, imm8`, `ld HL, imm16`.
+ * - On unsupported forms, appends an error diagnostic and returns `undefined`.
+ */
 export function encodeInstruction(
   node: AsmInstructionNode,
   diagnostics: Diagnostic[],

@@ -29,6 +29,14 @@ function withDefaults(
   };
 }
 
+/**
+ * Compile a ZAX program starting from an entry file.
+ *
+ * PR1 implementation note:
+ * - Supports a minimal subset (single file, `func` + `asm`, a tiny instruction set).
+ * - Produces artifacts in-memory via `deps.formats` (no filesystem writes yet).
+ * - Defaults to emitting BIN + HEX + D8M unless an emit flag is explicitly provided.
+ */
 export const compile: CompileFn = async (
   entryFile: string,
   options: CompilerOptions,

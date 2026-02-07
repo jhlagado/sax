@@ -8,6 +8,14 @@ function diag(diagnostics: Diagnostic[], file: string, message: string): void {
   diagnostics.push({ id: DiagnosticIds.Unknown, severity: 'error', message, file });
 }
 
+/**
+ * Emit machine-code bytes for a parsed program into an address->byte map.
+ *
+ * PR1 implementation note:
+ * - Uses a single linear PC starting at 0 (no sections/imports yet).
+ * - Collects label symbols and encodes only the PR1 instruction subset.
+ * - Appends errors to `diagnostics` and continues best-effort.
+ */
 export function emitProgram(
   program: ProgramNode,
   diagnostics: Diagnostic[],

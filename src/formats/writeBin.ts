@@ -12,6 +12,11 @@ function rangeFromMap(map: EmittedByteMap): { start: number; end: number } {
   return { start: min, end: max + 1 };
 }
 
+/**
+ * Create a flat binary artifact from an emitted address->byte map.
+ *
+ * Bytes are emitted for the computed written range; unwritten addresses inside the range are `0x00`.
+ */
 export function writeBin(
   map: EmittedByteMap,
   _symbols: SymbolEntry[],

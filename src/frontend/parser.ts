@@ -66,7 +66,6 @@ function parseAsmOperand(
   const t = operandText.trim();
   if (t.length === 0) return undefined;
 
-  // Minimal PR1 subset: registers and immediate literals only.
   if (/^(A|B|C|D|E|H|L|HL|DE|BC|SP|IX|IY|AF|F|I|R)$/i.test(t)) {
     return { kind: 'Reg', span: operandSpan, name: t };
   }
@@ -107,6 +106,14 @@ function parseAsmInstruction(
   return { kind: 'AsmInstruction', span: instrSpan, head, operands };
 }
 
+/**
+ * Parse a ZAX program from a single in-memory source file.
+ *
+ * PR1 implementation note:
+ * - Only a minimal subset is supported (single file, `func name(): void`, and an `asm` block).
+ * - Operands are limited to registers and immediate numeric literals.
+ * - On errors, diagnostics are appended to `diagnostics`; parsing continues best-effort.
+ */
 export function parseProgram(
   entryFile: string,
   sourceText: string,
@@ -163,7 +170,7 @@ export function parseProgram(
       const headerSpan = span(file, funcStartOffset, funcStartOffset + raw.length);
       i++;
 
-      // Expect "asm"
+      /* Expect "asm". */
       while (i < lines.length) {
         const raw2 = lines[i] ?? '';
         const t2 = stripComment(raw2).trim();
@@ -217,7 +224,7 @@ export function parseProgram(
 
         const fullSpan = span(file, lineOffset, lineOffset + rawLine.length);
 
-        // label:
+        /* label: */
         const labelMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/.exec(content);
         if (labelMatch) {
           const label = labelMatch[1]!;

@@ -21,6 +21,13 @@ function getRange(map: EmittedByteMap): { start: number; end: number } {
   return { start: min, end: max + 1 };
 }
 
+/**
+ * Create an Intel HEX artifact from an emitted address->byte map.
+ *
+ * PR1 implementation note:
+ * - Emits only type-00 data records and a type-01 EOF record.
+ * - Does not emit extended address records (assumes 16-bit address space).
+ */
 export function writeHex(
   map: EmittedByteMap,
   _symbols: SymbolEntry[],

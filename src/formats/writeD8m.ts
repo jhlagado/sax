@@ -18,6 +18,13 @@ function getRange(map: EmittedByteMap): { start: number; end: number } {
   return { start: min, end: max + 1 };
 }
 
+/**
+ * Create a minimal D8 Debug Map (D8M) v1 JSON artifact.
+ *
+ * PR1 implementation note:
+ * - Includes only basic segments and a flat list of symbols.
+ * - Does not emit instruction-to-source mappings yet.
+ */
 export function writeD8m(
   map: EmittedByteMap,
   symbols: SymbolEntry[],

@@ -1,14 +1,27 @@
+/**
+ * Half-open address range in the Z80 16-bit address space.
+ */
 export interface AddressRange {
-  start: number; // inclusive
-  end: number; // exclusive
+  /** Inclusive start address. */
+  start: number;
+  /** Exclusive end address. */
+  end: number;
 }
 
+/**
+ * Address->byte map for all emitted machine-code bytes.
+ */
 export interface EmittedByteMap {
-  // Address -> byte (0..255). Addresses are 0..65535 for Z80.
+  /**
+   * Address -> byte (0..255). Addresses are 0..65535 for Z80.
+   */
   bytes: Map<number, number>;
   writtenRange?: AddressRange;
 }
 
+/**
+ * A symbol entry for debug maps and listings.
+ */
 export interface SymbolEntry {
   kind: 'label' | 'constant' | 'data' | 'unknown';
   name: string;
@@ -19,41 +32,72 @@ export interface SymbolEntry {
   size?: number;
 }
 
+/**
+ * Options for Intel HEX writing.
+ */
 export interface WriteHexOptions {
-  // v0.1: for Intel HEX record size, line endings, etc (implementation-defined)
+  /**
+   * Line ending to use when emitting text formats.
+   */
   lineEnding?: '\n' | '\r\n';
 }
 
+/**
+ * Options for BIN writing.
+ */
 export interface WriteBinOptions {}
 
+/**
+ * Options for D8M writing.
+ */
 export interface WriteD8mOptions {}
 
+/**
+ * In-memory Intel HEX artifact.
+ */
 export interface HexArtifact {
   kind: 'hex';
   path?: string;
   text: string;
 }
 
+/**
+ * In-memory flat binary artifact.
+ */
 export interface BinArtifact {
   kind: 'bin';
   path?: string;
   bytes: Uint8Array;
 }
 
+/**
+ * In-memory listing artifact.
+ */
 export interface ListingArtifact {
   kind: 'lst';
   path?: string;
   text: string;
 }
 
+/**
+ * In-memory D8 Debug Map (D8M) artifact.
+ */
 export interface D8mArtifact {
   kind: 'd8m';
   path?: string;
   json: D8mJson;
 }
 
+/**
+ * Union of all artifact kinds produced by the compiler.
+ */
 export type Artifact = HexArtifact | BinArtifact | ListingArtifact | D8mArtifact;
 
+/**
+ * Minimal D8 Debug Map (D8M) v1 JSON shape.
+ *
+ * Writers may add additional keys as needed.
+ */
 export type D8mJson = {
   format: 'd8-debug-map';
   version: 1;
@@ -61,6 +105,9 @@ export type D8mJson = {
   [key: string]: unknown;
 };
 
+/**
+ * Format writers used by the pipeline to turn emitted bytes/symbols into artifacts.
+ */
 export interface FormatWriters {
   writeHex(map: EmittedByteMap, symbols: SymbolEntry[], opts?: WriteHexOptions): HexArtifact;
   writeBin(map: EmittedByteMap, symbols: SymbolEntry[], opts?: WriteBinOptions): BinArtifact;
