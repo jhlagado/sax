@@ -121,19 +121,19 @@ Work in **vertical slices**, not horizontal layers. Each PR compiles a _slightly
 
 Required PR sequence (adjust scope as needed, but preserve the vertical-slice principle):
 
-| PR  | Scope                                                                                                                                                                                     | Key spec sections                  |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| 0   | **Contracts**: AST types, diagnostic types, pipeline interface, format writer interfaces. No implementation.                                                                              | —                                  |
-| 1   | **Minimal end-to-end**: lex + parse + encode + emit a single `func` with inline `asm` (raw Z80 mnemonics only, no locals, no imports). Produce `.bin`, `.hex`, and minimal `.d8dbg.json`. | §1, §2.1, §2.2, §8.1, §8.2, App B  |
-| 2   | **Constants and data**: `const`, `enum`, `data` declarations, `imm` expressions, section packing.                                                                                         | §4.3, §4.4, §6.3, §7.1             |
+| PR  | Scope                                                                                                                                                                                     | Key spec sections                               |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 0   | **Contracts**: AST types, diagnostic types, pipeline interface, format writer interfaces. No implementation.                                                                              | —                                               |
+| 1   | **Minimal end-to-end**: lex + parse + encode + emit a single `func` with inline `asm` (raw Z80 mnemonics only, no locals, no imports). Produce `.bin`, `.hex`, and minimal `.d8dbg.json`. | §1, §2.1, §2.2, §8.1, §8.2, App B               |
+| 2   | **Constants and data**: `const`, `enum`, `data` declarations, `imm` expressions, section packing.                                                                                         | §4.3, §4.4, §6.3, §7.1                          |
 | 3   | **Module-scope `var`, types, records, arrays, unions**: layout, `sizeof`, `ea` expressions, field access, array indexing, lowering of non-encodable operands.                             | §4.1, §4.2, §5 (incl. §5.3), §6.2, §6.1.1, §7.2 |
-| 4   | **Function locals and calling convention**: `var` block in `func`, SP-relative addressing, stack frame/trampoline mechanism, `func` calls from `asm`.                                     | §8.1–§8.5                          |
-| 5   | **Structured control flow**: `if`/`else`/`while`/`repeat`/`until`, `select`/`case`, stack-depth matching at joins.                                                                        | §10                                |
-| 6   | **Imports and multi-module**: `import`, name resolution, collision detection, packing order, forward references.                                                                          | §3                                 |
-| 7   | **`op` declarations**: matcher types, overload resolution, autosave, expansion, cyclic-expansion detection.                                                                               | §9                                 |
-| 8   | **`bin`/`hex`/`extern`**: external bytes, Intel HEX ingestion + validation, extern bindings.                                                                                              | §6.4, §6.5                         |
-| 9   | **Formats and Debug80**: extend D8M writer (source mapping, local scopes), LST writer, CLI polish (all switches per `docs/zax-cli.md`).                                                   | Appendix B, CLI doc                |
-| 10  | **`examples/` acceptance + hardening**: all examples compile, negative-test coverage sweep, edge cases.                                                                                   | All                                |
+| 4   | **Function locals and calling convention**: `var` block in `func`, SP-relative addressing, stack frame/trampoline mechanism, `func` calls from `asm`.                                     | §8.1–§8.5                                       |
+| 5   | **Structured control flow**: `if`/`else`/`while`/`repeat`/`until`, `select`/`case`, stack-depth matching at joins.                                                                        | §10                                             |
+| 6   | **Imports and multi-module**: `import`, name resolution, collision detection, packing order, forward references.                                                                          | §3                                              |
+| 7   | **`op` declarations**: matcher types, overload resolution, autosave, expansion, cyclic-expansion detection.                                                                               | §9                                              |
+| 8   | **`bin`/`hex`/`extern`**: external bytes, Intel HEX ingestion + validation, extern bindings.                                                                                              | §6.4, §6.5                                      |
+| 9   | **Formats and Debug80**: extend D8M writer (source mapping, local scopes), LST writer, CLI polish (all switches per `docs/zax-cli.md`).                                                   | Appendix B, CLI doc                             |
+| 10  | **`examples/` acceptance + hardening**: all examples compile, negative-test coverage sweep, edge cases.                                                                                   | All                                             |
 
 Each PR must include tests for its scope and must not break any previously passing tests.
 

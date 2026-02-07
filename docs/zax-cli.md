@@ -29,9 +29,11 @@ ZAX uses a single “primary output path” to derive sibling artifacts.
     - Debug map (D8M v1): `artifactBase + ".d8dbg.json"`
 
 Directory creation:
+
 - If `--output` points into a directory that does not exist, the assembler creates it.
 
 Path handling:
+
 - Accept user-supplied paths as-is (Windows paths, drive letters, separators).
 - For debug maps, file keys should be normalized to project-relative paths with `/` separators (see `docs/zax-spec.md`, Appendix B).
 
@@ -58,4 +60,3 @@ Debug80 expects to find:
 - `<artifactBase>.d8dbg.json`
 
 Co-locating these artifacts via the `--output`/artifactBase rule is the simplest integration strategy.
-

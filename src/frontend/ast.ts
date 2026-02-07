@@ -191,11 +191,7 @@ export interface AsmBlockNode extends BaseNode {
   items: AsmItemNode[];
 }
 
-export type AsmItemNode =
-  | AsmInstructionNode
-  | AsmControlNode
-  | AsmLabelNode
-  | UnimplementedNode;
+export type AsmItemNode = AsmInstructionNode | AsmControlNode | AsmLabelNode | UnimplementedNode;
 
 export interface AsmLabelNode extends BaseNode {
   kind: 'AsmLabel';

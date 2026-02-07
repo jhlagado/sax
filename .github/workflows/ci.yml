@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: yarn
+
+      - name: Enable Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.21 --activate
+
+      - name: Install
+        run: yarn install --frozen-lockfile
+
+      - name: Format check
+        run: yarn format:check
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Test
+        run: yarn test
