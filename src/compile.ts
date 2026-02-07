@@ -8,6 +8,7 @@ import type { ProgramNode } from './frontend/ast.js';
 import { parseProgram } from './frontend/parser.js';
 import { emitProgram } from './lowering/emit.js';
 import type { Artifact } from './formats/types.js';
+import { buildEnv } from './semantics/env.js';
 
 function hasErrors(diagnostics: Diagnostic[]): boolean {
   return diagnostics.some((d) => d.severity === 'error');
@@ -32,8 +33,9 @@ function withDefaults(
 /**
  * Compile a ZAX program starting from an entry file.
  *
- * PR1 implementation note:
+ * PR2 implementation note:
  * - Supports a minimal subset (single file, `func` + `asm`, a tiny instruction set).
+ * - Supports module-scope `const` and `data` (packed after code, aligned to 2).
  * - Produces artifacts in-memory via `deps.formats` (no filesystem writes yet).
  * - Defaults to emitting BIN + HEX + D8M unless an emit flag is explicitly provided.
  */
@@ -74,7 +76,12 @@ export const compile: CompileFn = async (
     return { diagnostics, artifacts: [] };
   }
 
-  const { map, symbols } = emitProgram(program, diagnostics);
+  const env = buildEnv(program, diagnostics);
+  if (hasErrors(diagnostics)) {
+    return { diagnostics, artifacts: [] };
+  }
+
+  const { map, symbols } = emitProgram(program, env, diagnostics);
   if (hasErrors(diagnostics)) {
     return { diagnostics, artifacts: [] };
   }

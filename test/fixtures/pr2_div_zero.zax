@@ -1,0 +1,8 @@
+const Bad = 1 / 0
+
+export func main(): void
+  asm
+    nop
+    ret
+end
+

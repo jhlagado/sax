@@ -1,0 +1,8 @@
+const Mask = %1010
+
+export func main(): void
+  asm
+    ld a, Mask + 1
+    ret
+end
+
