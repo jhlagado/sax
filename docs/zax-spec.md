@@ -62,25 +62,21 @@ Key ideas this demonstrates:
 * Structured control flow exists only inside `asm`.
 
 ### 0.3 Design Philosophy
-* **High-level structure, low-level semantics.**
-* **Registers are first-class.** Register names are visible and directly used.
-* **No significant whitespace.** Indentation is ignored; multi-line constructs use explicit terminators (`end`, `until`).
-* **Compiler, not preprocessor.** Parse to an AST and emit code with fixups; no textual macros.
+* **High-level structure, low-level semantics.** You still choose registers and manage flags.
+* **Registers are first-class.** Register names appear directly in code.
+* **No significant whitespace.** Multi-line constructs use explicit terminators (`end`, `until`).
+* **Compiler, not preprocessor.** ZAX parses to an AST and emits code with fixups — no textual macros.
 
 ### 0.4 Compilation Model
-* Parse the whole program into an AST and symbol table.
-* Emit code/data with forward-reference fixups.
-* Workflow: edit → full recompile → run.
+Workflow: edit → full recompile → run.
 
-Outputs (typical):
-* Binary image
-* Optional HEX
-* Optional listing with symbols (for debuggers/simulators)
+The compiler parses the whole program, resolves forward references, and emits:
+* A flat binary image
+* Optionally, Intel HEX output
+* Optionally, a listing with symbols (for debuggers/simulators — see Appendix B)
 
 ### 0.5 Entry Point (Non-normative)
-Entry-point selection is outside the scope of v0.1. A typical convention is `export func main(): void`, but loaders/ROMs may enter at any address.
-
-See Appendix B for source mapping notes.
+Entry-point selection is outside v0.1 scope. A typical convention is `export func main(): void`, but loaders/ROMs may enter at any address.
 
 ## 1. Lexical Rules
 
@@ -152,10 +148,7 @@ Module header (v0.1):
   * otherwise, the file stem of the module’s path (basename without `.zax`)
 * If two modules in the same build have the same canonical ID, compilation fails (module ID collision).
 
-### 2.2 File Extension
-ZAX source files use the `.zax` extension.
-
-### 2.3 Sections and Location Counters
+### 2.2 Sections and Location Counters
 ZAX produces a final image by **packing per-section** across all imported modules (no external linker).
 
 Section kinds:
@@ -216,8 +209,7 @@ Default placement (if not specified):
 `import "<path>"` loads a module from an explicit path. For v0.1, quoted paths should include the `.zax` extension and are resolved relative to the importing file (then search paths, if not found).
 
 ### 3.2 Visibility and Collisions
-* In v0.1, all module-scope names are exported (public). The `export` keyword is accepted for `const` and `func` declarations for clarity and future compatibility, but it does not affect visibility in v0.1.
-  * Using `export` on any other declaration form is a compile error in v0.1.
+* In v0.1, all module-scope names are public. The `export` keyword is accepted on `const` and `func` declarations for clarity and forward compatibility, but has no effect. Using `export` on any other declaration form is a compile error.
 * All names from an imported module are brought into the importing module’s global namespace.
 * The program has a single global namespace across all modules.
 * Any symbol collision is a compile error (no implicit renaming).
@@ -303,12 +295,9 @@ export const Public = $8000
 ```
 
 * `const` values are compile-time `imm` expressions.
-* `export` is inline only (e.g., `export const ...`, `export func ...`).
 
 Notes (v0.1):
 * There is no built-in `sizeof`/`offsetof` in v0.1. If you need sizes or offsets, define them as explicit `const` values.
-* `export op` is not supported in v0.1 (ops are always available for resolution once imported, and v0.1 has no visibility model).
-* Using `export` on any other declaration kind (e.g., `export var`, `export type`, `export data`, `export enum`, `export bin`, `export hex`, `export extern`) is a compile error in v0.1.
 
 ---
 
@@ -422,8 +411,7 @@ var
 * Declares storage in `var` (uninitialized; emits no bytes).
 * One declaration per line; no initializers.
 * This is **module-scope** uninitialized storage (addresses in the `var` section). It is distinct from a function-local `var` block, which declares stack locals (Section 8.1).
-* A `var` block continues until the next line whose first non-comment token starts a new module-scope declaration/directive (`type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `import`, `module`, `section`, `align`, `export`) or until end of file/scope.
-* For function-local `var` blocks, see Section 8.1.
+* A `var` block continues until the next module-scope declaration, directive, or end of file.
 
 ### 6.3 `data` (Initialized Storage)
 Syntax:
@@ -440,7 +428,7 @@ Initialization:
 * `byte[n] = { imm8, ... }` emits `n` bytes.
 * `word[n] = { imm16, ... }` emits `n` little-endian words.
 * `byte[n] = "TEXT"` emits the ASCII bytes of the string; length must equal `n` (no terminator).
-* A `data` block continues until the next line whose first non-comment token starts a new module-scope declaration/directive (`type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `import`, `module`, `section`, `align`, `export`) or until end of file/scope.
+* A `data` block continues until the next module-scope declaration, directive, or end of file.
 
 Type vs initializer (v0.1):
 * Initializers must match the declared type; ZAX does not infer array lengths from initializer length.
@@ -589,7 +577,6 @@ Rules:
   * exactly one required `asm` block
   * `end` terminates the function body
 * `asm` blocks may contain Z80 mnemonics, `op` invocations, and structured control flow (Section 10).
-  * Structured control flow (including `select`) is permitted inside `asm` streams in both `func` and `op` bodies.
 
 Function-body block termination (v0.1):
 * Inside a function body, a `var` block (if present) continues until the `asm` keyword.
@@ -749,10 +736,6 @@ Zero-parameter ops (v0.1):
 * `op name` (with no parameter list) is permitted and defines a zero-parameter op.
 * A zero-parameter op is invoked by writing just `name` on an `asm` line.
 
-Invocation shape (informative):
-* `op` invocations look like instructions:
-  * Example: `add16 HL, DE`
-
 ### 9.3 Operand Matchers
 `op` parameters use matcher types (patterns). These constrain call-site operands.
 
@@ -806,9 +789,9 @@ Destination parameters (v0.1):
 
 ---
 
-## 10. Structured Control Flow in `asm`
+## 10. Structured Control Flow
 
-ZAX supports structured control flow only inside `asm` streams (function `asm` blocks and `op` bodies). For `if`/`while`/`repeat`, conditions are flag-based; the user establishes flags using normal Z80 instructions. `select`/`case` dispatches by equality on a selector value.
+Structured control flow is only available inside `asm` streams. For `if`/`while`/`repeat`, conditions test CPU flags that the programmer establishes with normal Z80 instructions. `select`/`case` dispatches by equality on a selector value.
 
 ### 10.1 Condition Codes (v0.1)
 * `Z` / `NZ`: zero flag set / not set
