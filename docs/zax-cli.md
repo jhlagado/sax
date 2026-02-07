@@ -42,8 +42,6 @@ Path handling:
 Keep switches intentionally small:
 
 - `-o, --output <file>` Primary output path (used to derive sibling outputs)
-- `--org <address>` Set the code origin address (default: `$0000`)
-  - e.g., `--org $0100` (CP/M), `--org $0800` (TEC-1 MON1), `--org $4000` (TEC-1G)
 - `-t, --type <type>` Primary output type (default: `hex`)
   - supported: `hex`, `bin`
 - `-n, --nolist` Suppress `.lst`

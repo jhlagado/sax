@@ -218,11 +218,9 @@ Packing order:
 
 Default placement (if not specified):
 
-- `code at $0000`
+- `code at $8000`
 - `data` begins immediately after `code`, aligned to 2
 - `var` begins immediately after `data`, aligned to 2
-
-The default origin of `$0000` is a neutral starting point. Real targets require an explicit origin: e.g., CP/M programs use `$0100`, TEC-1 (MON1) uses `$0800`, TEC-1 (MON2) uses `$0900`, TEC-1G uses `$4000`. Use the `--org` CLI flag or an in-source `at` clause to override.
 
 ---
 
