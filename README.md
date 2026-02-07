@@ -25,4 +25,3 @@ This repo currently contains scaffolding and type contracts; code generation is 
 ## License
 
 GPL-3.0-or-later. See `LICENSE`.
-
