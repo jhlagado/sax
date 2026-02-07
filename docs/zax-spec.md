@@ -3,11 +3,12 @@
 This document is the implementable first draft specification for **ZAX**, a structured assembler for the Z80 family. It is written for humans: it introduces concepts in the same order you’ll use them when writing ZAX.
 
 ZAX aims to make assembly code easier to read and refactor by providing:
-* module structure (`import`, declarations)
-* simple layout types (arrays/records) used for addressing
-* functions with stack arguments and optional locals
-* structured control flow inside `asm` (`if`/`while`/`repeat`/`select`)
-* `op`: inline “macro-instructions” with operand matching
+
+- module structure (`import`, declarations)
+- simple layout types (arrays/records) used for addressing
+- functions with stack arguments and optional locals
+- structured control flow inside `asm` (`if`/`while`/`repeat`/`select`)
+- `op`: inline “macro-instructions” with operand matching
 
 Anything not defined here is undefined behavior or a compile error in v0.1.
 
@@ -18,11 +19,13 @@ Anything not defined here is undefined behavior or a compile error in v0.1.
 This section is explanatory and does not define behavior.
 
 ### 0.1 Purpose
+
 ZAX compiles structured, assembly-like source directly to Z80-family machine code while keeping low-level semantics and explicit register usage.
 
 ZAX is not a “high-level language”. It is still assembly: you choose registers, you manage flags, you decide what lives in RAM vs ROM. The language adds structure and names to make those decisions readable.
 
 ### 0.2 A First ZAX File (Non-normative)
+
 ```
 const MsgLen = 5
 
@@ -55,70 +58,84 @@ end
 ```
 
 Key ideas this demonstrates:
-* `data` emits bytes; `var` reserves addresses (emits no bytes).
-* `rec.field` and `arr[i]` are addresses (effective addresses); parentheses dereference.
-* Structured control flow exists only inside `asm`.
+
+- `data` emits bytes; `var` reserves addresses (emits no bytes).
+- `rec.field` and `arr[i]` are addresses (effective addresses); parentheses dereference.
+- Structured control flow exists only inside `asm`.
 
 ### 0.3 Design Philosophy
-* **High-level structure, low-level semantics.** You still choose registers and manage flags.
-* **Registers are first-class.** Register names appear directly in code.
-* **No significant whitespace.** Multi-line constructs use explicit terminators (`end`, `until`).
-* **Compiler, not preprocessor.** ZAX parses to an AST and emits code with fixups — no textual macros.
+
+- **High-level structure, low-level semantics.** You still choose registers and manage flags.
+- **Registers are first-class.** Register names appear directly in code.
+- **No significant whitespace.** Multi-line constructs use explicit terminators (`end`, `until`).
+- **Compiler, not preprocessor.** ZAX parses to an AST and emits code with fixups — no textual macros.
 
 ### 0.4 Compilation Model
+
 Workflow: edit → full recompile → run.
 
 The compiler parses the whole program, resolves forward references, and emits:
-* A flat binary image
-* Optionally, Intel HEX output
-* Optionally, a listing with symbols (for debuggers/simulators — see Appendix B)
+
+- A flat binary image
+- Optionally, Intel HEX output
+- Optionally, a listing with symbols (for debuggers/simulators — see Appendix B)
 
 ### 0.5 Entry Point (Non-normative)
+
 Entry-point selection is outside v0.1 scope. A typical convention is `export func main(): void`, but loaders/ROMs may enter at any address.
 
 ## 1. Lexical Rules
 
 ### 1.1 Whitespace and Newlines
-* In non-`asm` regions, **newlines terminate** declarations and directives.
-* In `asm` streams (function `asm` blocks and `op` bodies), newlines terminate instructions/keywords.
-* Spaces/tabs separate tokens.
+
+- In non-`asm` regions, **newlines terminate** declarations and directives.
+- In `asm` streams (function `asm` blocks and `op` bodies), newlines terminate instructions/keywords.
+- Spaces/tabs separate tokens.
 
 Multi-line constructs (v0.1):
-* ZAX does not use significant whitespace (indentation is ignored).
-* Multi-line constructs are delimited by explicit keywords:
-  * `end` terminates `func`, `op`, `type` record bodies, `extern <binName>` blocks, `if`/`while` blocks, and `select` blocks.
-  * `until <cc>` terminates a `repeat` block.
+
+- ZAX does not use significant whitespace (indentation is ignored).
+- Multi-line constructs are delimited by explicit keywords:
+  - `end` terminates `func`, `op`, `type` record bodies, `extern <binName>` blocks, `if`/`while` blocks, and `select` blocks.
+  - `until <cc>` terminates a `repeat` block.
 
 Labels (v0.1):
-* A local label is defined by `<ident>:` at the start of an `asm` line. The `:` token separates the label from any instruction that follows on the same line; the newline still terminates that instruction normally.
+
+- A local label is defined by `<ident>:` at the start of an `asm` line. The `:` token separates the label from any instruction that follows on the same line; the newline still terminates that instruction normally.
 
 ### 1.2 Comments
-* `;` starts a comment that runs to end of line.
-* Comments are allowed everywhere.
+
+- `;` starts a comment that runs to end of line.
+- Comments are allowed everywhere.
 
 ### 1.3 Identifiers
-* Identifier grammar: `[A-Za-z_][A-Za-z0-9_]*`
-* Z80 mnemonics and register names are matched **case-insensitively**.
-* User-defined symbol names are **case-sensitive**.
-  * Note: in v0.1, the compiler also enforces case-insensitive uniqueness for user-defined identifiers: you may not define two names that differ only by case (e.g., `Foo` and `foo`).
+
+- Identifier grammar: `[A-Za-z_][A-Za-z0-9_]*`
+- Z80 mnemonics and register names are matched **case-insensitively**.
+- User-defined symbol names are **case-sensitive**.
+  - Note: in v0.1, the compiler also enforces case-insensitive uniqueness for user-defined identifiers: you may not define two names that differ only by case (e.g., `Foo` and `foo`).
 
 ### 1.4 Literals
-* Decimal integer: `123`
-* Hex integer: `$2A`, `$8000`
-* Binary integer: `%1010`, `0b1010`
-* Char literal: `'A'` (an `imm8`)
-* String literal: `"TEXT"` (only valid in `data` initializers; emits bytes, no terminator)
+
+- Decimal integer: `123`
+- Hex integer: `$2A`, `$8000`
+- Binary integer: `%1010`, `0b1010`
+- Char literal: `'A'` (an `imm8`)
+- String literal: `"TEXT"` (only valid in `data` initializers; emits bytes, no terminator)
 
 Escapes in string/char literals:
-* `\\`, `\"`, `\'`, `\n`, `\r`, `\t`, `\0`, `\xNN`
+
+- `\\`, `\"`, `\'`, `\n`, `\r`, `\t`, `\0`, `\xNN`
 
 ### 1.5 Reserved Names and Keywords (v0.1)
+
 ZAX treats the following as **reserved** (case-insensitive):
-* Z80 mnemonics and assembler keywords used inside `asm` (e.g., `ld`, `add`, `ret`, `jp`, ...).
-* Register names: `A F AF B C D E H L HL DE BC SP IX IY I R`.
-* Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
-* Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`.
-* Declaration keywords: `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
+
+- Z80 mnemonics and assembler keywords used inside `asm` (e.g., `ld`, `add`, `ret`, `jp`, ...).
+- Register names: `A F AF B C D E H L HL DE BC SP IX IY I R`.
+- Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
+- Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`.
+- Declaration keywords: `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
 
 User-defined identifiers (module-scope symbols, locals/args, and labels) must not collide with any reserved name, ignoring case.
 
@@ -129,98 +146,116 @@ In addition, the compiler reserves the prefix `__zax_` for internal temporaries 
 ## 2. Program Structure
 
 ### 2.1 Module File
+
 A compilation unit is a module file containing:
-* zero or more `import` lines
-* zero or more module-scope directives: `section`, `align`
-* module-scope declarations: `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`
-* zero or more `func` and `op` declarations
+
+- zero or more `import` lines
+- zero or more module-scope directives: `section`, `align`
+- module-scope declarations: `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`
+- zero or more `func` and `op` declarations
 
 No nested functions are permitted.
 
 Source files (v0.1):
-* ZAX source files use the `.zax` extension.
+
+- ZAX source files use the `.zax` extension.
 
 Module identity (v0.1):
-* A module’s canonical ID is the file stem of its source path (basename without `.zax`).
-* If two modules in the same build have the same canonical ID, compilation fails (module ID collision).
+
+- A module’s canonical ID is the file stem of its source path (basename without `.zax`).
+- If two modules in the same build have the same canonical ID, compilation fails (module ID collision).
 
 ### 2.2 Sections and Location Counters
+
 ZAX produces a final image by **packing per-section** across all imported modules (no external linker).
 
 Section kinds:
-* `code`
-* `data`
-* `var`
+
+- `code`
+- `data`
+- `var`
 
 Each section has an independent location counter.
 
 Directives:
-* `section <kind> at <imm16>`: selects section and sets its starting address.
-* `section <kind>`: selects section without changing its current counter.
-* `align <imm>`: advances the current section counter to the next multiple of `<imm>`. `<imm>` must be > 0.
+
+- `section <kind> at <imm16>`: selects section and sets its starting address.
+- `section <kind>`: selects section without changing its current counter.
+- `align <imm>`: advances the current section counter to the next multiple of `<imm>`. `<imm>` must be > 0.
 
 `<kind>` is one of: `code`, `data`, `var`.
 
 Scope rules (v0.1):
-* `section` and `align` directives are module-scope only. They may not appear inside `func`/`op` bodies or inside `asm` streams.
+
+- `section` and `align` directives are module-scope only. They may not appear inside `func`/`op` bodies or inside `asm` streams.
 
 Emission rules (v0.1):
-* Declarations emit to fixed section kinds, independent of the currently selected section:
-  * `func` emits into `code`
-  * `data` emits into `data`
-  * `var` emits into `var`
-* `bin` emits into the section specified by its required `in <kind>` clause.
-* `hex` writes bytes to absolute addresses in the final address space and does not affect section counters.
-* The currently selected `section` only affects which location counter is advanced by `align` (and which counter is set by `section <kind> at ...`).
-* If any two emissions would write a byte to the same absolute address in the final address→byte map, it is a compile error (overlap), even if the byte values are identical.
+
+- Declarations emit to fixed section kinds, independent of the currently selected section:
+  - `func` emits into `code`
+  - `data` emits into `data`
+  - `var` emits into `var`
+- `bin` emits into the section specified by its required `in <kind>` clause.
+- `hex` writes bytes to absolute addresses in the final address space and does not affect section counters.
+- The currently selected `section` only affects which location counter is advanced by `align` (and which counter is set by `section <kind> at ...`).
+- If any two emissions would write a byte to the same absolute address in the final address→byte map, it is a compile error (overlap), even if the byte values are identical.
 
 Address rules (v0.1):
-* A section’s starting address may be set at most once. A second `section <kind> at <imm16>` for the same section is a compile error.
-* `section <kind>` (without `at`) may be used any number of times to switch the active section.
+
+- A section’s starting address may be set at most once. A second `section <kind> at <imm16>` for the same section is a compile error.
+- `section <kind>` (without `at`) may be used any number of times to switch the active section.
 
 Packing order:
+
 1. Resolve imports and determine a deterministic module order (topological; ties broken by canonical module ID, then by a compiler-defined normalized module path as a final tiebreaker).
-  * “Normalized module path” is a deterministic string derived from the resolved module file path and used only for tie-breaking.
-    * It must be stable for a given set of input files and resolved import graph, and must not depend on filesystem enumeration order.
-    * Recommendation (non-normative): use a project-relative path with `/` separators.
+
+- “Normalized module path” is a deterministic string derived from the resolved module file path and used only for tie-breaking.
+  - It must be stable for a given set of input files and resolved import graph, and must not depend on filesystem enumeration order.
+  - Recommendation (non-normative): use a project-relative path with `/` separators.
+
 2. For each section kind in fixed order `code`, `data`, `var`, concatenate module contributions in module order.
 3. Within a module, preserve source order within each section.
 
 Default placement (if not specified):
-* `code at $8000`
-* `data` begins immediately after `code`, aligned to 2
-* `var` begins immediately after `data`, aligned to 2
+
+- `code at $8000`
+- `data` begins immediately after `code`, aligned to 2
+- `var` begins immediately after `data`, aligned to 2
 
 ---
 
 ## 3. Imports and Name Resolution
 
 ### 3.1 Import Syntax
-* `import <ModuleId>`
-* `import "<path>"`
+
+- `import <ModuleId>`
+- `import "<path>"`
 
 `<ModuleId>` is resolved via the compiler’s search path (project + standard modules). In v0.1, a `ModuleId` maps to a file named `<ModuleId>.zax` on the search path.
 
 `import "<path>"` loads a module from an explicit path. For v0.1, quoted paths should include the `.zax` extension and are resolved relative to the importing file (then search paths, if not found).
 
 ### 3.2 Visibility and Collisions
-* In v0.1, all module-scope names are public. The `export` keyword is accepted on `const`, `func`, and `op` declarations for clarity and forward compatibility, but has no effect. Using `export` on any other declaration form is a compile error.
-* All names from an imported module are brought into the importing module’s global namespace.
-* The program has a single global namespace across all modules.
-* Any symbol collision is a compile error (no implicit renaming).
-  * Collisions are detected ignoring case: you may not define two names that differ only by case (e.g., `Foo` and `foo`).
-  * This applies to all user-defined identifiers: module-scope symbols, locals/args, and labels.
-* Collisions include:
-  * two modules export the same name
-  * an import conflicts with a local symbol
-  * `bin` base names and `extern` names must also be unique
+
+- In v0.1, all module-scope names are public. The `export` keyword is accepted on `const`, `func`, and `op` declarations for clarity and forward compatibility, but has no effect. Using `export` on any other declaration form is a compile error.
+- All names from an imported module are brought into the importing module’s global namespace.
+- The program has a single global namespace across all modules.
+- Any symbol collision is a compile error (no implicit renaming).
+  - Collisions are detected ignoring case: you may not define two names that differ only by case (e.g., `Foo` and `foo`).
+  - This applies to all user-defined identifiers: module-scope symbols, locals/args, and labels.
+- Collisions include:
+  - two modules export the same name
+  - an import conflicts with a local symbol
+  - `bin` base names and `extern` names must also be unique
 
 Namespace rule (v0.1):
-* `type`, `enum`, `const`, storage symbols (`var`/`data`/`bin`), `func`, and `op` names share the same global namespace. Defining a `func` and an `op` with the same name is a compile error.
+
+- `type`, `enum`, `const`, storage symbols (`var`/`data`/`bin`), `func`, and `op` names share the same global namespace. Defining a `func` and an `op` with the same name is a compile error.
 
 Forward references (v0.1):
-* ZAX is whole-program compiled: symbols may be referenced before they are declared, as long as they resolve by the end of compilation.
-* Circular imports are a compile error.
+
+- ZAX is whole-program compiled: symbols may be referenced before they are declared, as long as they resolve by the end of compilation.
+- Circular imports are a compile error.
 
 ---
 
@@ -229,99 +264,122 @@ Forward references (v0.1):
 Types exist for layout/width/intent only. No runtime type checks are emitted.
 
 ### 4.1 Built-in Scalar Types
-* `byte` (8-bit unsigned)
-* `word` (16-bit unsigned)
-* `addr` (16-bit address)
-* `ptr` (16-bit pointer; treated as `addr` for codegen)
-* `void` (function return type only)
+
+- `byte` (8-bit unsigned)
+- `word` (16-bit unsigned)
+- `addr` (16-bit address)
+- `ptr` (16-bit pointer; treated as `addr` for codegen)
+- `void` (function return type only)
 
 Notes (v0.1):
-* `ptr` is untyped in v0.1 (there is no `ptr<T>`). This is intentional; future versions may add optional pointer parameterization.
-* `void` may only appear as a function return type. Using `void` as a variable type, parameter type, record field type, or array element type is a compile error.
+
+- `ptr` is untyped in v0.1 (there is no `ptr<T>`). This is intentional; future versions may add optional pointer parameterization.
+- `void` may only appear as a function return type. Using `void` as a variable type, parameter type, record field type, or array element type is a compile error.
 
 Type sizes (v0.1):
-* `sizeof(byte)` = 1
-* `sizeof(word)` = 2
-* `sizeof(addr)` = 2
-* `sizeof(ptr)` = 2
-* `sizeof(T[n])` = `n * sizeof(T)`
-* `sizeof(record)` = sum of field sizes (packed)
+
+- `sizeof(byte)` = 1
+- `sizeof(word)` = 2
+- `sizeof(addr)` = 2
+- `sizeof(ptr)` = 2
+- `sizeof(T[n])` = `n * sizeof(T)`
+- `sizeof(record)` = sum of field sizes (packed)
 
 ### 4.2 Type Aliases
+
 Syntax:
+
 ```
 type Name byte
 type Ptr16 ptr
 ```
 
 Type expressions (v0.1):
-* Scalar types: `byte`, `word`, `addr`, `ptr`
-* Arrays: `T[n]` (nested arrays allowed)
-* Records: a record body starting on the next line and terminated by `end`
+
+- Scalar types: `byte`, `word`, `addr`, `ptr`
+- Arrays: `T[n]` (nested arrays allowed)
+- Records: a record body starting on the next line and terminated by `end`
 
 Arrays and nesting (v0.1):
-* Array types may be used in aliases (`type Buffer byte[256]`) and as record field types.
-* Record field types may reference other record types (nested records).
+
+- Array types may be used in aliases (`type Buffer byte[256]`) and as record field types.
+- Record field types may reference other record types (nested records).
 
 ### 4.3 Enums
+
 Syntax:
+
 ```
 enum Mode Read, Write, Append
 ```
 
 Semantics:
-* Enum members are sequential integers starting at 0.
-* Storage width is `byte` if member count ≤ 256, else `word`.
-* Enum members are immediate values usable in `imm` expressions.
+
+- Enum members are sequential integers starting at 0.
+- Storage width is `byte` if member count ≤ 256, else `word`.
+- Enum members are immediate values usable in `imm` expressions.
 
 Enum name binding (v0.1):
-* Enum member names are introduced into the global namespace as immediate values.
-  * Example: after `enum Mode Read, Write`, `Read` and `Write` may be used in `imm` expressions.
-* Qualified member access (e.g., `Mode.Read`) is not supported in v0.1.
+
+- Enum member names are introduced into the global namespace as immediate values.
+  - Example: after `enum Mode Read, Write`, `Read` and `Write` may be used in `imm` expressions.
+- Qualified member access (e.g., `Mode.Read`) is not supported in v0.1.
 
 Notes (v0.1):
-* Trailing commas are not permitted in enum member lists.
+
+- Trailing commas are not permitted in enum member lists.
 
 ### 4.4 Consts
+
 Syntax:
+
 ```
 const MaxValue = 1024
 export const Public = $8000
 ```
 
-* `const` values are compile-time `imm` expressions.
+- `const` values are compile-time `imm` expressions.
 
 Notes (v0.1):
-* There is no built-in `sizeof`/`offsetof` in v0.1. If you need sizes or offsets, define them as explicit `const` values.
+
+- There is no built-in `sizeof`/`offsetof` in v0.1. If you need sizes or offsets, define them as explicit `const` values.
 
 ---
 
 ## 5. Arrays and Records
 
 ### 5.1 Arrays (Nested, 0-based)
+
 Arrays are nested fixed-size arrays:
-* `T[n]` is an array of `n` elements of `T`.
-* Multidimensional arrays are nested: `T[r][c]`.
+
+- `T[n]` is an array of `n` elements of `T`.
+- Multidimensional arrays are nested: `T[r][c]`.
 
 Indexing:
-* `a[i]` denotes the **effective address** of element `i` (not a dereference).
-* Arrays are **0-based**: valid indices are `0..len-1`. No runtime bounds checks are emitted.
+
+- `a[i]` denotes the **effective address** of element `i` (not a dereference).
+- Arrays are **0-based**: valid indices are `0..len-1`. No runtime bounds checks are emitted.
 
 Layout:
-* Arrays are contiguous, row-major (C style).
-* `a[r][c]` addresses `base + (r*COLS + c) * sizeof(T)`.
+
+- Arrays are contiguous, row-major (C style).
+- `a[r][c]` addresses `base + (r*COLS + c) * sizeof(T)`.
 
 Index forms (v0.1):
-* constant immediate
-* 8-bit register (`A B C D E H L`)
-* `(HL)` (byte read from memory at `HL`)
+
+- constant immediate
+- 8-bit register (`A B C D E H L`)
+- `(HL)` (byte read from memory at `HL`)
 
 Notes (v0.1):
-* The index grammar is intentionally small. Parenthesized expressions are not permitted inside `[]`; `(HL)` is a special-case index form.
-* `arr[i]` is an effective address (an `ea`), not a dereference. Use parentheses to read/write memory: `ld a, (arr[i])`.
+
+- The index grammar is intentionally small. Parenthesized expressions are not permitted inside `[]`; `(HL)` is a special-case index form.
+- `arr[i]` is an effective address (an `ea`), not a dereference. Use parentheses to read/write memory: `ld a, (arr[i])`.
 
 ### 5.2 Records (Packed Structs)
+
 Record types are layout descriptions:
+
 ```
 type Sprite
   x: word
@@ -333,16 +391,19 @@ end
 ```
 
 Layout rules:
-* Records must contain at least one field (empty records are a compile error in v0.1).
-* Fields are laid out in source order.
-* Default layout is packed (no implicit padding).
-* `byte` fields are 1 byte; `word` fields are 2 bytes.
-* `addr` and `ptr` fields are 2 bytes (same as `word`).
+
+- Records must contain at least one field (empty records are a compile error in v0.1).
+- Fields are laid out in source order.
+- Default layout is packed (no implicit padding).
+- `byte` fields are 1 byte; `word` fields are 2 bytes.
+- `addr` and `ptr` fields are 2 bytes (same as `word`).
 
 Field access:
-* `rec.field` denotes the **effective address** of the field.
+
+- `rec.field` denotes the **effective address** of the field.
 
 Example: arrays of records use `ea` paths (informative):
+
 ```
 ; `sprites[C].x` is an `ea` (address), not a value.
 ld hl, (sprites[C].x)     ; load word at sprites[C].x
@@ -354,62 +415,74 @@ ld (sprites[C].x), hl     ; store word to sprites[C].x
 ## 6. Storage Declarations: `var`, `data`, `bin`, `hex`, `extern`
 
 ZAX separates **uninitialized storage** (`var`) from **initialized bytes** (`data`) because these play different roles in an 8-bit system:
-* `var` reserves addresses (typically RAM). It does not emit bytes into the output image.
-* `data` emits bytes (typically ROM constants and tables).
-* Keeping them distinct makes the output deterministic and keeps it obvious which declarations consume bytes in the final image.
+
+- `var` reserves addresses (typically RAM). It does not emit bytes into the output image.
+- `data` emits bytes (typically ROM constants and tables).
+- Keeping them distinct makes the output deterministic and keeps it obvious which declarations consume bytes in the final image.
 
 ### 6.1 Address vs Dereference
-* Storage symbols (`var`, `data`, `bin`) denote **addresses** when used as operands.
-* Parentheses dereference memory: `(ea)` denotes memory at address `ea`.
-* Dereference width is implied by the instruction operand size:
-  * `LD A, (ea)` reads a byte
-  * `LD HL, (ea)` reads a word
-  * `LD (ea), HL` writes a word
+
+- Storage symbols (`var`, `data`, `bin`) denote **addresses** when used as operands.
+- Parentheses dereference memory: `(ea)` denotes memory at address `ea`.
+- Dereference width is implied by the instruction operand size:
+  - `LD A, (ea)` reads a byte
+  - `LD HL, (ea)` reads a word
+  - `LD (ea), HL` writes a word
 
 Notes (v0.1):
-* In instruction-operand position, parentheses always mean dereference/indirection. They are not grouping parentheses.
-  * Example: `LD A, (X)` always means “load `A` from memory at address `X`”, even if `X` is a `const`.
-* Grouping parentheses apply only inside `imm` expressions (e.g., `const X = (1+2)*3`, or `ea + (1+2)`).
+
+- In instruction-operand position, parentheses always mean dereference/indirection. They are not grouping parentheses.
+  - Example: `LD A, (X)` always means “load `A` from memory at address `X`”, even if `X` is a `const`.
+- Grouping parentheses apply only inside `imm` expressions (e.g., `const X = (1+2)*3`, or `ea + (1+2)`).
 
 ### 6.1.1 Lowering of Non-Encodable Operands
+
 Many `ea` forms (locals/args, `rec.field`, `arr[i]`, and address arithmetic) are not directly encodable in a single Z80 instruction. In these cases, the compiler lowers the instruction to an equivalent instruction sequence.
 
 Lowering rules (v0.1):
-* The observable effect must match the abstract meaning of the original instruction and operands.
-* If the original instruction does not modify flags (e.g., `LD`), the lowered sequence must preserve flags.
-* The lowered sequence must preserve registers other than the instruction’s explicit destination(s).
-* Any internal stack usage must have net stack delta 0.
+
+- The observable effect must match the abstract meaning of the original instruction and operands.
+- If the original instruction does not modify flags (e.g., `LD`), the lowered sequence must preserve flags.
+- The lowered sequence must preserve registers other than the instruction’s explicit destination(s).
+- Any internal stack usage must have net stack delta 0.
 
 Lowering limitations (v0.1):
-* Some source forms may be rejected if no correct lowering exists under the constraints above (e.g., operations whose operand ordering cannot be preserved without clobbering).
+
+- Some source forms may be rejected if no correct lowering exists under the constraints above (e.g., operations whose operand ordering cannot be preserved without clobbering).
 
 Lowering guarantees and rejected patterns (v0.1):
-* The compiler guarantees lowering for loads/stores whose memory operand is an `ea` expression of the following forms:
-  * `LD r8, (ea)` and `LD (ea), r8`
-  * `LD r16, (ea)` and `LD (ea), r16`
-  where `ea` is a local/arg slot, a module-scope storage address (`var`/`data`/`bin`), `rec.field`, `arr[i]`, or `ea +/- imm`.
-* The compiler rejects source forms that are not meaningful on Z80 and do not have a well-defined lowering under the preservation constraints, including:
-  * memory-to-memory forms (e.g., `LD (ea1), (ea2)`).
-  * instructions where both operands require lowering and a correct sequence cannot be produced without clobbering non-destination registers or flags that must be preserved.
+
+- The compiler guarantees lowering for loads/stores whose memory operand is an `ea` expression of the following forms:
+  - `LD r8, (ea)` and `LD (ea), r8`
+  - `LD r16, (ea)` and `LD (ea), r16`
+    where `ea` is a local/arg slot, a module-scope storage address (`var`/`data`/`bin`), `rec.field`, `arr[i]`, or `ea +/- imm`.
+- The compiler rejects source forms that are not meaningful on Z80 and do not have a well-defined lowering under the preservation constraints, including:
+  - memory-to-memory forms (e.g., `LD (ea1), (ea2)`).
+  - instructions where both operands require lowering and a correct sequence cannot be produced without clobbering non-destination registers or flags that must be preserved.
 
 Non-guarantees (v0.1):
-* Arithmetic/logical instruction forms that are not directly encodable on Z80 (e.g., `add hl, (ea)`) are not guaranteed to be accepted, even though they may be expressible via a multi-instruction sequence.
+
+- Arithmetic/logical instruction forms that are not directly encodable on Z80 (e.g., `add hl, (ea)`) are not guaranteed to be accepted, even though they may be expressible via a multi-instruction sequence.
 
 ### 6.2 `var` (Uninitialized Storage)
+
 Syntax:
+
 ```
 var
   total: word
   mode: byte
 ```
 
-* Declares storage in `var` (uninitialized; emits no bytes).
-* One declaration per line; no initializers.
-* This is **module-scope** uninitialized storage (addresses in the `var` section). It is distinct from a function-local `var` block, which declares stack locals (Section 8.1).
-* A `var` block continues until the next module-scope declaration, directive, or end of file.
+- Declares storage in `var` (uninitialized; emits no bytes).
+- One declaration per line; no initializers.
+- This is **module-scope** uninitialized storage (addresses in the `var` section). It is distinct from a function-local `var` block, which declares stack locals (Section 8.1).
+- A `var` block continues until the next module-scope declaration, directive, or end of file.
 
 ### 6.3 `data` (Initialized Storage)
+
 Syntax:
+
 ```
 data
   table: word[4] = { 1, 2, 3, 4 }
@@ -417,21 +490,24 @@ data
   bytes: byte[3] = { $00, $01, $FF }
 ```
 
-* Declares storage in `data`.
+- Declares storage in `data`.
 
 Initialization:
-* `byte[n] = { imm8, ... }` emits `n` bytes.
-* `word[n] = { imm16, ... }` emits `n` little-endian words.
-* `byte[n] = "TEXT"` emits the ASCII bytes of the string; length must equal `n` (no terminator).
-* A `data` block continues until the next module-scope declaration, directive, or end of file.
+
+- `byte[n] = { imm8, ... }` emits `n` bytes.
+- `word[n] = { imm16, ... }` emits `n` little-endian words.
+- `byte[n] = "TEXT"` emits the ASCII bytes of the string; length must equal `n` (no terminator).
+- A `data` block continues until the next module-scope declaration, directive, or end of file.
 
 Type vs initializer (v0.1):
-* Initializers must match the declared type; ZAX does not infer array lengths from initializer length.
-  * Example: write `table: word[3] = { 1, 2, 3 }`, not `table: word = { 1, 2, 3 }`.
-* For array types (e.g., `word[8]` or `Sprite[4]`), the initializer element count must match the total number of scalar elements implied by the array type.
-* Record initializers must supply field values in field order; for arrays of records, initializers are flattened in element order.
+
+- Initializers must match the declared type; ZAX does not infer array lengths from initializer length.
+  - Example: write `table: word[3] = { 1, 2, 3 }`, not `table: word = { 1, 2, 3 }`.
+- For array types (e.g., `word[8]` or `Sprite[4]`), the initializer element count must match the total number of scalar elements implied by the array type.
+- Record initializers must supply field values in field order; for arrays of records, initializers are flattened in element order.
 
 Nested record initializer example (v0.1):
+
 ```
 type Point
   x: word
@@ -448,46 +524,56 @@ data
 ```
 
 ### 6.4 `bin` / `hex` (External Bytes)
+
 `bin` emits a contiguous byte blob into a target section and binds a base name to its start address:
+
 ```
 bin legacy in code from "asm80/legacy.bin"
 ```
 
-* The name `legacy` becomes an address-valued symbol of type `addr`.
+- The name `legacy` becomes an address-valued symbol of type `addr`.
 
 `bin` placement rule (v0.1):
-* `in <kind>` is required. There is no default section for `bin`.
+
+- `in <kind>` is required. There is no default section for `bin`.
 
 Path resolution (v0.1):
-* `bin ... from "<path>"` and `hex ... from "<path>"` resolve `<path>` the same way as `import "<path>"` (Section 3.1): first relative to the current module file, then via search paths if not found. If not found, compilation fails.
+
+- `bin ... from "<path>"` and `hex ... from "<path>"` resolve `<path>` the same way as `import "<path>"` (Section 3.1): first relative to the current module file, then via search paths if not found. If not found, compilation fails.
 
 `hex` reads Intel HEX and emits bytes at absolute addresses specified by records:
+
 ```
 hex bios from "rom/bios.hex"
 ```
 
 `hex` binding and placement rules (v0.1):
-* Supported Intel HEX record types in v0.1:
-  * `00` (data) and `01` (end-of-file)
-  * Any extended-address record (e.g., `02`/`04`) is a compile error in v0.1.
-* All data record addresses must fit in 16 bits (`$0000..$FFFF`). Any out-of-range address is a compile error.
-* Intel HEX checksums must be validated. A record with an invalid checksum is a compile error.
-* `hex <name> from "<path>"` binds `<name>` to the lowest address written by the HEX file (type `addr`). If the HEX file contains no data records, it is a compile error.
-* HEX output is written to absolute addresses in the final address space and does not advance any section’s location counter.
-* If a HEX-written byte overlaps any other emission, it is a compile error (regardless of whether the bytes are equal). This is an instance of the general overlap rule in Section 2.2.
-* The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address. Unwritten addresses within this range are filled with the **gap fill byte**, `$00`. `var` contributes no bytes.
-  * When producing Intel HEX output, the compiler emits only written bytes/records; gap fill bytes are not emitted.
+
+- Supported Intel HEX record types in v0.1:
+  - `00` (data) and `01` (end-of-file)
+  - Any extended-address record (e.g., `02`/`04`) is a compile error in v0.1.
+- All data record addresses must fit in 16 bits (`$0000..$FFFF`). Any out-of-range address is a compile error.
+- Intel HEX checksums must be validated. A record with an invalid checksum is a compile error.
+- `hex <name> from "<path>"` binds `<name>` to the lowest address written by the HEX file (type `addr`). If the HEX file contains no data records, it is a compile error.
+- HEX output is written to absolute addresses in the final address space and does not advance any section’s location counter.
+- If a HEX-written byte overlaps any other emission, it is a compile error (regardless of whether the bytes are equal). This is an instance of the general overlap rule in Section 2.2.
+- The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address. Unwritten addresses within this range are filled with the **gap fill byte**, `$00`. `var` contributes no bytes.
+  - When producing Intel HEX output, the compiler emits only written bytes/records; gap fill bytes are not emitted.
 
 ### 6.5 `extern` (Binding Names to Addresses)
+
 Bind callable names to absolute addresses:
+
 ```
 extern func bios_putc(ch: byte): void at $F003
 ```
 
 Standalone `extern func` rules (v0.1):
-* The `at <imm16>` clause is required.
+
+- The `at <imm16>` clause is required.
 
 Bind multiple entry points relative to a `bin` base:
+
 ```
 bin legacy in code from "asm80/legacy.bin"
 extern legacy
@@ -497,8 +583,9 @@ end
 ```
 
 Relative `extern` semantics (v0.1):
-* In an `extern <binName> ... end` block, the `at <imm16>` value is an **offset** from the base address of `<binName>`.
-  * Example: if `legacy` is placed at `$C000`, then `legacy_putc ... at $0030` resolves to absolute address `$C030`.
+
+- In an `extern <binName> ... end` block, the `at <imm16>` value is an **offset** from the base address of `<binName>`.
+  - Example: if `legacy` is placed at `$C000`, then `legacy_putc ... at $0030` resolves to absolute address `$C030`.
 
 `extern`-declared names are normal global symbols; collisions are errors. Prefer `<binName>_name` conventions (e.g., `legacy_putc`).
 
@@ -509,13 +596,16 @@ Relative `extern` semantics (v0.1):
 Expressions are used in `imm` and `ea` contexts.
 
 ### 7.1 `imm` (Immediate) Expressions
+
 Allowed:
-* numeric literals, char literals
-* `const` and `enum` names
-* operators: unary `+ - ~`, binary `* / % + - & ^ | << >>`
-* parentheses for grouping
+
+- numeric literals, char literals
+- `const` and `enum` names
+- operators: unary `+ - ~`, binary `* / % + - & ^ | << >>`
+- parentheses for grouping
 
 Operator precedence and associativity (v0.1), highest to lowest:
+
 1. Unary `+ - ~` (right-associative)
 2. `* / %` (left-associative)
 3. `+ -` (left-associative)
@@ -525,33 +615,40 @@ Operator precedence and associativity (v0.1), highest to lowest:
 7. `|` (left-associative)
 
 Integer semantics (v0.1):
-* Immediate expressions evaluate over mathematical integers.
-* Division/modulo by zero is a compile error.
-* Shift counts must be non-negative; shifting by a negative count is a compile error.
-* When an `imm` value is encoded as `imm8`/`imm16`, the encoded value is the low 8/16 bits of the integer (two’s complement truncation).
+
+- Immediate expressions evaluate over mathematical integers.
+- Division/modulo by zero is a compile error.
+- Shift counts must be non-negative; shifting by a negative count is a compile error.
+- When an `imm` value is encoded as `imm8`/`imm16`, the encoded value is the low 8/16 bits of the integer (two’s complement truncation).
 
 ### 7.2 `ea` (Effective Address) Expressions
+
 `ea` denotes an address, not a value. Allowed:
-* storage symbols: `var` names, `data` names, `bin` base names
-* function-scope symbols: argument names and local `var` names (as SP-relative stack slots)
-* field access: `rec.field`
-* indexing: `arr[i]` and nested `arr[r][c]` (index forms as defined above)
-* address arithmetic: `ea + imm`, `ea - imm`
+
+- storage symbols: `var` names, `data` names, `bin` base names
+- function-scope symbols: argument names and local `var` names (as SP-relative stack slots)
+- field access: `rec.field`
+- indexing: `arr[i]` and nested `arr[r][c]` (index forms as defined above)
+- address arithmetic: `ea + imm`, `ea - imm`
 
 Conceptually, an `ea` is a base address plus a sequence of **address-path** segments: `.field` selects a record field, and `[index]` selects an array element. Both forms produce an address; dereference requires parentheses as described in 6.1.
 
 Precedence (v0.1):
-* Address-path segments (`.field`, `[index]`) bind tighter than address arithmetic (`ea + imm`, `ea - imm`).
+
+- Address-path segments (`.field`, `[index]`) bind tighter than address arithmetic (`ea + imm`, `ea - imm`).
 
 Notes (v0.1):
-* `imm + ea` is not permitted; write `ea + imm`.
+
+- `imm + ea` is not permitted; write `ea + imm`.
 
 ---
 
 ## 8. Functions (`func`)
 
 ### 8.1 Declaration Form
+
 Syntax:
+
 ```
 export func add(a: word, b: word): word
   var
@@ -565,144 +662,167 @@ end
 ```
 
 Rules:
-* Module-scope only; no inner functions.
-* Function bodies emit instructions into `code`.
-* Inside a function body:
-  * at most one optional `var` block (locals, one per line)
-  * exactly one required `asm` block
-  * `end` terminates the function body
-* `asm` blocks may contain Z80 mnemonics, `op` invocations, and structured control flow (Section 10).
+
+- Module-scope only; no inner functions.
+- Function bodies emit instructions into `code`.
+- Inside a function body:
+  - at most one optional `var` block (locals, one per line)
+  - exactly one required `asm` block
+  - `end` terminates the function body
+- `asm` blocks may contain Z80 mnemonics, `op` invocations, and structured control flow (Section 10).
 
 Function-body block termination (v0.1):
-* Inside a function body, a `var` block (if present) continues until the `asm` keyword.
-* `asm` bodies may be empty (no instructions).
-* If control reaches the end of the `asm` block (falls off the end), the compiler behaves as if a `ret` instruction were present at that point (i.e., it returns via the normal return/trampoline mechanism described in 8.4).
+
+- Inside a function body, a `var` block (if present) continues until the `asm` keyword.
+- `asm` bodies may be empty (no instructions).
+- If control reaches the end of the `asm` block (falls off the end), the compiler behaves as if a `ret` instruction were present at that point (i.e., it returns via the normal return/trampoline mechanism described in 8.4).
 
 ### 8.2 Calling Convention
-* Arguments are passed on the stack, each argument occupying 16 bits.
-* Caller pushes arguments right-to-left (last argument pushed first).
-* Caller cleans up the arguments after return.
-* Return values:
-  * 16-bit return in `HL`
-  * 8-bit return in `L`
-* Register/flag volatility (v0.1): unless explicitly documented otherwise, functions may clobber any registers and flags (other than producing the return value in `HL`/`L`). The caller must save anything it needs preserved.
+
+- Arguments are passed on the stack, each argument occupying 16 bits.
+- Caller pushes arguments right-to-left (last argument pushed first).
+- Caller cleans up the arguments after return.
+- Return values:
+  - 16-bit return in `HL`
+  - 8-bit return in `L`
+- Register/flag volatility (v0.1): unless explicitly documented otherwise, functions may clobber any registers and flags (other than producing the return value in `HL`/`L`). The caller must save anything it needs preserved.
 
 Notes (v0.1):
-* Arguments are stack slots, regardless of declared type. For `byte` parameters, the low byte carries the value and the high byte is ignored (recommended: push a zero-extended value).
-* `void` functions return no value.
+
+- Arguments are stack slots, regardless of declared type. For `byte` parameters, the low byte carries the value and the high byte is ignored (recommended: push a zero-extended value).
+- `void` functions return no value.
 
 ### 8.3 Calling Functions From `asm`
+
 Inside an `asm` block, a line starting with a function name invokes that function.
 
 Syntax:
-* `name` (call with zero arguments)
-* `name <arg0>, <arg1>, ...` (call with arguments)
+
+- `name` (call with zero arguments)
+- `name <arg0>, <arg1>, ...` (call with arguments)
 
 Argument values (v0.1):
-* `reg16`: passed as a 16-bit value.
-* `reg8`: passed as a zero-extended 16-bit value.
-* `imm` expression: passed as a 16-bit immediate.
-* `ea` expression: passed as the 16-bit address value.
-* `(ea)` dereference: reads from memory and passes the loaded value (word or byte depending on the parameter type; `byte` is zero-extended).
+
+- `reg16`: passed as a 16-bit value.
+- `reg8`: passed as a zero-extended 16-bit value.
+- `imm` expression: passed as a 16-bit immediate.
+- `ea` expression: passed as the 16-bit address value.
+- `(ea)` dereference: reads from memory and passes the loaded value (word or byte depending on the parameter type; `byte` is zero-extended).
 
 Calls follow the calling convention in 8.2 (compiler emits the required pushes, call, and any temporary saves/restores).
 
 Parsing and name resolution (v0.1):
-* If an `asm` line begins with `<ident>:` it defines a local label. Any remaining tokens on the line are parsed as another `asm` line (mnemonic/`op`/call/etc.).
-* Otherwise, the first token of an `asm` line is interpreted as:
-  1) a structured-control keyword (`if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`), else
-  2) a Z80 mnemonic, else
-  3) an `op` invocation, else
-  4) a `func`/`extern func` call, else
-  5) a compile error (unknown instruction/op/function).
-* Because Z80 mnemonics and register names are reserved, user-defined symbols cannot shadow instructions/registers.
+
+- If an `asm` line begins with `<ident>:` it defines a local label. Any remaining tokens on the line are parsed as another `asm` line (mnemonic/`op`/call/etc.).
+- Otherwise, the first token of an `asm` line is interpreted as:
+  1. a structured-control keyword (`if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`), else
+  2. a Z80 mnemonic, else
+  3. an `op` invocation, else
+  4. a `func`/`extern func` call, else
+  5. a compile error (unknown instruction/op/function).
+- Because Z80 mnemonics and register names are reserved, user-defined symbols cannot shadow instructions/registers.
 
 Operand identifier resolution (v0.1):
-* For identifiers used inside operands, resolution proceeds as:
-  1) local labels
-  2) locals/args (stack slots)
-  3) module-scope symbols (including `const` and enum members)
-  otherwise a compile error (unknown symbol).
+
+- For identifiers used inside operands, resolution proceeds as:
+  1. local labels
+  2. locals/args (stack slots)
+  3. module-scope symbols (including `const` and enum members)
+     otherwise a compile error (unknown symbol).
 
 ### 8.4 Stack Frames and Locals (SP-relative, no base pointer)
-* ZAX does not use `IX`/`IY` as a frame pointer.
-* Locals and arguments are addressed as `SP + constant offset` computed into `HL`.
-* The compiler knows local/arg counts from the signature and `var` block.
+
+- ZAX does not use `IX`/`IY` as a frame pointer.
+- Locals and arguments are addressed as `SP + constant offset` computed into `HL`.
+- The compiler knows local/arg counts from the signature and `var` block.
 
 At the start of the user-authored `asm` block, the compiler may have reserved space for locals (if any) by adjusting `SP` by the local frame size. The local frame size is the packed byte size of locals rounded up to an even number of bytes.
 
 Return trampoline mechanism (v0.1, used only when `frameSize > 0`):
-* To support `ret`/`ret <cc>` anywhere in the user-authored `asm` without rewriting returns to branches, the compiler uses a hidden return trampoline word on the stack.
-* Prologue (before user `asm`), when `frameSize > 0`:
-  1) Capture the incoming `SP` value (the “old SP”) into a temporary (implementation-defined sequence).
-  2) Reserve locals: `SP := SP - frameSize`
-  3) Push the saved old SP: `push oldSP`
-  4) Push a hidden return target: `push __zax_epilogue`
-* The user-visible effect is that `SP` at the start of user `asm` points at the trampoline word; locals begin at `SP + 4`.
-* A user-written `ret` or conditional `ret <cc>` transfers control to `__zax_epilogue` (by popping it into `PC`), where the compiler restores `SP` from the saved old SP and performs the real return to the caller.
-* Epilogue (`__zax_epilogue`), when `frameSize > 0`:
-  1) Pop the saved old SP into a temporary (e.g., `pop hl`)
-  2) Restore SP: `SP := oldSP` (e.g., `ld sp, hl`)
-  3) Return to caller: `ret`
+
+- To support `ret`/`ret <cc>` anywhere in the user-authored `asm` without rewriting returns to branches, the compiler uses a hidden return trampoline word on the stack.
+- Prologue (before user `asm`), when `frameSize > 0`:
+  1. Capture the incoming `SP` value (the “old SP”) into a temporary (implementation-defined sequence).
+  2. Reserve locals: `SP := SP - frameSize`
+  3. Push the saved old SP: `push oldSP`
+  4. Push a hidden return target: `push __zax_epilogue`
+- The user-visible effect is that `SP` at the start of user `asm` points at the trampoline word; locals begin at `SP + 4`.
+- A user-written `ret` or conditional `ret <cc>` transfers control to `__zax_epilogue` (by popping it into `PC`), where the compiler restores `SP` from the saved old SP and performs the real return to the caller.
+- Epilogue (`__zax_epilogue`), when `frameSize > 0`:
+  1. Pop the saved old SP into a temporary (e.g., `pop hl`)
+  2. Restore SP: `SP := oldSP` (e.g., `ld sp, hl`)
+  3. Return to caller: `ret`
 
 When `frameSize == 0`:
-* No trampoline word is installed. `ret` returns directly to the caller.
+
+- No trampoline word is installed. `ret` returns directly to the caller.
 
 Return instructions (v0.1):
-* Function returns in user-authored `asm` typically use `ret` or conditional `ret <cc>`.
-* `retn`/`reti` are permitted.
-  * If `frameSize == 0`, they return directly to the caller (as on raw Z80).
-  * If `frameSize > 0`, the return address at `SP + 0` is the trampoline word (`__zax_epilogue`), so `retn`/`reti` will return to `__zax_epilogue` (not to the caller). Their special side effects occur at that point; `__zax_epilogue` then restores `SP` and performs the final `ret` to the caller.
-    * Guidance: for interrupt handlers that require strict `reti`/`retn` semantics at the final return point, prefer `frameSize == 0` (no locals).
+
+- Function returns in user-authored `asm` typically use `ret` or conditional `ret <cc>`.
+- `retn`/`reti` are permitted.
+  - If `frameSize == 0`, they return directly to the caller (as on raw Z80).
+  - If `frameSize > 0`, the return address at `SP + 0` is the trampoline word (`__zax_epilogue`), so `retn`/`reti` will return to `__zax_epilogue` (not to the caller). Their special side effects occur at that point; `__zax_epilogue` then restores `SP` and performs the final `ret` to the caller.
+    - Guidance: for interrupt handlers that require strict `reti`/`retn` semantics at the final return point, prefer `frameSize == 0` (no locals).
 
 Conceptual layout at the start of `asm`:
-* If `frameSize > 0`:
-  * trampoline word (`__zax_epilogue`) is at `SP + 0`
-  * saved old SP is at `SP + 2`
-  * locals occupy space at the top of the frame, starting at `SP + 4`
-  * return address is at `SP + 4 + <frameSize>`
-* If `frameSize == 0`:
-  * return address is at `SP + 0`
-* arguments follow the return address
+
+- If `frameSize > 0`:
+  - trampoline word (`__zax_epilogue`) is at `SP + 0`
+  - saved old SP is at `SP + 2`
+  - locals occupy space at the top of the frame, starting at `SP + 4`
+  - return address is at `SP + 4 + <frameSize>`
+- If `frameSize == 0`:
+  - return address is at `SP + 0`
+- arguments follow the return address
 
 Argument offsets (given `argc` arguments and local frame size `frameSize`):
-* The first argument (`0`) is closest to the return address.
-* If `frameSize > 0`: argument `i` (0-based) is at `SP + frameSize + 6 + 2*i`.
-* If `frameSize == 0`: argument `i` (0-based) is at `SP + 2 + 2*i`.
+
+- The first argument (`0`) is closest to the return address.
+- If `frameSize > 0`: argument `i` (0-based) is at `SP + frameSize + 6 + 2*i`.
+- If `frameSize == 0`: argument `i` (0-based) is at `SP + 2 + 2*i`.
 
 The compiler tracks stack depth across the `asm` block to keep SP-relative locals/args resolvable.
 
 ### 8.5 SP Mutation Rules in `asm`
+
 The compiler tracks SP deltas for:
-* `push`, `pop`, `call`, `ret`, `retn`, `reti`, `rst`
-* `inc sp`, `dec sp`
-* `ex (sp), hl`, `ex (sp), ix`, `ex (sp), iy` (net delta 0)
+
+- `push`, `pop`, `call`, `ret`, `retn`, `reti`, `rst`
+- `inc sp`, `dec sp`
+- `ex (sp), hl`, `ex (sp), ix`, `ex (sp), iy` (net delta 0)
 
 Other SP assignment instructions (v0.1):
-* Instructions that assign to `SP` (e.g., `ld sp, hl`, `ld sp, ix`, `ld sp, iy`, `ld sp, imm16`) are permitted but the compiler does not track their effects.
-* When using untracked SP assignment:
-  * The programmer is responsible for ensuring SP is correct at structured-control-flow joins and at function exit.
-  * Local/arg slot references assume the compiler's tracked SP offset; untracked SP assignment may cause incorrect addressing unless SP is restored.
-  * If the function has locals (`frameSize > 0`), SP must point at the trampoline word (`__zax_epilogue`) at any `ret`/`ret <cc>` for the trampoline mechanism to work as intended.
+
+- Instructions that assign to `SP` (e.g., `ld sp, hl`, `ld sp, ix`, `ld sp, iy`, `ld sp, imm16`) are permitted but the compiler does not track their effects.
+- When using untracked SP assignment:
+  - The programmer is responsible for ensuring SP is correct at structured-control-flow joins and at function exit.
+  - Local/arg slot references assume the compiler's tracked SP offset; untracked SP assignment may cause incorrect addressing unless SP is restored.
+  - If the function has locals (`frameSize > 0`), SP must point at the trampoline word (`__zax_epilogue`) at any `ret`/`ret <cc>` for the trampoline mechanism to work as intended.
 
 Note (v0.1):
-* The compiler may emit additional SP-mutating instructions in its own prologue/epilogue sequences.
+
+- The compiler may emit additional SP-mutating instructions in its own prologue/epilogue sequences.
 
 Stack-depth constraints (v0.1):
-* At any structured-control-flow join (end of `if`/`else`, loop back-edges, and loop exits), stack depth must match across all paths.
-  * Paths that terminate (e.g., `ret`, or an unconditional `jp`/`jr` that exits the construct) do not participate in join stack-depth matching.
-* The end of a `select ... end` is also a join point: stack depth must match across all `case`/`else` arms that reach `end`.
-* The net stack delta of an `op` expansion must be 0.
+
+- At any structured-control-flow join (end of `if`/`else`, loop back-edges, and loop exits), stack depth must match across all paths.
+  - Paths that terminate (e.g., `ret`, or an unconditional `jp`/`jr` that exits the construct) do not participate in join stack-depth matching.
+- The end of a `select ... end` is also a join point: stack depth must match across all `case`/`else` arms that reach `end`.
+- The net stack delta of an `op` expansion must be 0.
 
 ---
 
 ## 9. `op` (Inline Macro-Instructions)
 
 ### 9.1 Purpose
+
 `op` defines opcode-like inline macros with compiler-level operand matching. This is used to express accumulator-shaped instruction families and provide ergonomic “opcode-like functions.”
 
 ### 9.2 Declaration Form
+
 Syntax:
+
 ```
 op add16(dst: HL, src: reg16)
   add hl, src
@@ -716,71 +836,85 @@ end
 ```
 
 Rules:
-* `op` is module-scope only.
-* `op` bodies are implicit `asm` streams (the `asm` keyword is not used inside `op`).
-* `end` terminates the `op` body.
-  * `op` bodies may contain structured control flow that uses `end` internally; the final `end` closes the `op` body.
-* `op` bodies may be empty (no instructions).
-* `op` invocations are permitted inside `asm` streams of `func` and `op`.
-* Cyclic `op` expansion is a compile error.
+
+- `op` is module-scope only.
+- `op` bodies are implicit `asm` streams (the `asm` keyword is not used inside `op`).
+- `end` terminates the `op` body.
+  - `op` bodies may contain structured control flow that uses `end` internally; the final `end` closes the `op` body.
+- `op` bodies may be empty (no instructions).
+- `op` invocations are permitted inside `asm` streams of `func` and `op`.
+- Cyclic `op` expansion is a compile error.
 
 Notes (v0.1):
-* `op` bodies do not support `var` blocks. If an expansion needs temporaries, implement them via register usage and autosave (`push`/`pop`) as needed.
+
+- `op` bodies do not support `var` blocks. If an expansion needs temporaries, implement them via register usage and autosave (`push`/`pop`) as needed.
 
 Zero-parameter ops (v0.1):
-* `op name` (with no parameter list) is permitted and defines a zero-parameter op.
-* A zero-parameter op is invoked by writing just `name` on an `asm` line.
+
+- `op name` (with no parameter list) is permitted and defines a zero-parameter op.
+- A zero-parameter op is invoked by writing just `name` on an `asm` line.
 
 ### 9.3 Operand Matchers
+
 `op` parameters use matcher types (patterns). These constrain call-site operands.
 
 Scalar/register matchers:
-* `reg8`: `A B C D E H L`
-* `reg16`: `HL DE BC SP`
-* fixed register patterns: `A`, `HL`, `DE`, `BC` as matchers
+
+- `reg8`: `A B C D E H L`
+- `reg16`: `HL DE BC SP`
+- fixed register patterns: `A`, `HL`, `DE`, `BC` as matchers
 
 Immediate matchers:
-* `imm8`, `imm16`: compile-time immediate expressions (Section 7.1)
+
+- `imm8`, `imm16`: compile-time immediate expressions (Section 7.1)
 
 Address/deref matchers:
-* `ea`: effective address expressions (Section 7.2)
-* `mem8`, `mem16`: dereference operands written as `(ea)` with implied width
+
+- `ea`: effective address expressions (Section 7.2)
+- `mem8`, `mem16`: dereference operands written as `(ea)` with implied width
 
 Notes (v0.1):
-* Matchers constrain call sites, but the `op` body must still be valid for all matched operands. If an expansion yields an illegal instruction form for a given call, compilation fails at that call site.
-* In `op` parameters, `mem8` and `mem16` disambiguate dereference width. In raw Z80 mnemonics, dereference width is implied by the instruction form (destination/source registers).
-* `reg16` includes `SP`; `op` authors should use fixed-register matchers if an expansion is only valid for a subset of register pairs.
-* `IX`/`IY` are usable in raw Z80 mnemonics but are not supported by `op` matchers in v0.1.
+
+- Matchers constrain call sites, but the `op` body must still be valid for all matched operands. If an expansion yields an illegal instruction form for a given call, compilation fails at that call site.
+- In `op` parameters, `mem8` and `mem16` disambiguate dereference width. In raw Z80 mnemonics, dereference width is implied by the instruction form (destination/source registers).
+- `reg16` includes `SP`; `op` authors should use fixed-register matchers if an expansion is only valid for a subset of register pairs.
+- `IX`/`IY` are usable in raw Z80 mnemonics but are not supported by `op` matchers in v0.1.
 
 Operand substitution (v0.1):
-* `op` parameters bind to parsed operands (AST operands), not text.
-  * `reg8`/`reg16` parameters substitute the matched register token(s).
-  * `imm8`/`imm16` parameters substitute the immediate expression value.
-  * `ea` parameters substitute the effective-address expression (without implicit parentheses).
-  * `mem8`/`mem16` parameters substitute the full dereference operand including parentheses.
-    * Example: if `src: mem8` matches `(hero.flags)`, then `ld a, src` emits `ld a, (hero.flags)`.
+
+- `op` parameters bind to parsed operands (AST operands), not text.
+  - `reg8`/`reg16` parameters substitute the matched register token(s).
+  - `imm8`/`imm16` parameters substitute the immediate expression value.
+  - `ea` parameters substitute the effective-address expression (without implicit parentheses).
+  - `mem8`/`mem16` parameters substitute the full dereference operand including parentheses.
+    - Example: if `src: mem8` matches `(hero.flags)`, then `ld a, src` emits `ld a, (hero.flags)`.
 
 ### 9.4 Overload Resolution
-* `op` overloads are selected by best match on matcher types and fixed-register patterns.
-* If no overload matches, compilation fails.
-* If multiple overloads match equally, compilation fails (ambiguous).
+
+- `op` overloads are selected by best match on matcher types and fixed-register patterns.
+- If no overload matches, compilation fails.
+- If multiple overloads match equally, compilation fails (ambiguous).
 
 Specificity (v0.1):
-* Fixed-register matchers (e.g., `HL`) are more specific than class matchers (e.g., `reg16`).
-* `imm8` is more specific than `imm16` for values that fit in 8 bits.
-* `mem8`/`mem16` are more specific than `ea`.
+
+- Fixed-register matchers (e.g., `HL`) are more specific than class matchers (e.g., `reg16`).
+- `imm8` is more specific than `imm16` for values that fit in 8 bits.
+- `mem8`/`mem16` are more specific than `ea`.
 
 ### 9.5 Autosave Clobber Policy
+
 To keep `op` expansions transparent:
-* An `op` expansion must preserve all registers and flags **except** explicit destination(s).
-* The compiler may use scratch registers and `push/pop` internally.
-* Net stack delta must be zero.
+
+- An `op` expansion must preserve all registers and flags **except** explicit destination(s).
+- The compiler may use scratch registers and `push/pop` internally.
+- Net stack delta must be zero.
 
 The simplest implementation is permitted: always preserve flags (save/restore `AF`) unless `AF` is an explicit destination.
 
 Destination parameters (v0.1):
-* By convention, any `op` parameter whose name starts with `dst` or `out` (e.g., `dst`, `dst2`, `out`) is treated as a destination.
-* If an `op` declares no `dst*`/`out*` parameters, the first parameter is treated as the destination.
+
+- By convention, any `op` parameter whose name starts with `dst` or `out` (e.g., `dst`, `dst2`, `out`) is treated as a destination.
+- If an `op` declares no `dst*`/`out*` parameters, the first parameter is treated as the destination.
 
 ---
 
@@ -789,39 +923,46 @@ Destination parameters (v0.1):
 Structured control flow is only available inside `asm` streams. For `if`/`while`/`repeat`, conditions test CPU flags that the programmer establishes with normal Z80 instructions. `select`/`case` dispatches by equality on a selector value.
 
 ### 10.1 Condition Codes (v0.1)
-* `Z` / `NZ`: zero flag set / not set
-* `C` / `NC`: carry flag set / not set
-* `PE` / `PO`: parity even / parity odd (parity/overflow flag set / not set)
-* `M` / `P`: sign flag set (minus) / not set (plus)
+
+- `Z` / `NZ`: zero flag set / not set
+- `C` / `NC`: carry flag set / not set
+- `PE` / `PO`: parity even / parity odd (parity/overflow flag set / not set)
+- `M` / `P`: sign flag set (minus) / not set (plus)
 
 ### 10.2 Forms
-* `if <cc> ... end` (optional `else`)
-* `while <cc> ... end`
-* `repeat ... until <cc>`
-* `select <selector> ... end` (case dispatch)
+
+- `if <cc> ... end` (optional `else`)
+- `while <cc> ... end`
+- `repeat ... until <cc>`
+- `select <selector> ... end` (case dispatch)
 
 These forms lower to compiler-generated hidden labels and conditional/unconditional jumps. `if`/`while`/`repeat` do not themselves set flags; `select` lowering may set flags as part of dispatch.
 
 Notes:
-* `else` is optional.
-* For `if` blocks, `else` must immediately follow the `if` body with only whitespace/comments/newlines in between.
+
+- `else` is optional.
+- For `if` blocks, `else` must immediately follow the `if` body with only whitespace/comments/newlines in between.
 
 `select` notes (v0.1):
-* `select` does not use condition codes. It dispatches based on equality against a selector value.
-* `select` cases do not fall through in v0.1.
-* Register/flag effects: the compiler-generated dispatch may modify `A` and flags. All other registers are preserved across dispatch.
-  * If the selector is `A`, the selector value is not preserved (since `A` may be clobbered by dispatch).
-  * If the selector is any other register (`reg8` or `reg16`), that register’s value is preserved across dispatch.
+
+- `select` does not use condition codes. It dispatches based on equality against a selector value.
+- `select` cases do not fall through in v0.1.
+- Register/flag effects: the compiler-generated dispatch may modify `A` and flags. All other registers are preserved across dispatch.
+  - If the selector is `A`, the selector value is not preserved (since `A` may be clobbered by dispatch).
+  - If the selector is any other register (`reg8` or `reg16`), that register’s value is preserved across dispatch.
 
 Condition evaluation points (v0.1):
-* `if <cc> ... end`: `<cc>` is evaluated at the `if` keyword using the current flags.
-* `while <cc> ... end`: `<cc>` is evaluated at the `while` keyword on entry and after each iteration. The back-edge jumps to the condition test at the top of the loop, which re-tests `<cc>` using the current flags. The loop body is responsible for establishing flags for the next condition check.
-* `repeat ... until <cc>`: `<cc>` is evaluated at the `until` keyword using the current flags. The loop body is responsible for establishing flags for the `until` check.
+
+- `if <cc> ... end`: `<cc>` is evaluated at the `if` keyword using the current flags.
+- `while <cc> ... end`: `<cc>` is evaluated at the `while` keyword on entry and after each iteration. The back-edge jumps to the condition test at the top of the loop, which re-tests `<cc>` using the current flags. The loop body is responsible for establishing flags for the next condition check.
+- `repeat ... until <cc>`: `<cc>` is evaluated at the `until` keyword using the current flags. The loop body is responsible for establishing flags for the `until` check.
 
 ### 10.2.1 `select` / `case` (v0.1)
+
 `select` introduces a multi-way branch based on a selector operand evaluated once.
 
 Syntax:
+
 ```
 select <selector>
   case <imm> ...
@@ -831,33 +972,37 @@ end
 ```
 
 Rules:
-* `<selector>` is evaluated once at `select` and treated as a 16-bit value.
-  * Allowed selector forms: `reg16`, `reg8` (zero-extended), `imm` expression, `ea` (address value), `(ea)` (loaded value).
-  * `(ea)` selectors read a 16-bit word from memory.
-* Each `case` value must be a compile-time immediate (`imm`) and is compared against the selector.
-  * Comparisons are by 16-bit equality.
-  * For `reg8` selectors, the selector value is in the range `0..255` (zero-extended). `case` values outside `0..255` can never match; the compiler may warn.
-* `else` is optional and is taken if no `case` matches. If no `else` is present and no `case` matches, control transfers to after the enclosing `end`.
-* There is no fallthrough: after a `case` body finishes, control transfers to after the enclosing `end` (unless the case body terminates, e.g., `ret`).
-* Duplicate `case` values within the same `select` are a compile error.
-* Nested `select` is allowed.
-* Each `case` arm matches exactly one value in v0.1 (no `case 1,2,3` syntax).
-* `case` and `else` are only valid inside `select` (and `else` is also valid inside `if`). Encountering them outside their enclosing construct is a compile error.
-* A `select` must contain at least one arm (`case` or `else`). A `select` with no arms is a compile error.
+
+- `<selector>` is evaluated once at `select` and treated as a 16-bit value.
+  - Allowed selector forms: `reg16`, `reg8` (zero-extended), `imm` expression, `ea` (address value), `(ea)` (loaded value).
+  - `(ea)` selectors read a 16-bit word from memory.
+- Each `case` value must be a compile-time immediate (`imm`) and is compared against the selector.
+  - Comparisons are by 16-bit equality.
+  - For `reg8` selectors, the selector value is in the range `0..255` (zero-extended). `case` values outside `0..255` can never match; the compiler may warn.
+- `else` is optional and is taken if no `case` matches. If no `else` is present and no `case` matches, control transfers to after the enclosing `end`.
+- There is no fallthrough: after a `case` body finishes, control transfers to after the enclosing `end` (unless the case body terminates, e.g., `ret`).
+- Duplicate `case` values within the same `select` are a compile error.
+- Nested `select` is allowed.
+- Each `case` arm matches exactly one value in v0.1 (no `case 1,2,3` syntax).
+- `case` and `else` are only valid inside `select` (and `else` is also valid inside `if`). Encountering them outside their enclosing construct is a compile error.
+- A `select` must contain at least one arm (`case` or `else`). A `select` with no arms is a compile error.
 
 Notes:
-* `select <ea>` dispatches on the address value of `<ea>`. To dispatch on the stored value, use `select (ea)`.
-* If you want to dispatch on a byte-sized value in memory, prefer loading into a `reg8` and using `select <reg8>` rather than `select (ea)` (which reads a 16-bit word).
+
+- `select <ea>` dispatches on the address value of `<ea>`. To dispatch on the stored value, use `select (ea)`.
+- If you want to dispatch on a byte-sized value in memory, prefer loading into a `reg8` and using `select <reg8>` rather than `select (ea)` (which reads a 16-bit word).
 
 Lowering (informative):
-* The compiler may lower `select` either as a sequence of compares/branches or as a jump table, depending on target and case density. Behavior must be equivalent.
-  * For `reg8` selectors, lowering naturally uses 8-bit compares (e.g., `ld a, <reg8>` then `cp imm8`) because the selector’s high byte is always zero.
-  * For `reg16` selectors, lowering may require multi-instruction comparison sequences.
-  * The compiler may test `case` values in any order.
-    * Do not rely on any particular case-test order or intermediate dispatch effects.
-  * If the selector is a compile-time `imm` expression, the compiler may resolve the match at compile time and emit only the matching arm (or nothing).
+
+- The compiler may lower `select` either as a sequence of compares/branches or as a jump table, depending on target and case density. Behavior must be equivalent.
+  - For `reg8` selectors, lowering naturally uses 8-bit compares (e.g., `ld a, <reg8>` then `cp imm8`) because the selector’s high byte is always zero.
+  - For `reg16` selectors, lowering may require multi-instruction comparison sequences.
+  - The compiler may test `case` values in any order.
+    - Do not rely on any particular case-test order or intermediate dispatch effects.
+  - If the selector is a compile-time `imm` expression, the compiler may resolve the match at compile time and emit only the matching arm (or nothing).
 
 ### 10.3 Examples
+
 ```
 ; if A == 0 then ...
 or a
@@ -895,30 +1040,35 @@ end
 ```
 
 ### 10.4 Local Labels (Discouraged, Allowed)
+
 ZAX discourages labels in favor of structured control flow, but allows **local labels** within an `asm` block for low-level control flow.
 
 Label definition syntax (v0.1):
-* `<ident>:` at the start of an `asm` line defines a local label at the current code location.
-  * A label definition may be followed by an instruction on the same line (e.g., `loop: djnz loop`) or may stand alone.
+
+- `<ident>:` at the start of an `asm` line defines a local label at the current code location.
+  - A label definition may be followed by an instruction on the same line (e.g., `loop: djnz loop`) or may stand alone.
 
 Scope and resolution (v0.1):
-* Local labels are scoped to the enclosing `func` or `op` body and are not exported.
-* A local label may be referenced before its definition within the same `asm` block (forward reference).
-* Local label names must not collide with reserved names (Section 1.5), ignoring case.
-* When resolving an identifier in an instruction operand, local labels take precedence over locals/args, which take precedence over global symbols.
+
+- Local labels are scoped to the enclosing `func` or `op` body and are not exported.
+- A local label may be referenced before its definition within the same `asm` block (forward reference).
+- Local label names must not collide with reserved names (Section 1.5), ignoring case.
+- When resolving an identifier in an instruction operand, local labels take precedence over locals/args, which take precedence over global symbols.
 
 Usage (v0.1):
-* A local label name may be used anywhere a Z80 mnemonic expects an address/immediate (e.g., `jp loop`, `jr nz, loop`, `djnz loop`).
-* For relative branches (`jr`, `djnz`), the displacement must fit the instruction encoding; otherwise it is a compile error.
+
+- A local label name may be used anywhere a Z80 mnemonic expects an address/immediate (e.g., `jp loop`, `jr nz, loop`, `djnz loop`).
+- For relative branches (`jr`, `djnz`), the displacement must fit the instruction encoding; otherwise it is a compile error.
 
 ---
 
 ## 11. Examples (Non-normative)
 
 This specification keeps its embedded examples short. For working, end-to-end source examples, see:
-* `examples/hello.zax`
-* `examples/stack_and_structs.zax`
-* `examples/control_flow_and_labels.zax`
+
+- `examples/hello.zax`
+- `examples/stack_and_structs.zax`
+- `examples/control_flow_and_labels.zax`
 
 All examples are non-normative; the normative rules are the numbered sections above.
 
@@ -940,49 +1090,54 @@ ZAX is a compiler: it may lower a single source line into multiple machine instr
 
 The recommended mapping format is **D8 Debug Map (D8M) v1**, used by Debug80. It is a JSON file whose canonical name is:
 
-* `<artifactBase>.d8dbg.json`
+- `<artifactBase>.d8dbg.json`
 
 At a minimum, a ZAX compiler can populate:
-* instruction/data byte ranges (`segments`)
-* symbol definitions (`symbols`)
+
+- instruction/data byte ranges (`segments`)
+- symbol definitions (`symbols`)
 
 The full D8M schema is documented in Debug80 (`debug80/docs/d8-debug-map.md`). This appendix summarizes the key conventions needed to produce a useful map.
 
 ### B.2 Paths
 
 In D8M, the top-level `files` object is keyed by source file path strings. Recommended:
-* project-relative paths
-* `/` path separators
+
+- project-relative paths
+- `/` path separators
 
 ### B.3 Segments (address → source)
 
 Each segment maps a byte range to a source location:
-* `start`: start address (inclusive)
-* `end`: end address (exclusive)
-* `lstLine`: a listing line number (required by D8M; if not available, set `0`)
-* `line` / `column`: 1-based source location (when known)
-* `kind`: `code` / `data` / `directive` / `label` / `macro` / `unknown`
-* `confidence`: `high` / `medium` / `low` (useful if mapping is inferred rather than emitted directly)
+
+- `start`: start address (inclusive)
+- `end`: end address (exclusive)
+- `lstLine`: a listing line number (required by D8M; if not available, set `0`)
+- `line` / `column`: 1-based source location (when known)
+- `kind`: `code` / `data` / `directive` / `label` / `macro` / `unknown`
+- `confidence`: `high` / `medium` / `low` (useful if mapping is inferred rather than emitted directly)
 
 ZAX can generally produce **high confidence** mappings because it controls code emission (even after lowering).
 
 ### B.4 Symbols
 
 Symbols describe named addresses and constants:
-* `name`
-* `address`
-* `kind`: `label`, `constant`, `data`, `unknown`
-* `scope`: `global` or `local`
-* `size` (optional; bytes)
+
+- `name`
+- `address`
+- `kind`: `label`, `constant`, `data`, `unknown`
+- `scope`: `global` or `local`
+- `size` (optional; bytes)
 
 ### B.5 Suggested ZAX mapping policy
 
 Recommended (non-normative) policy for a ZAX compiler:
-* Emit one `code` segment per contiguous emitted range that originates from a single source line in an `asm` stream.
-  * Lowering may produce multiple segments tied to the same source location.
-* Emit `data` segments for `data` initializers and `bin` includes.
-* Record local labels as `symbols` of `scope: local`.
-* Record `const` and enum members as `symbols` of `kind: constant` by storing the low 16 bits of the constant value in the symbol’s `address` field.
+
+- Emit one `code` segment per contiguous emitted range that originates from a single source line in an `asm` stream.
+  - Lowering may produce multiple segments tied to the same source location.
+- Emit `data` segments for `data` initializers and `bin` includes.
+- Record local labels as `symbols` of `scope: local`.
+- Record `const` and enum members as `symbols` of `kind: constant` by storing the low 16 bits of the constant value in the symbol’s `address` field.
 
 ### B.6 Minimal example (illustrative)
 
@@ -996,10 +1151,23 @@ Recommended (non-normative) policy for a ZAX compiler:
   "files": {
     "examples/hello.zax": {
       "segments": [
-        { "start": 32768, "end": 32771, "line": 40, "kind": "code", "confidence": "high", "lstLine": 1 }
+        {
+          "start": 32768,
+          "end": 32771,
+          "line": 40,
+          "kind": "code",
+          "confidence": "high",
+          "lstLine": 1
+        }
       ],
       "symbols": [
-        { "name": "main", "address": 32768, "line": 36, "kind": "label", "scope": "global" }
+        {
+          "name": "main",
+          "address": 32768,
+          "line": 36,
+          "kind": "label",
+          "scope": "global"
+        }
       ]
     }
   }
