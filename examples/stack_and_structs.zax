@@ -1,5 +1,5 @@
-module StackAndStructs
-
+; stack_and_structs.zax
+;
 ; Example showing:
 ; - locals and args as SP-relative stack slots
 ; - record field addressing (rec.field is an ea)

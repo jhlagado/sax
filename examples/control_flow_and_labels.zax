@@ -1,5 +1,5 @@
-module ControlFlowAndLabels
-
+; control_flow_and_labels.zax
+;
 ; Example showing:
 ; - enum syntax and unqualified members
 ; - if/else/end structured control flow

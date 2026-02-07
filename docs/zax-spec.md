@@ -3,7 +3,7 @@
 This document is the implementable first draft specification for **ZAX**, a structured assembler for the Z80 family. It is written for humans: it introduces concepts in the same order you’ll use them when writing ZAX.
 
 ZAX aims to make assembly code easier to read and refactor by providing:
-* module structure (`module`, `import`, declarations)
+* module structure (`import`, declarations)
 * simple layout types (arrays/records) used for addressing
 * functions with stack arguments and optional locals
 * structured control flow inside `asm` (`if`/`while`/`repeat`/`select`)
@@ -24,8 +24,6 @@ ZAX is not a “high-level language”. It is still assembly: you choose registe
 
 ### 0.2 A First ZAX File (Non-normative)
 ```
-module Hello
-
 const MsgLen = 5
 
 data
@@ -120,7 +118,7 @@ ZAX treats the following as **reserved** (case-insensitive):
 * Register names: `A F AF B C D E H L HL DE BC SP IX IY I R`.
 * Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
 * Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`.
-* Module and declaration keywords: `module`, `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
+* Declaration keywords: `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
 
 User-defined identifiers (module-scope symbols, locals/args, and labels) must not collide with any reserved name, ignoring case.
 
@@ -132,7 +130,6 @@ In addition, the compiler reserves the prefix `__zax_` for internal temporaries 
 
 ### 2.1 Module File
 A compilation unit is a module file containing:
-* optional `module` header
 * zero or more `import` lines
 * zero or more module-scope directives: `section`, `align`
 * module-scope declarations: `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`
@@ -143,12 +140,8 @@ No nested functions are permitted.
 Source files (v0.1):
 * ZAX source files use the `.zax` extension.
 
-Module header (v0.1):
-* Syntax: `module <Ident>`
-* If present, the `module` header must appear before any `import` or other declaration/directive.
-* A module’s canonical ID is:
-  * the `<Ident>` from its `module` header, if present
-  * otherwise, the file stem of the module’s path (basename without `.zax`)
+Module identity (v0.1):
+* A module’s canonical ID is the file stem of its source path (basename without `.zax`).
 * If two modules in the same build have the same canonical ID, compilation fails (module ID collision).
 
 ### 2.2 Sections and Location Counters
@@ -207,7 +200,6 @@ Default placement (if not specified):
 * `import "<path>"`
 
 `<ModuleId>` is resolved via the compiler’s search path (project + standard modules). In v0.1, a `ModuleId` maps to a file named `<ModuleId>.zax` on the search path.
-* For `import <ModuleId>`, the imported module’s canonical ID (Section 2.1) must match `<ModuleId>`, ignoring case. Otherwise, it is a compile error.
 
 `import "<path>"` loads a module from an explicit path. For v0.1, quoted paths should include the `.zax` extension and are resolved relative to the importing file (then search paths, if not found).
 

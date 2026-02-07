@@ -1,7 +1,6 @@
-module Hello
-
+; hello.zax
+;
 ; Minimal example showing:
-; - module header
 ; - extern absolute binding
 ; - calling convention via function-call syntax inside `asm`
 ; - simple control flow (repeat/until)
