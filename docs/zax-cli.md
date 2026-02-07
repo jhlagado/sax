@@ -51,6 +51,15 @@ Keep switches intentionally small:
 - `-V, --version`
 - `-h, --help`
 
+## Deterministic module order (imports)
+
+When the entry module imports other modules, the assembler resolves an import graph and chooses a deterministic module order:
+
+- Dependencies are ordered before dependents (topological order).
+- Ties are broken by canonical module ID (file stem), then by a normalized module path.
+
+This order is used when packing output sections so builds are stable and independent of filesystem enumeration order.
+
 ## Debug80 integration note
 
 Debug80 expects to find:
