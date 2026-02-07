@@ -5,7 +5,7 @@ This document is the implementable first draft specification for **ZAX**, a stru
 ZAX aims to make assembly code easier to read and refactor by providing:
 
 - file structure (`import`, declarations)
-- simple layout types (arrays/records) used for addressing
+- simple layout types (arrays/records/unions) used for addressing
 - functions with stack arguments and optional locals
 - structured control flow inside `asm` (`if`/`while`/`repeat`/`select`)
 - `op`: inline “macro-instructions” with operand matching
@@ -135,7 +135,7 @@ ZAX treats the following as **reserved** (case-insensitive):
 - Register names: `A F AF B C D E H L HL DE BC SP IX IY I R`.
 - Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
 - Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`.
-- Declaration keywords: `import`, `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
+- Declaration keywords: `import`, `type`, `union`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
 
 User-defined identifiers (module-scope symbols, locals/args, and labels) must not collide with any reserved name, ignoring case.
 
@@ -151,7 +151,7 @@ A compilation unit is a module file containing:
 
 - zero or more `import` lines
 - zero or more module-scope directives: `section`, `align`
-- module-scope declarations: `type`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`
+- module-scope declarations: `type`, `union`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`
 - zero or more `func` and `op` declarations
 
 No nested functions are permitted.
@@ -250,7 +250,7 @@ Default placement (if not specified):
 
 Namespace rule (v0.1):
 
-- `type`, `enum`, `const`, storage symbols (`var`/`data`/`bin`), `func`, and `op` names share the same global namespace. Defining a `func` and an `op` with the same name is a compile error.
+- `type`, `union`, `enum`, `const`, storage symbols (`var`/`data`/`bin`), `func`, and `op` names share the same global namespace. Defining a `func` and an `op` with the same name is a compile error.
 
 Forward references (v0.1):
 
@@ -284,6 +284,7 @@ Type sizes (v0.1):
 - `sizeof(ptr)` = 2
 - `sizeof(T[n])` = `n * sizeof(T)`
 - `sizeof(record)` = sum of field sizes (packed)
+- `sizeof(union)` = maximum of field sizes (overlay)
 
 ### 4.2 Type Aliases
 
@@ -356,7 +357,7 @@ Notes (v0.1):
 
 ---
 
-## 5. Arrays and Records
+## 5. Arrays, Records, and Unions
 
 ### 5.1 Arrays (Nested, 0-based)
 
@@ -418,6 +419,45 @@ Example: arrays of records use `ea` paths (informative):
 ; `sprites[C].x` is an `ea` (address), not a value.
 ld hl, (sprites[C].x)     ; load word at sprites[C].x
 ld (sprites[C].x), hl     ; store word to sprites[C].x
+```
+
+### 5.3 Unions (Overlays)
+
+Union types overlay multiple field interpretations on the same memory region (C-style union). This is a **layout** feature only: it does not add tags, runtime checks, or type narrowing.
+
+Syntax:
+
+```
+union Value
+  b: byte
+  w: word
+  p: ptr
+end
+```
+
+Layout rules (v0.1):
+
+- Unions must contain at least one field (empty unions are a compile error in v0.1).
+- Union declarations are module-scope only.
+- All union fields start at offset 0 (overlay).
+- Union size is the maximum field size: `sizeof(union) = max(sizeof(fieldType))`.
+- Default layout is packed (no implicit padding).
+
+Field access:
+
+- `u.field` denotes the **effective address** of the field (which is the union base address plus offset 0).
+- Because union fields are overlaid, reading/writing different fields reads/writes the same underlying bytes.
+
+Example (informative):
+
+```
+var
+  v: Value
+
+asm
+  ld a, (v.b)     ; read low byte
+  ld hl, (v.w)    ; read word overlay
+  ld de, (v.p)    ; read pointer overlay
 ```
 
 ---

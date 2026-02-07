@@ -52,7 +52,7 @@ CLI design is specified in `docs/zax-cli.md`. Do not deviate from it without dis
   - IDs are stable across releases once introduced: no renumbering, no reusing an ID for a different diagnostic.
   - Fail with non-zero exit code on error.
 - **Artifacts required**
-  - `.bin`, `.hex`, and `.d8dbg.json` are first-class and must be supported from the first vertical slice.
+  - `.bin`, `.hex`, and `.d8dbg.json` are first-class. `.bin` and `.hex` must be emitted from PR 1. A minimal `.d8dbg.json` (format/version/arch + segment list + symbols) must also ship in PR 1 so the D8M pipeline never diverges; later PRs extend it.
 
 ### 2) Architecture expectations
 
@@ -78,7 +78,7 @@ Before writing compiler logic, the first PR must define the **interface contract
 
 Phase 0 deliverables (all in one PR):
 
-1. **AST node types** (`src/frontend/ast.ts`) — define the stable top-level shape: discriminated union convention, source-span fields, and the concrete node kinds needed for PRs 1–2 (module file, func declaration, asm block, Z80 instruction nodes, const/enum/data). For constructs not yet needed (imports, op, structured control flow, etc.), define placeholder members in the union (e.g., a comment or a generic `UnimplementedNode` kind with a span) so the union is forward-compatible. Later PRs add concrete node kinds as they go via the contract-change mechanism in §6.2.
+1. **AST node types** (`src/frontend/ast.ts`) — define the stable top-level shape: discriminated union convention, source-span fields, and the concrete node kinds needed for PRs 1–2 (module file, func declaration, asm block, Z80 instruction nodes, const/enum/data). For constructs not yet needed (imports, op, structured control flow, unions, etc.), define placeholder members in the union (e.g., a comment or a generic `UnimplementedNode` kind with a span) so the union is forward-compatible. `UnimplementedNode` may exist in the union for type stability, but the parser must never emit it beyond the slice it is meant to cover — tests must fail if an `UnimplementedNode` appears in the AST output of any passing fixture. Later PRs replace placeholders with concrete node kinds as they go via the contract-change mechanism in §6.2.
 2. **Diagnostic types** (`src/diagnostics/types.ts`) — a `Diagnostic` interface with `id` (stable string), `severity`, `message`, `file`, `line`, `column`. An enum or namespace of all diagnostic IDs.
 3. **Compiler pipeline interface** (`src/pipeline.ts`) — the top-level function signature: input (entry path + options) → output (artifacts + diagnostics). Define the artifact types (binary buffer, HEX string, D8M JSON object, listing string).
 4. **Format writer interfaces** (`src/formats/types.ts`) — each writer takes the compiler's internal address→byte map (or equivalent) plus symbol table and produces an output artifact.
@@ -88,6 +88,8 @@ This PR has no implementation, only types and interfaces. It must be reviewed an
 ### 4) Testing regime (spec-as-oracle)
 
 The normative spec is the test plan. Every testable rule in `docs/zax-spec.md` must have at least one positive and one negative test fixture, traceable to a section number.
+
+All test code lives under `test/` (not `tests/`). Do not create a parallel directory tree.
 
 #### 4.1 Test categories
 
@@ -122,15 +124,15 @@ Required PR sequence (adjust scope as needed, but preserve the vertical-slice pr
 | PR  | Scope                                                                                                                                                             | Key spec sections                  |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
 | 0   | **Contracts**: AST types, diagnostic types, pipeline interface, format writer interfaces. No implementation.                                                      | —                                  |
-| 1   | **Minimal end-to-end**: lex + parse + encode + emit a single `func` with inline `asm` (raw Z80 mnemonics only, no locals, no imports). Produce `.bin` and `.hex`. | §1, §2.1, §2.2, §8.1, §8.2         |
+| 1   | **Minimal end-to-end**: lex + parse + encode + emit a single `func` with inline `asm` (raw Z80 mnemonics only, no locals, no imports). Produce `.bin`, `.hex`, and minimal `.d8dbg.json`. | §1, §2.1, §2.2, §8.1, §8.2, App B  |
 | 2   | **Constants and data**: `const`, `enum`, `data` declarations, `imm` expressions, section packing.                                                                 | §4.3, §4.4, §6.3, §7.1             |
-| 3   | **Module-scope `var`, types, records, arrays**: layout, `sizeof`, `ea` expressions, field access, array indexing, lowering of non-encodable operands.             | §4.1, §4.2, §5, §6.2, §6.1.1, §7.2 |
+| 3   | **Module-scope `var`, types, records, arrays, unions**: layout, `sizeof`, `ea` expressions, field access, array indexing, lowering of non-encodable operands.   | §4.1, §4.2, §5, §6.2, §6.1.1, §7.2 |
 | 4   | **Function locals and calling convention**: `var` block in `func`, SP-relative addressing, stack frame/trampoline mechanism, `func` calls from `asm`.             | §8.1–§8.5                          |
 | 5   | **Structured control flow**: `if`/`else`/`while`/`repeat`/`until`, `select`/`case`, stack-depth matching at joins.                                                | §10                                |
 | 6   | **Imports and multi-module**: `import`, name resolution, collision detection, packing order, forward references.                                                  | §3                                 |
 | 7   | **`op` declarations**: matcher types, overload resolution, autosave, expansion, cyclic-expansion detection.                                                       | §9                                 |
 | 8   | **`bin`/`hex`/`extern`**: external bytes, Intel HEX ingestion + validation, extern bindings.                                                                      | §6.4, §6.5                         |
-| 9   | **Formats and Debug80**: D8M writer, LST writer, CLI polish (all switches per `docs/zax-cli.md`).                                                                 | Appendix B, CLI doc                |
+| 9   | **Formats and Debug80**: extend D8M writer (source mapping, local scopes), LST writer, CLI polish (all switches per `docs/zax-cli.md`).                             | Appendix B, CLI doc                |
 | 10  | **`examples/` acceptance + hardening**: all examples compile, negative-test coverage sweep, edge cases.                                                           | All                                |
 
 Each PR must include tests for its scope and must not break any previously passing tests.
