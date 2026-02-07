@@ -11,7 +11,7 @@ extern func bios_putc(ch: byte): void at $F003
 const MsgLen = 10
 
 data
-  msg: byte[10] = "HELLO, ZAX"
+  msg: byte[] = "HELLO, ZAX"
 
 export func main(): void
   var

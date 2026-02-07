@@ -30,7 +30,7 @@ ZAX is not a “high-level language”. It is still assembly: you choose registe
 const MsgLen = 5
 
 data
-  msg: byte[5] = "HELLO"
+  msg: byte[] = "HELLO"
 
 extern func bios_putc(ch: byte): void at $F003
 
@@ -297,8 +297,12 @@ type Ptr16 ptr
 Type expressions (v0.1):
 
 - Scalar types: `byte`, `word`, `addr`, `ptr`
-- Arrays: `T[n]` (nested arrays allowed)
+- Arrays: `T[n]` (fixed length) or `T[]` (inferred length; see below). Nested arrays allowed.
 - Records: a record body starting on the next line and terminated by `end`
+
+Inferred-length arrays (v0.1):
+- `T[]` (with no length) is permitted only in `data` declarations that have an initializer. The compiler infers the element count from the initializer.
+- `T[]` is not permitted in `var` declarations, function-local `var` blocks, record fields, or type aliases (all of these require a known size).
 
 Arrays and nesting (v0.1):
 
@@ -486,7 +490,7 @@ Syntax:
 ```
 data
   table: word[4] = { 1, 2, 3, 4 }
-  banner: byte[5] = "HELLO"
+  banner: byte[] = "HELLO"
   bytes: byte[3] = { $00, $01, $FF }
 ```
 
@@ -501,9 +505,12 @@ Initialization:
 
 Type vs initializer (v0.1):
 
-- Initializers must match the declared type; ZAX does not infer array lengths from initializer length.
-  - Example: write `table: word[3] = { 1, 2, 3 }`, not `table: word = { 1, 2, 3 }`.
-- For array types (e.g., `word[8]` or `Sprite[4]`), the initializer element count must match the total number of scalar elements implied by the array type.
+- For fixed-length arrays (`T[n]`), the initializer element count must match `n` exactly.
+  - Example: `table: word[3] = { 1, 2, 3 }` — three elements, matching the declared length.
+- For inferred-length arrays (`T[]`), the compiler determines the length from the initializer.
+  - Example: `banner: byte[] = "HELLO"` is equivalent to `banner: byte[5] = "HELLO"`.
+  - Example: `table: word[] = { 1, 2, 3 }` is equivalent to `table: word[3] = { 1, 2, 3 }`.
+- A bare scalar type without `[]` or `[n]` is not an array; `table: word = { 1, 2, 3 }` is a compile error.
 - Record initializers must supply field values in field order; for arrays of records, initializers are flattened in element order.
 
 Nested record initializer example (v0.1):
