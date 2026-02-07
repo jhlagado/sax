@@ -480,8 +480,8 @@ hex bios from "rom/bios.hex"
 * `hex <name> from "<path>"` binds `<name>` to the lowest address written by the HEX file (type `addr`). If the HEX file contains no data records, it is a compile error.
 * HEX output is written to absolute addresses in the final address space and does not advance any section’s location counter.
 * If a HEX-written byte overlaps any byte emitted by section packing (`code`/`data`/`bin`) or another HEX include, it is a compile error (regardless of whether the bytes are equal).
-* The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address, filling gaps with `$00`. `var` contributes no bytes.
-  * When producing Intel HEX output, the compiler emits only written bytes/records; it does not emit gap fill records.
+* The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address. Unwritten addresses within this range are filled with the **gap fill byte**, `$00`. `var` contributes no bytes.
+  * When producing Intel HEX output, the compiler emits only written bytes/records; gap fill bytes are not emitted.
 
 ### 6.5 `extern` (Binding Names to Addresses)
 Bind callable names to absolute addresses:
