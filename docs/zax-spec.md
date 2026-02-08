@@ -793,52 +793,30 @@ Operand identifier resolution (v0.1):
 - ZAX does not use `IX`/`IY` as a frame pointer.
 - Locals and arguments are addressed as `SP + constant offset` computed into `HL`.
 - The compiler knows local/arg counts from the signature and `var` block.
+- In the current ABI, each local and each argument occupies one 16-bit slot.
+- Supported local/parameter types in this ABI: `byte`, `word`, `addr` (or aliases that resolve to those scalar types).
 
-At the start of the user-authored `asm` block, the compiler may have reserved space for locals (if any) by adjusting `SP` by the local frame size. The local frame size is the packed byte size of locals rounded up to an even number of bytes.
+Frame model (v0.1 current):
 
-Return trampoline mechanism (v0.1, used only when `frameSize > 0`):
+- Prologue reserves locals as words (`frameSize = localCount * 2`).
+- No trampoline metadata is pushed.
+- At the start of user-authored `asm`:
+  - local slot `i` is at `SP + 2*i`
+  - return address is at `SP + frameSize`
+  - argument `i` (0-based) is at `SP + frameSize + 2 + 2*i`
 
-- To support `ret`/`ret <cc>` anywhere in the user-authored `asm` without rewriting returns to branches, the compiler uses a hidden return trampoline word on the stack.
-- Prologue (before user `asm`), when `frameSize > 0`:
-  1. Capture the incoming `SP` value (the “old SP”) into a temporary (implementation-defined sequence).
-  2. Reserve locals: `SP := SP - frameSize`
-  3. Push the saved old SP: `push oldSP`
-  4. Push a hidden return target: `push __zax_epilogue`
-- The user-visible effect is that `SP` at the start of user `asm` points at the trampoline word; locals begin at `SP + 4`.
-- A user-written `ret` or conditional `ret <cc>` transfers control to `__zax_epilogue` (by popping it into `PC`), where the compiler restores `SP` from the saved old SP and performs the real return to the caller.
-- Epilogue (`__zax_epilogue`), when `frameSize > 0`:
-  1. Pop the saved old SP into a temporary (e.g., `pop hl`)
-  2. Restore SP: `SP := oldSP` (e.g., `ld sp, hl`)
-  3. Return to caller: `ret`
+Return and cleanup model:
 
-When `frameSize == 0`:
+- If a synthetic epilogue is required (`frameSize > 0`, or at least one conditional `ret <cc>` exists), the compiler creates a per-function hidden label:
+  - current implementation naming convention: `__zax_epilogue_<n>`
+- `ret` and `ret <cc>` in user-authored `asm` are rewritten to jumps to that synthetic epilogue.
+- The synthetic epilogue pops local slots (if any) and performs the final `ret` to caller.
+- If there are no locals and no conditional returns, plain `ret` is emitted directly with no synthetic epilogue.
 
-- No trampoline word is installed. `ret` returns directly to the caller.
+`retn`/`reti`:
 
-Return instructions (v0.1):
-
-- Function returns in user-authored `asm` typically use `ret` or conditional `ret <cc>`.
-- `retn`/`reti` are permitted.
-  - If `frameSize == 0`, they return directly to the caller (as on raw Z80).
-  - If `frameSize > 0`, the return address at `SP + 0` is the trampoline word (`__zax_epilogue`), so `retn`/`reti` will return to `__zax_epilogue` (not to the caller). Their special side effects occur at that point; `__zax_epilogue` then restores `SP` and performs the final `ret` to the caller.
-    - Guidance: for interrupt handlers that require strict `reti`/`retn` semantics at the final return point, prefer `frameSize == 0` (no locals).
-
-Conceptual layout at the start of `asm`:
-
-- If `frameSize > 0`:
-  - trampoline word (`__zax_epilogue`) is at `SP + 0`
-  - saved old SP is at `SP + 2`
-  - locals occupy space at the top of the frame, starting at `SP + 4`
-  - return address is at `SP + 4 + <frameSize>`
-- If `frameSize == 0`:
-  - return address is at `SP + 0`
-- arguments follow the return address
-
-Argument offsets (given `argc` arguments and local frame size `frameSize`):
-
-- The first argument (`0`) is closest to the return address.
-- If `frameSize > 0`: argument `i` (0-based) is at `SP + frameSize + 6 + 2*i`.
-- If `frameSize == 0`: argument `i` (0-based) is at `SP + 2 + 2*i`.
+- They are permitted as raw instructions.
+- They are not rewritten by this mechanism; only `ret`/`ret <cc>` participate in epilogue rewriting.
 
 The compiler tracks stack depth across the `asm` block to keep SP-relative locals/args resolvable.
 
@@ -855,8 +833,8 @@ Other SP assignment instructions (v0.1):
 - Instructions that assign to `SP` (e.g., `ld sp, hl`, `ld sp, ix`, `ld sp, iy`, `ld sp, imm16`) are permitted but the compiler does not track their effects.
 - When using untracked SP assignment:
   - The programmer is responsible for ensuring SP is correct at structured-control-flow joins and at function exit.
-  - Local/arg slot references assume the compiler's tracked SP offset; untracked SP assignment may cause incorrect addressing unless SP is restored.
-  - If the function has locals (`frameSize > 0`), SP must point at the trampoline word (`__zax_epilogue`) at any `ret`/`ret <cc>` for the trampoline mechanism to work as intended.
+  - Local/arg slot references assume the compiler's tracked SP offset; untracked SP assignment can make stack-slot addressing invalid.
+  - Current compiler behavior: once such an assignment is seen, stack-slot addressing is rejected with a compile error.
 
 Note (v0.1):
 

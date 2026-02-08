@@ -32,6 +32,30 @@ describe('PR14 frame slots and epilogue rewriting', () => {
     expect(bin!.bytes).toEqual(Uint8Array.of(0xc2, 0x07, 0x00, 0x00, 0xc3, 0x07, 0x00, 0xc9));
   });
 
+  it('keeps direct ret when there are no locals and no ret cc', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr14_no_locals_direct_ret.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+
+    expect(bin!.bytes).toEqual(Uint8Array.of(0xc9));
+  });
+
+  it('rewrites multiple conditional returns to one epilogue', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr14_multiple_ret_cc.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+
+    expect(bin!.bytes).toEqual(
+      Uint8Array.of(0xc2, 0x0a, 0x00, 0xca, 0x0a, 0x00, 0x00, 0xc3, 0x0a, 0x00, 0xc9),
+    );
+  });
+
   it('addresses local and argument stack slots using 16-bit slots', async () => {
     const entry = join(__dirname, 'fixtures', 'pr14_stack_slot_offsets.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
@@ -70,5 +94,15 @@ describe('PR14 frame slots and epilogue rewriting', () => {
         0xc9,
       ),
     );
+  });
+
+  it('diagnoses stack slot addressing after untracked SP assignment', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr14_sp_untracked_slot_error.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+
+    expect(res.artifacts).toEqual([]);
+    expect(
+      res.diagnostics.some((diagnostic) => diagnostic.message.includes('untracked SP mutation')),
+    ).toBe(true);
   });
 });

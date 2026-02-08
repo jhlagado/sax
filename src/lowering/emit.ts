@@ -856,6 +856,7 @@ export function emitProgram(
         while (taken.has(epilogueLabel)) {
           epilogueLabel = `__zax_epilogue_${generatedLabelCounter++}`;
         }
+        // Synthetic per-function cleanup label used for rewritten returns.
         let emitSyntheticEpilogue = frameSize > 0;
 
         // Function entry label.
