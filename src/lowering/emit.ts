@@ -2032,6 +2032,11 @@ export function emitProgram(
             `Function "${item.name}" has non-zero stack delta at fallthrough (${flow.spDelta}).`,
           );
         }
+        if (!emitSyntheticEpilogue && flow.reachable) {
+          emitInstr('ret', [], item.span);
+          flow.reachable = false;
+          syncToFlow();
+        }
 
         if (emitSyntheticEpilogue) {
           emitAbs16Fixup(0xc3, epilogueLabel.toLowerCase(), 0, item.span);
