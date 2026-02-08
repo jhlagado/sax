@@ -1367,7 +1367,7 @@ export function emitProgram(
             }
             if (it.kind === 'Repeat') {
               const entry = snapshotFlow();
-              const loopLabel = newHiddenLabel('__zax_repeat');
+              const loopLabel = newHiddenLabel('__zax_repeat_body');
               defineCodeLabel(loopLabel, it.span, 'local');
               const j = lowerRange(i + 1, new Set(['Until']));
               if (j >= items.length || items[j]!.kind !== 'Until') {
