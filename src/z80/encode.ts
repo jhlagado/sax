@@ -156,6 +156,75 @@ export function encodeInstruction(
         return Uint8Array.of(0x40 + (d << 3) + s);
       }
     }
+
+    // ld r8, (hl)
+    if (dst) {
+      const d = reg8Code(dst);
+      if (d !== undefined && ops[1]!.kind === 'Mem') {
+        const mem = ops[1]!;
+        if (mem.expr.kind === 'EaName' && mem.expr.name.toUpperCase() === 'HL') {
+          return Uint8Array.of(0x46 + (d << 3));
+        }
+      }
+    }
+
+    // ld (hl), r8
+    if (ops[0]!.kind === 'Mem') {
+      const mem = ops[0]!;
+      if (mem.expr.kind === 'EaName' && mem.expr.name.toUpperCase() === 'HL' && src) {
+        const s = reg8Code(src);
+        if (s !== undefined) {
+          return Uint8Array.of(0x70 + s);
+        }
+      }
+    }
+
+    // ld sp, hl
+    if (r === 'SP' && src === 'HL') {
+      return Uint8Array.of(0xf9);
+    }
+  }
+
+  if (head === 'inc' && ops.length === 1) {
+    const r = regName(ops[0]!);
+    if (!r) {
+      diag(diagnostics, node, `inc expects register operand`);
+      return undefined;
+    }
+    switch (r) {
+      case 'BC':
+        return Uint8Array.of(0x03);
+      case 'DE':
+        return Uint8Array.of(0x13);
+      case 'HL':
+        return Uint8Array.of(0x23);
+      case 'SP':
+        return Uint8Array.of(0x33);
+      default:
+        diag(diagnostics, node, `inc supports BC/DE/HL/SP in current subset`);
+        return undefined;
+    }
+  }
+
+  if (head === 'dec' && ops.length === 1) {
+    const r = regName(ops[0]!);
+    if (!r) {
+      diag(diagnostics, node, `dec expects register operand`);
+      return undefined;
+    }
+    switch (r) {
+      case 'BC':
+        return Uint8Array.of(0x0b);
+      case 'DE':
+        return Uint8Array.of(0x1b);
+      case 'HL':
+        return Uint8Array.of(0x2b);
+      case 'SP':
+        return Uint8Array.of(0x3b);
+      default:
+        diag(diagnostics, node, `dec supports BC/DE/HL/SP in current subset`);
+        return undefined;
+    }
   }
 
   if (head === 'push' && ops.length === 1) {
