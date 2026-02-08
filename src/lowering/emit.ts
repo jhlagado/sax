@@ -82,6 +82,7 @@ export function emitProgram(
     | { kind: 'extern'; node: ExternFuncNode; address: number };
   const callables = new Map<string, Callable>();
   const opsByName = new Map<string, OpDeclNode[]>();
+  const declaredOpNames = new Set<string>();
 
   const reg8 = new Set(['A', 'B', 'C', 'D', 'E', 'H', 'L']);
   const reg16 = new Set(['BC', 'DE', 'HL']);
@@ -306,6 +307,17 @@ export function emitProgram(
   };
 
   const matcherMatchesOperand = (matcher: OpMatcherNode, operand: AsmOperandNode): boolean => {
+    const evalImmNoDiag = (expr: ImmExprNode): number | undefined => {
+      const scratch: Diagnostic[] = [];
+      return evalImmExpr(expr, env, scratch);
+    };
+    const inferMemWidth = (op: AsmOperandNode): number | undefined => {
+      if (op.kind !== 'Mem') return undefined;
+      const resolved = resolveEa(op.expr, op.span);
+      if (!resolved?.typeExpr) return undefined;
+      return sizeOfTypeExpr(resolved.typeExpr, env, diagnostics);
+    };
+
     switch (matcher.kind) {
       case 'MatcherReg8':
         return operand.kind === 'Reg' && reg8.has(operand.name.toUpperCase());
@@ -319,19 +331,26 @@ export function emitProgram(
         );
       case 'MatcherImm8': {
         if (operand.kind !== 'Imm') return false;
-        const v = evalImmExpr(operand.expr, env, diagnostics);
+        const v = evalImmNoDiag(operand.expr);
         return v !== undefined && v >= 0 && v <= 0xff;
       }
       case 'MatcherImm16': {
         if (operand.kind !== 'Imm') return false;
-        const v = evalImmExpr(operand.expr, env, diagnostics);
+        const v = evalImmNoDiag(operand.expr);
         return v !== undefined && v >= 0 && v <= 0xffff;
       }
       case 'MatcherEa':
         return operand.kind === 'Ea';
-      case 'MatcherMem8':
-      case 'MatcherMem16':
-        return operand.kind === 'Mem';
+      case 'MatcherMem8': {
+        if (operand.kind !== 'Mem') return false;
+        const width = inferMemWidth(operand);
+        return width === undefined ? true : width === 1;
+      }
+      case 'MatcherMem16': {
+        if (operand.kind !== 'Mem') return false;
+        const width = inferMemWidth(operand);
+        return width === undefined ? true : width === 2;
+      }
       case 'MatcherFixed': {
         const got = normalizeFixedToken(operand);
         return got !== undefined && got === matcher.token.toUpperCase();
@@ -941,10 +960,12 @@ export function emitProgram(
 
       if (item.kind === 'OpDecl') {
         const op = item as OpDeclNode;
-        if (taken.has(op.name)) {
+        const key = op.name.toLowerCase();
+        if (taken.has(op.name) && !declaredOpNames.has(key)) {
           diag(diagnostics, op.span.file, `Duplicate symbol name "${op.name}".`);
         } else {
           taken.add(op.name);
+          declaredOpNames.add(key);
         }
         continue;
       }
