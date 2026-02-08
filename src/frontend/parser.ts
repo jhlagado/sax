@@ -6,6 +6,7 @@ import type {
   AsmItemNode,
   AsmLabelNode,
   AsmOperandNode,
+  BinDeclNode,
   ConstDeclNode,
   DataBlockNode,
   DataDeclNode,
@@ -15,6 +16,7 @@ import type {
   ExternDeclNode,
   ExternFuncNode,
   FuncDeclNode,
+  HexDeclNode,
   ImmExprNode,
   ModuleFileNode,
   ModuleItemNode,
@@ -1443,6 +1445,45 @@ export function parseModuleFile(
         value: expr,
       };
       items.push(constNode);
+      i++;
+      continue;
+    }
+
+    if (rest.startsWith('bin ')) {
+      const m = /^bin\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(code|data|var)\s+from\s+"([^"]+)"$/i.exec(
+        rest,
+      );
+      if (!m) {
+        diag(diagnostics, modulePath, `Invalid bin declaration`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+      const node: BinDeclNode = {
+        kind: 'BinDecl',
+        span: span(file, lineStartOffset, lineEndOffset),
+        name: m[1]!,
+        section: m[2]!.toLowerCase() as BinDeclNode['section'],
+        fromPath: m[3]!,
+      };
+      items.push(node);
+      i++;
+      continue;
+    }
+
+    if (rest.startsWith('hex ')) {
+      const m = /^hex\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+"([^"]+)"$/i.exec(rest);
+      if (!m) {
+        diag(diagnostics, modulePath, `Invalid hex declaration`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+      const node: HexDeclNode = {
+        kind: 'HexDecl',
+        span: span(file, lineStartOffset, lineEndOffset),
+        name: m[1]!,
+        fromPath: m[2]!,
+      };
+      items.push(node);
       i++;
       continue;
     }

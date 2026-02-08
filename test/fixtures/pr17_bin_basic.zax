@@ -1,0 +1,6 @@
+export func main(): void
+  asm
+    ret
+end
+
+bin legacy in data from "pr17_blob.bin"

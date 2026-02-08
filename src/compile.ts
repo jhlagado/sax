@@ -268,7 +268,9 @@ export const compile: CompileFn = async (
     return { diagnostics, artifacts: [] };
   }
 
-  const { map, symbols } = emitProgram(program, env, diagnostics);
+  const { map, symbols } = emitProgram(program, env, diagnostics, {
+    ...(options.includeDirs ? { includeDirs: options.includeDirs } : {}),
+  });
   if (hasErrors(diagnostics)) {
     return { diagnostics, artifacts: [] };
   }

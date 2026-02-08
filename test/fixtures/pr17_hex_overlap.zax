@@ -1,0 +1,6 @@
+export func main(): void
+  asm
+    ret
+end
+
+hex bad from "pr17_overlap.hex"
