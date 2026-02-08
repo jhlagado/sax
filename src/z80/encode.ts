@@ -74,6 +74,35 @@ export function encodeInstruction(
   if (head === 'nop' && ops.length === 0) return Uint8Array.of(0x00);
   if (head === 'ret' && ops.length === 0) return Uint8Array.of(0xc9);
 
+  if (head === 'add' && ops.length === 2) {
+    const dst = regName(ops[0]!);
+    const src = regName(ops[1]!);
+
+    if (dst === 'A' && src) {
+      const s = reg8Code(src);
+      if (s === undefined) {
+        diag(diagnostics, node, `add A, r expects reg8`);
+        return undefined;
+      }
+      return Uint8Array.of(0x80 + s);
+    }
+
+    if (dst === 'HL' && src) {
+      switch (src) {
+        case 'BC':
+          return Uint8Array.of(0x09);
+        case 'DE':
+          return Uint8Array.of(0x19);
+        case 'HL':
+          return Uint8Array.of(0x29);
+        case 'SP':
+          return Uint8Array.of(0x39);
+      }
+      diag(diagnostics, node, `add HL, rr expects BC/DE/HL/SP`);
+      return undefined;
+    }
+  }
+
   if (head === 'call' && ops.length === 1) {
     const n = immValue(ops[0]!, env);
     if (n === undefined || n < 0 || n > 0xffff) {

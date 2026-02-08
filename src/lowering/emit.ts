@@ -3,16 +3,22 @@ import { DiagnosticIds } from '../diagnostics/types.js';
 import type { EmittedByteMap, SymbolEntry } from '../formats/types.js';
 import type {
   AlignDirectiveNode,
+  AsmOperandNode,
   DataBlockNode,
+  DataDeclNode,
+  EaExprNode,
   EnumDeclNode,
   ExternDeclNode,
   ExternFuncNode,
   FuncDeclNode,
+  ImmExprNode,
   ParamNode,
   ProgramNode,
   SectionDirectiveNode,
   SourceSpan,
+  TypeExprNode,
   VarBlockNode,
+  VarDeclNode,
 } from '../frontend/ast.js';
 import type { CompileEnv } from '../semantics/env.js';
 import { evalImmExpr } from '../semantics/env.js';
@@ -67,7 +73,7 @@ export function emitProgram(
   const symbols: SymbolEntry[] = [];
   const pending: PendingSymbol[] = [];
   const taken = new Set<string>();
-  const fixups: { offset: number; nameLower: string; file: string }[] = [];
+  const fixups: { offset: number; baseLower: string; addend: number; file: string }[] = [];
 
   type Callable =
     | { kind: 'func'; node: FuncDeclNode }
@@ -80,6 +86,8 @@ export function emitProgram(
   const typeNameOf = (p: ParamNode): string | undefined => {
     return p.typeExpr.kind === 'TypeName' ? p.typeExpr.name : undefined;
   };
+
+  const storageTypes = new Map<string, TypeExprNode>();
 
   const emitCodeBytes = (bs: Uint8Array, file: string) => {
     for (const b of bs) {
@@ -143,6 +151,248 @@ export function emitProgram(
     return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
   };
 
+  const emitAbs16Fixup = (
+    opcode: number,
+    baseLower: string,
+    addend: number,
+    span: SourceSpan,
+  ): void => {
+    const start = codeOffset;
+    codeBytes.set(codeOffset++, opcode);
+    codeBytes.set(codeOffset++, 0x00);
+    codeBytes.set(codeOffset++, 0x00);
+    fixups.push({ offset: start + 1, baseLower, addend, file: span.file });
+  };
+
+  const resolveRecordType = (te: TypeExprNode): TypeExprNode | undefined => {
+    if (te.kind === 'RecordType') return te;
+    if (te.kind === 'TypeName') {
+      const decl = env.types.get(te.name);
+      if (!decl) return undefined;
+      return decl.typeExpr;
+    }
+    return undefined;
+  };
+
+  const resolveEa = (
+    ea: EaExprNode,
+    span: SourceSpan,
+  ): { baseLower: string; addend: number; typeExpr?: TypeExprNode } | undefined => {
+    const go = (
+      expr: EaExprNode,
+    ): { baseLower: string; addend: number; typeExpr?: TypeExprNode } | undefined => {
+      switch (expr.kind) {
+        case 'EaName': {
+          const baseLower = expr.name.toLowerCase();
+          const typeExpr = storageTypes.get(baseLower);
+          return { baseLower, addend: 0, ...(typeExpr ? { typeExpr } : {}) };
+        }
+        case 'EaAdd':
+        case 'EaSub': {
+          const base = go(expr.base);
+          if (!base) return undefined;
+          const v = evalImmExpr(expr.offset, env, diagnostics);
+          if (v === undefined) {
+            diagAt(diagnostics, span, `Failed to evaluate EA offset.`);
+            return undefined;
+          }
+          const delta = expr.kind === 'EaAdd' ? v : -v;
+          return { ...base, addend: base.addend + delta };
+        }
+        case 'EaField': {
+          const base = go(expr.base);
+          if (!base) return undefined;
+          if (!base.typeExpr) {
+            diagAt(diagnostics, span, `Cannot resolve field "${expr.field}" without a typed base.`);
+            return undefined;
+          }
+          const record = resolveRecordType(base.typeExpr);
+          if (!record || record.kind !== 'RecordType') {
+            diagAt(diagnostics, span, `Field access ".${expr.field}" requires a record type.`);
+            return undefined;
+          }
+
+          let off = 0;
+          for (const f of record.fields) {
+            if (f.name === expr.field) {
+              return { baseLower: base.baseLower, addend: base.addend + off, typeExpr: f.typeExpr };
+            }
+            const sz = sizeOfTypeExpr(f.typeExpr, env, diagnostics);
+            if (sz === undefined) return undefined;
+            off += sz;
+          }
+          diagAt(diagnostics, span, `Unknown record field "${expr.field}".`);
+          return undefined;
+        }
+        case 'EaIndex': {
+          const base = go(expr.base);
+          if (!base) return undefined;
+          if (!base.typeExpr) {
+            diagAt(diagnostics, span, `Cannot resolve indexing without a typed base.`);
+            return undefined;
+          }
+          if (base.typeExpr.kind !== 'ArrayType') {
+            diagAt(diagnostics, span, `Indexing requires an array type.`);
+            return undefined;
+          }
+          if (expr.index.kind !== 'IndexImm') return undefined;
+          const idx = evalImmExpr(expr.index.value, env, diagnostics);
+          if (idx === undefined) {
+            diagAt(diagnostics, span, `Failed to evaluate array index.`);
+            return undefined;
+          }
+          const elemSize = sizeOfTypeExpr(base.typeExpr.element, env, diagnostics);
+          if (elemSize === undefined) return undefined;
+          return {
+            baseLower: base.baseLower,
+            addend: base.addend + idx * elemSize,
+            typeExpr: base.typeExpr.element,
+          };
+        }
+      }
+    };
+
+    return go(ea);
+  };
+
+  const pushEaAddress = (ea: EaExprNode, span: SourceSpan): boolean => {
+    const r = resolveEa(ea, span);
+    if (!r) {
+      // Fallback: support `arr[reg8]` and `arr[HL]` (index byte read from memory at HL)
+      // for element sizes 1 or 2, by computing the address into HL at runtime.
+      if (ea.kind !== 'EaIndex') return false;
+      const base = resolveEa(ea.base, span);
+      if (!base || !base.typeExpr || base.typeExpr.kind !== 'ArrayType') {
+        diagAt(diagnostics, span, `Unsupported ea argument: cannot lower indexed address.`);
+        return false;
+      }
+      const elemSize = sizeOfTypeExpr(base.typeExpr.element, env, diagnostics);
+      if (elemSize === undefined) return false;
+      if (elemSize !== 1 && elemSize !== 2) {
+        diagAt(
+          diagnostics,
+          span,
+          `Non-constant indexing is supported only for element sizes 1 and 2 (got ${elemSize}).`,
+        );
+        return false;
+      }
+
+      // If the index is sourced from (HL), read it before clobbering HL with the base address.
+      if (ea.index.kind === 'IndexMemHL') {
+        emitCodeBytes(Uint8Array.of(0x7e), span.file); // ld a, (hl)
+      }
+
+      emitAbs16Fixup(0x21, base.baseLower, base.addend, span); // ld hl, base
+
+      if (ea.index.kind === 'IndexReg8') {
+        const r8 = ea.index.reg.toUpperCase();
+        if (!reg8.has(r8)) {
+          diagAt(diagnostics, span, `Invalid reg8 index "${ea.index.reg}".`);
+          return false;
+        }
+        if (elemSize === 2) {
+          if (
+            !emitInstr(
+              'ld',
+              [
+                { kind: 'Reg', span, name: 'A' },
+                { kind: 'Reg', span, name: r8 },
+              ],
+              span,
+            )
+          ) {
+            return false;
+          }
+          emitCodeBytes(Uint8Array.of(0x87), span.file); // add a, a
+          if (
+            !emitInstr(
+              'ld',
+              [
+                { kind: 'Reg', span, name: 'E' },
+                { kind: 'Reg', span, name: 'A' },
+              ],
+              span,
+            )
+          ) {
+            return false;
+          }
+        } else {
+          if (
+            !emitInstr(
+              'ld',
+              [
+                { kind: 'Reg', span, name: 'E' },
+                { kind: 'Reg', span, name: r8 },
+              ],
+              span,
+            )
+          ) {
+            return false;
+          }
+        }
+      } else if (ea.index.kind === 'IndexMemHL') {
+        // Index already in A from `ld a,(hl)` above.
+        if (elemSize === 2) {
+          emitCodeBytes(Uint8Array.of(0x87), span.file); // add a, a
+        }
+        if (
+          !emitInstr(
+            'ld',
+            [
+              { kind: 'Reg', span, name: 'E' },
+              { kind: 'Reg', span, name: 'A' },
+            ],
+            span,
+          )
+        ) {
+          return false;
+        }
+      } else {
+        diagAt(diagnostics, span, `Non-constant array indices are not supported yet.`);
+        return false;
+      }
+
+      if (
+        !emitInstr(
+          'ld',
+          [
+            { kind: 'Reg', span, name: 'D' },
+            { kind: 'Imm', span, expr: { kind: 'ImmLiteral', span, value: 0 } },
+          ],
+          span,
+        )
+      ) {
+        return false;
+      }
+      if (
+        !emitInstr(
+          'add',
+          [
+            { kind: 'Reg', span, name: 'HL' },
+            { kind: 'Reg', span, name: 'DE' },
+          ],
+          span,
+        )
+      ) {
+        return false;
+      }
+      return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
+    }
+    emitAbs16Fixup(0x21, r.baseLower, r.addend, span); // ld hl, nn
+    return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
+  };
+
+  const pushMemValue = (ea: EaExprNode, want: 'byte' | 'word', span: SourceSpan): boolean => {
+    const r = resolveEa(ea, span);
+    if (!r) return false;
+    if (want === 'word') {
+      emitAbs16Fixup(0x2a, r.baseLower, r.addend, span); // ld hl, (nn)
+      return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
+    }
+    emitAbs16Fixup(0x3a, r.baseLower, r.addend, span); // ld a, (nn)
+    return pushZeroExtendedReg8('A', span);
+  };
+
   const firstModule = program.files[0];
   if (!firstModule) {
     diag(diagnostics, program.entryFile, 'No module files to compile.');
@@ -173,6 +423,16 @@ export function emitProgram(
             continue;
           }
           callables.set(fn.name.toLowerCase(), { kind: 'extern', node: fn, address: addr });
+        }
+      } else if (item.kind === 'VarBlock' && item.scope === 'module') {
+        const vb = item as VarBlockNode;
+        for (const decl of vb.decls) {
+          storageTypes.set(decl.name.toLowerCase(), decl.typeExpr);
+        }
+      } else if (item.kind === 'DataBlock') {
+        const db = item as DataBlockNode;
+        for (const decl of db.decls) {
+          storageTypes.set(decl.name.toLowerCase(), decl.typeExpr);
         }
       }
     }
@@ -390,16 +650,34 @@ export function emitProgram(
                 }
                 if (arg.kind === 'Imm') {
                   const v = evalImmExpr(arg.expr, env, diagnostics);
-                  if (v === undefined || v < 0 || v > 0xff) {
+                  if (v === undefined) {
+                    if (arg.expr.kind === 'ImmName') {
+                      ok = pushEaAddress(
+                        { kind: 'EaName', span: asmItem.span, name: arg.expr.name } as any,
+                        asmItem.span,
+                      );
+                      if (!ok) break;
+                      continue;
+                    }
                     diagAt(
                       diagnostics,
                       asmItem.span,
-                      `Byte argument out of range for "${param.name}".`,
+                      `Failed to evaluate argument "${param.name}".`,
                     );
                     ok = false;
                     break;
                   }
-                  ok = pushImm16(v, asmItem.span);
+                  ok = pushImm16(v & 0xff, asmItem.span);
+                  if (!ok) break;
+                  continue;
+                }
+                if (arg.kind === 'Ea') {
+                  ok = pushEaAddress(arg.expr, asmItem.span);
+                  if (!ok) break;
+                  continue;
+                }
+                if (arg.kind === 'Mem') {
+                  ok = pushMemValue(arg.expr, 'byte', asmItem.span);
                   if (!ok) break;
                   continue;
                 }
@@ -420,18 +698,41 @@ export function emitProgram(
                   if (!ok) break;
                   continue;
                 }
+                if (arg.kind === 'Reg' && reg8.has(arg.name.toUpperCase())) {
+                  ok = pushZeroExtendedReg8(arg.name.toUpperCase(), asmItem.span);
+                  if (!ok) break;
+                  continue;
+                }
                 if (arg.kind === 'Imm') {
                   const v = evalImmExpr(arg.expr, env, diagnostics);
-                  if (v === undefined || v < 0 || v > 0xffff) {
+                  if (v === undefined) {
+                    if (arg.expr.kind === 'ImmName') {
+                      ok = pushEaAddress(
+                        { kind: 'EaName', span: asmItem.span, name: arg.expr.name } as any,
+                        asmItem.span,
+                      );
+                      if (!ok) break;
+                      continue;
+                    }
                     diagAt(
                       diagnostics,
                       asmItem.span,
-                      `Word argument out of range for "${param.name}".`,
+                      `Failed to evaluate argument "${param.name}".`,
                     );
                     ok = false;
                     break;
                   }
-                  ok = pushImm16(v, asmItem.span);
+                  ok = pushImm16(v & 0xffff, asmItem.span);
+                  if (!ok) break;
+                  continue;
+                }
+                if (arg.kind === 'Ea') {
+                  ok = pushEaAddress(arg.expr, asmItem.span);
+                  if (!ok) break;
+                  continue;
+                }
+                if (arg.kind === 'Mem') {
+                  ok = pushMemValue(arg.expr, 'word', asmItem.span);
                   if (!ok) break;
                   continue;
                 }
@@ -461,15 +762,7 @@ export function emitProgram(
                 asmItem.span,
               );
             } else {
-              const callStart = codeOffset;
-              codeBytes.set(codeOffset++, 0xcd);
-              codeBytes.set(codeOffset++, 0x00);
-              codeBytes.set(codeOffset++, 0x00);
-              fixups.push({
-                offset: callStart + 1,
-                nameLower: callable.node.name.toLowerCase(),
-                file: asmItem.span.file,
-              });
+              emitAbs16Fixup(0xcd, callable.node.name.toLowerCase(), 0, asmItem.span); // call nn
             }
 
             // Caller cleanup: pop one word per argument.
@@ -714,9 +1007,10 @@ export function emitProgram(
   }
 
   for (const fx of fixups) {
-    const addr = addrByNameLower.get(fx.nameLower);
+    const base = addrByNameLower.get(fx.baseLower);
+    const addr = base === undefined ? undefined : base + fx.addend;
     if (addr === undefined) {
-      diag(diagnostics, fx.file, `Unresolved symbol "${fx.nameLower}" in call fixup.`);
+      diag(diagnostics, fx.file, `Unresolved symbol "${fx.baseLower}" in 16-bit fixup.`);
       continue;
     }
     codeBytes.set(fx.offset, addr & 0xff);
