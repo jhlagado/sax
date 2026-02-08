@@ -28,6 +28,33 @@ function regName(op: AsmOperandNode): string | undefined {
   return op.kind === 'Reg' ? op.name.toUpperCase() : undefined;
 }
 
+function reg8Code(name: string): number | undefined {
+  switch (name.toUpperCase()) {
+    case 'B':
+      return 0;
+    case 'C':
+      return 1;
+    case 'D':
+      return 2;
+    case 'E':
+      return 3;
+    case 'H':
+      return 4;
+    case 'L':
+      return 5;
+    case 'A':
+      return 7;
+    default:
+      return undefined;
+  }
+}
+
+function reg16Name(op: AsmOperandNode): string | undefined {
+  if (op.kind !== 'Reg') return undefined;
+  const n = op.name.toUpperCase();
+  return n === 'BC' || n === 'DE' || n === 'HL' || n === 'SP' || n === 'AF' ? n : undefined;
+}
+
 /**
  * Encode a single `asm` instruction node into Z80 machine-code bytes.
  *
@@ -47,6 +74,15 @@ export function encodeInstruction(
   if (head === 'nop' && ops.length === 0) return Uint8Array.of(0x00);
   if (head === 'ret' && ops.length === 0) return Uint8Array.of(0xc9);
 
+  if (head === 'call' && ops.length === 1) {
+    const n = immValue(ops[0]!, env);
+    if (n === undefined || n < 0 || n > 0xffff) {
+      diag(diagnostics, node, `call expects imm16`);
+      return undefined;
+    }
+    return Uint8Array.of(0xcd, n & 0xff, (n >> 8) & 0xff);
+  }
+
   if (head === 'jp' && ops.length === 1) {
     const n = immValue(ops[0]!, env);
     if (n === undefined || n < 0 || n > 0xffff) {
@@ -59,19 +95,79 @@ export function encodeInstruction(
   if (head === 'ld' && ops.length === 2) {
     const r = regName(ops[0]!);
     const n = immValue(ops[1]!, env);
-    if (r === 'A') {
-      if (n === undefined || n < 0 || n > 0xff) {
-        diag(diagnostics, node, `ld A, n expects imm8`);
-        return undefined;
+    if (n !== undefined && r) {
+      // ld r8, n
+      const r8 = reg8Code(r);
+      if (r8 !== undefined) {
+        if (n < 0 || n > 0xff) {
+          diag(diagnostics, node, `ld ${r}, n expects imm8`);
+          return undefined;
+        }
+        return Uint8Array.of(0x06 + (r8 << 3), n & 0xff);
       }
-      return Uint8Array.of(0x3e, n & 0xff);
+
+      // ld rr, nn
+      if (r === 'BC' || r === 'DE' || r === 'HL' || r === 'SP') {
+        if (n < 0 || n > 0xffff) {
+          diag(diagnostics, node, `ld ${r}, nn expects imm16`);
+          return undefined;
+        }
+        const op = r === 'BC' ? 0x01 : r === 'DE' ? 0x11 : r === 'HL' ? 0x21 : 0x31;
+        return Uint8Array.of(op, n & 0xff, (n >> 8) & 0xff);
+      }
     }
-    if (r === 'HL') {
-      if (n === undefined || n < 0 || n > 0xffff) {
-        diag(diagnostics, node, `ld HL, nn expects imm16`);
-        return undefined;
+
+    // ld r8, r8
+    const dst = regName(ops[0]!);
+    const src = regName(ops[1]!);
+    if (dst && src) {
+      const d = reg8Code(dst);
+      const s = reg8Code(src);
+      if (d !== undefined && s !== undefined) {
+        return Uint8Array.of(0x40 + (d << 3) + s);
       }
-      return Uint8Array.of(0x21, n & 0xff, (n >> 8) & 0xff);
+    }
+  }
+
+  if (head === 'push' && ops.length === 1) {
+    const r16 = reg16Name(ops[0]!);
+    if (!r16) {
+      diag(diagnostics, node, `push expects reg16`);
+      return undefined;
+    }
+    switch (r16) {
+      case 'BC':
+        return Uint8Array.of(0xc5);
+      case 'DE':
+        return Uint8Array.of(0xd5);
+      case 'HL':
+        return Uint8Array.of(0xe5);
+      case 'AF':
+        return Uint8Array.of(0xf5);
+      default:
+        diag(diagnostics, node, `push supports BC/DE/HL/AF only`);
+        return undefined;
+    }
+  }
+
+  if (head === 'pop' && ops.length === 1) {
+    const r16 = reg16Name(ops[0]!);
+    if (!r16) {
+      diag(diagnostics, node, `pop expects reg16`);
+      return undefined;
+    }
+    switch (r16) {
+      case 'BC':
+        return Uint8Array.of(0xc1);
+      case 'DE':
+        return Uint8Array.of(0xd1);
+      case 'HL':
+        return Uint8Array.of(0xe1);
+      case 'AF':
+        return Uint8Array.of(0xf1);
+      default:
+        diag(diagnostics, node, `pop supports BC/DE/HL/AF only`);
+        return undefined;
     }
   }
 

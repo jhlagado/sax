@@ -5,6 +5,10 @@ import type {
   AlignDirectiveNode,
   DataBlockNode,
   EnumDeclNode,
+  ExternDeclNode,
+  ExternFuncNode,
+  FuncDeclNode,
+  ParamNode,
   ProgramNode,
   SectionDirectiveNode,
   VarBlockNode,
@@ -51,6 +55,81 @@ export function emitProgram(
   const symbols: SymbolEntry[] = [];
   const pending: PendingSymbol[] = [];
   const taken = new Set<string>();
+  const fixups: { offset: number; nameLower: string; file: string }[] = [];
+
+  type Callable =
+    | { kind: 'func'; node: FuncDeclNode }
+    | { kind: 'extern'; node: ExternFuncNode; address: number };
+  const callables = new Map<string, Callable>();
+
+  const reg8 = new Set(['A', 'B', 'C', 'D', 'E', 'H', 'L']);
+  const reg16 = new Set(['BC', 'DE', 'HL']);
+
+  const typeNameOf = (p: ParamNode): string | undefined => {
+    return p.typeExpr.kind === 'TypeName' ? p.typeExpr.name : undefined;
+  };
+
+  const emitCodeBytes = (bs: Uint8Array, file: string) => {
+    for (const b of bs) {
+      codeBytes.set(codeOffset, b);
+      codeOffset++;
+    }
+  };
+
+  const emitInstr = (head: string, operands: any[], span: any) => {
+    const encoded = encodeInstruction(
+      { kind: 'AsmInstruction', span, head, operands } as any,
+      env,
+      diagnostics,
+    );
+    if (!encoded) return false;
+    emitCodeBytes(encoded, span.file);
+    return true;
+  };
+
+  const pushImm16 = (n: number, span: any): boolean => {
+    if (
+      !emitInstr(
+        'ld',
+        [
+          { kind: 'Reg', span, name: 'HL' },
+          { kind: 'Imm', span, expr: { kind: 'ImmLiteral', span, value: n } },
+        ],
+        span,
+      )
+    ) {
+      return false;
+    }
+    return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
+  };
+
+  const pushZeroExtendedReg8 = (r: string, span: any): boolean => {
+    if (
+      !emitInstr(
+        'ld',
+        [
+          { kind: 'Reg', span, name: 'H' },
+          { kind: 'Imm', span, expr: { kind: 'ImmLiteral', span, value: 0 } },
+        ],
+        span,
+      )
+    ) {
+      return false;
+    }
+    if (
+      !emitInstr(
+        'ld',
+        [
+          { kind: 'Reg', span, name: 'L' },
+          { kind: 'Reg', span, name: r },
+        ],
+        span,
+      )
+    ) {
+      return false;
+    }
+    return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
+  };
 
   const firstModule = program.files[0];
   if (!firstModule) {
@@ -61,6 +140,31 @@ export function emitProgram(
   const primaryFile = firstModule.span.file ?? program.entryFile;
 
   const alignTo = (n: number, a: number) => (a <= 0 ? n : Math.ceil(n / a) * a);
+
+  // Pre-scan callables for resolution (forward references allowed).
+  for (const module of program.files) {
+    for (const item of module.items) {
+      if (item.kind === 'FuncDecl') {
+        const f = item as FuncDeclNode;
+        callables.set(f.name.toLowerCase(), { kind: 'func', node: f });
+      } else if (item.kind === 'ExternDecl') {
+        const ex = item as ExternDeclNode;
+        for (const fn of ex.funcs) {
+          const addr = evalImmExpr(fn.at, env, diagnostics);
+          if (addr === undefined) continue;
+          if (addr < 0 || addr > 0xffff) {
+            diag(
+              diagnostics,
+              fn.span.file,
+              `extern func "${fn.name}" address out of range (0..65535).`,
+            );
+            continue;
+          }
+          callables.set(fn.name.toLowerCase(), { kind: 'extern', node: fn, address: addr });
+        }
+      }
+    }
+  }
 
   let activeSection: SectionKind = 'code';
   let codeOffset = 0;
@@ -161,7 +265,60 @@ export function emitProgram(
         continue;
       }
 
+      if (item.kind === 'ExternDecl') {
+        const ex = item as ExternDeclNode;
+        for (const fn of ex.funcs) {
+          if (taken.has(fn.name)) {
+            diag(diagnostics, fn.span.file, `Duplicate symbol name "${fn.name}".`);
+            continue;
+          }
+          taken.add(fn.name);
+          const addr = evalImmExpr(fn.at, env, diagnostics);
+          if (addr === undefined) {
+            diag(
+              diagnostics,
+              fn.span.file,
+              `Failed to evaluate extern func address for "${fn.name}".`,
+            );
+            continue;
+          }
+          if (addr < 0 || addr > 0xffff) {
+            diag(
+              diagnostics,
+              fn.span.file,
+              `extern func "${fn.name}" address out of range (0..65535).`,
+            );
+            continue;
+          }
+          symbols.push({
+            kind: 'label',
+            name: fn.name,
+            address: addr,
+            file: fn.span.file,
+            line: fn.span.start.line,
+            scope: 'global',
+          });
+        }
+        continue;
+      }
+
       if (item.kind === 'FuncDecl') {
+        // Function entry label.
+        if (taken.has(item.name)) {
+          diag(diagnostics, item.span.file, `Duplicate symbol name "${item.name}".`);
+        } else {
+          taken.add(item.name);
+          pending.push({
+            kind: 'label',
+            name: item.name,
+            section: 'code',
+            offset: codeOffset,
+            file: item.span.file,
+            line: item.span.start.line,
+            scope: 'global',
+          });
+        }
+
         for (const asmItem of item.asm.items) {
           if (asmItem.kind === 'AsmLabel') {
             if (taken.has(asmItem.name)) {
@@ -182,12 +339,138 @@ export function emitProgram(
           }
           if (asmItem.kind !== 'AsmInstruction') continue;
 
+          const callable = callables.get(asmItem.head.toLowerCase());
+          if (callable) {
+            const args = asmItem.operands;
+            const params = callable.kind === 'func' ? callable.node.params : callable.node.params;
+            if (args.length !== params.length) {
+              diag(
+                diagnostics,
+                asmItem.span.file,
+                `Call to "${asmItem.head}" has ${args.length} argument(s) but expects ${params.length}.`,
+              );
+              continue;
+            }
+
+            // Push args right-to-left.
+            let ok = true;
+            for (let ai = args.length - 1; ai >= 0; ai--) {
+              const arg = args[ai]!;
+              const param = params[ai]!;
+              const ty = typeNameOf(param);
+              if (!ty) {
+                diag(
+                  diagnostics,
+                  asmItem.span.file,
+                  `Unsupported parameter type for "${param.name}".`,
+                );
+                ok = false;
+                break;
+              }
+              const tyLower = ty.toLowerCase();
+              const isByte = tyLower === 'byte';
+
+              if (isByte) {
+                if (arg.kind === 'Reg' && reg8.has(arg.name.toUpperCase())) {
+                  ok = pushZeroExtendedReg8(arg.name.toUpperCase(), asmItem.span);
+                  if (!ok) break;
+                  continue;
+                }
+                if (arg.kind === 'Imm') {
+                  const v = evalImmExpr(arg.expr, env, diagnostics);
+                  if (v === undefined || v < 0 || v > 0xff) {
+                    diag(
+                      diagnostics,
+                      asmItem.span.file,
+                      `Byte argument out of range for "${param.name}".`,
+                    );
+                    ok = false;
+                    break;
+                  }
+                  ok = pushImm16(v, asmItem.span);
+                  if (!ok) break;
+                  continue;
+                }
+                diag(
+                  diagnostics,
+                  asmItem.span.file,
+                  `Unsupported byte argument form for "${param.name}" in call to "${asmItem.head}".`,
+                );
+                ok = false;
+                break;
+              } else {
+                if (arg.kind === 'Reg' && reg16.has(arg.name.toUpperCase())) {
+                  ok = emitInstr(
+                    'push',
+                    [{ kind: 'Reg', span: asmItem.span, name: arg.name.toUpperCase() }],
+                    asmItem.span,
+                  );
+                  if (!ok) break;
+                  continue;
+                }
+                if (arg.kind === 'Imm') {
+                  const v = evalImmExpr(arg.expr, env, diagnostics);
+                  if (v === undefined || v < 0 || v > 0xffff) {
+                    diag(
+                      diagnostics,
+                      asmItem.span.file,
+                      `Word argument out of range for "${param.name}".`,
+                    );
+                    ok = false;
+                    break;
+                  }
+                  ok = pushImm16(v, asmItem.span);
+                  if (!ok) break;
+                  continue;
+                }
+                diag(
+                  diagnostics,
+                  asmItem.span.file,
+                  `Unsupported word argument form for "${param.name}" in call to "${asmItem.head}".`,
+                );
+                ok = false;
+                break;
+              }
+            }
+
+            if (!ok) continue;
+
+            // Emit call.
+            if (callable.kind === 'extern') {
+              emitInstr(
+                'call',
+                [
+                  {
+                    kind: 'Imm',
+                    span: asmItem.span,
+                    expr: { kind: 'ImmLiteral', span: asmItem.span, value: callable.address },
+                  },
+                ],
+                asmItem.span,
+              );
+            } else {
+              const callStart = codeOffset;
+              codeBytes.set(codeOffset++, 0xcd);
+              codeBytes.set(codeOffset++, 0x00);
+              codeBytes.set(codeOffset++, 0x00);
+              fixups.push({
+                offset: callStart + 1,
+                nameLower: callable.node.name.toLowerCase(),
+                file: asmItem.span.file,
+              });
+            }
+
+            // Caller cleanup: pop one word per argument.
+            for (let k = 0; k < args.length; k++) {
+              emitInstr('pop', [{ kind: 'Reg', span: asmItem.span, name: 'BC' }], asmItem.span);
+            }
+
+            continue;
+          }
+
           const encoded = encodeInstruction(asmItem, env, diagnostics);
           if (!encoded) continue;
-          for (const b of encoded) {
-            codeBytes.set(codeOffset, b);
-            codeOffset++;
-          }
+          emitCodeBytes(encoded, asmItem.span.file);
         }
         continue;
       }
@@ -404,6 +687,29 @@ export function emitProgram(
       bytes.set(addr, b);
     }
   };
+
+  // Resolve symbol addresses for fixups (functions/labels/etc).
+  const addrByNameLower = new Map<string, number>();
+  for (const ps of pending) {
+    const base = ps.section === 'code' ? codeBase : ps.section === 'data' ? dataBase : varBase;
+    const ok = ps.section === 'code' ? codeOk : ps.section === 'data' ? dataOk : varOk;
+    if (!ok) continue;
+    addrByNameLower.set(ps.name.toLowerCase(), base + ps.offset);
+  }
+  for (const sym of symbols) {
+    if (sym.kind === 'constant') continue;
+    addrByNameLower.set(sym.name.toLowerCase(), sym.address);
+  }
+
+  for (const fx of fixups) {
+    const addr = addrByNameLower.get(fx.nameLower);
+    if (addr === undefined) {
+      diag(diagnostics, fx.file, `Unresolved symbol "${fx.nameLower}" in call fixup.`);
+      continue;
+    }
+    codeBytes.set(fx.offset, addr & 0xff);
+    codeBytes.set(fx.offset + 1, (addr >> 8) & 0xff);
+  }
 
   if (codeOk) writeSection(codeBase, codeBytes, primaryFile);
   if (dataOk) writeSection(dataBase, dataBytes, primaryFile);

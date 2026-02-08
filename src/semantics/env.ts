@@ -3,6 +3,8 @@ import { DiagnosticIds } from '../diagnostics/types.js';
 import type {
   EnumDeclNode,
   ConstDeclNode,
+  ExternDeclNode,
+  FuncDeclNode,
   ImmExprNode,
   ModuleItemNode,
   ProgramNode,
@@ -178,6 +180,20 @@ export function buildEnv(program: ProgramNode, diagnostics: Diagnostic[]): Compi
       if (item.kind !== 'TypeDecl') continue;
       if (!claim('type', item.name, item.span.file)) continue;
       types.set(item.name, item);
+    }
+  }
+
+  for (const mf of program.files) {
+    for (const item of mf.items) {
+      if (item.kind === 'FuncDecl') {
+        const f = item as FuncDeclNode;
+        claim('func', f.name, f.span.file);
+      } else if (item.kind === 'ExternDecl') {
+        const ex = item as ExternDeclNode;
+        for (const fn of ex.funcs) {
+          claim('extern func', fn.name, fn.span.file);
+        }
+      }
     }
   }
 

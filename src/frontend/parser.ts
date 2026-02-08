@@ -12,10 +12,13 @@ import type {
   EnumDeclNode,
   EaExprNode,
   EaIndexNode,
+  ExternDeclNode,
+  ExternFuncNode,
   FuncDeclNode,
   ImmExprNode,
   ModuleFileNode,
   ModuleItemNode,
+  ParamNode,
   ProgramNode,
   RecordFieldNode,
   SectionDirectiveNode,
@@ -440,6 +443,50 @@ function parseAsmInstruction(
   return { kind: 'AsmInstruction', span: instrSpan, head, operands };
 }
 
+function parseParamsFromText(
+  filePath: string,
+  paramsText: string,
+  paramsSpan: SourceSpan,
+  diagnostics: Diagnostic[],
+): ParamNode[] | undefined {
+  const trimmed = paramsText.trim();
+  if (trimmed.length === 0) return [];
+
+  const parts = trimmed.split(',').map((p) => p.trim());
+  const out: ParamNode[] = [];
+  for (const part of parts) {
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(part);
+    if (!m) {
+      diag(diagnostics, filePath, `Invalid parameter declaration`, {
+        line: paramsSpan.start.line,
+        column: paramsSpan.start.column,
+      });
+      return undefined;
+    }
+
+    const name = m[1]!;
+    const typeText = m[2]!.trim();
+    const typeExpr = parseTypeExprFromText(typeText, paramsSpan);
+    if (!typeExpr) {
+      diag(diagnostics, filePath, `Unsupported type in parameter declaration`, {
+        line: paramsSpan.start.line,
+        column: paramsSpan.start.column,
+      });
+      return undefined;
+    }
+    if (typeExpr.kind === 'TypeName' && typeExpr.name === 'void') {
+      diag(diagnostics, filePath, `Parameter "${name}" may not have type void`, {
+        line: paramsSpan.start.line,
+        column: paramsSpan.start.column,
+      });
+      return undefined;
+    }
+
+    out.push({ kind: 'Param', span: paramsSpan, name, typeExpr });
+  }
+  return out;
+}
+
 /**
  * Parse a single `.zax` module file from an in-memory source string.
  *
@@ -680,37 +727,52 @@ export function parseModuleFile(
     if (rest.startsWith('func ')) {
       const exported = exportPrefix.length > 0;
       const header = rest.slice('func '.length).trimStart();
-      const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*\)\s*:\s*([A-Za-z_][A-Za-z0-9_]*)\s*$/.exec(
-        header,
-      );
-      if (!m) {
-        diag(
-          diagnostics,
-          modulePath,
-          `Invalid func header (PR1 supports only "func name(): void")`,
-          {
-            line: lineNo,
-            column: 1,
-          },
-        );
+      const openParen = header.indexOf('(');
+      const closeParen = header.lastIndexOf(')');
+      if (openParen < 0 || closeParen < openParen) {
+        diag(diagnostics, modulePath, `Invalid func header`, { line: lineNo, column: 1 });
         i++;
         continue;
       }
 
-      const name = m[1]!;
-      const retType = m[2]!;
-      if (retType !== 'void') {
-        diag(diagnostics, modulePath, `PR1 supports only return type void`, {
+      const name = header.slice(0, openParen).trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        diag(diagnostics, modulePath, `Invalid func name`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+
+      const afterClose = header.slice(closeParen + 1).trimStart();
+      const retMatch = /^:\s*(.+)$/.exec(afterClose);
+      if (!retMatch) {
+        diag(diagnostics, modulePath, `Invalid func header: missing return type`, {
           line: lineNo,
           column: 1,
         });
+        i++;
+        continue;
       }
 
       const funcStartOffset = lineStartOffset;
       const headerSpan = span(file, lineStartOffset, lineEndOffset);
+      const paramsText = header.slice(openParen + 1, closeParen);
+      const params = parseParamsFromText(modulePath, paramsText, headerSpan, diagnostics);
+      if (!params) {
+        i++;
+        continue;
+      }
+
+      const retTypeText = retMatch[1]!.trim();
+      const returnType = parseTypeExprFromText(retTypeText, headerSpan);
+      if (!returnType) {
+        diag(diagnostics, modulePath, `Unsupported return type`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
       i++;
 
-      /* Expect "asm". */
+      // Optional function-local `var` block, then required `asm`.
+      let locals: VarBlockNode | undefined;
       let asmStartOffset: number | undefined;
       while (i < lineCount) {
         const { raw: raw2, startOffset: so2 } = getRawLine(i);
@@ -719,13 +781,66 @@ export function parseModuleFile(
           i++;
           continue;
         }
-        asmStartOffset = so2;
+
+        if (t2 === 'var') {
+          const varStart = so2;
+          i++;
+          const decls: VarDeclNode[] = [];
+
+          while (i < lineCount) {
+            const { raw: rawDecl, startOffset: soDecl, endOffset: eoDecl } = getRawLine(i);
+            const tDecl = stripComment(rawDecl).trim();
+            if (tDecl.length === 0) {
+              i++;
+              continue;
+            }
+            if (tDecl === 'asm') {
+              asmStartOffset = soDecl;
+              locals = {
+                kind: 'VarBlock',
+                span: span(file, varStart, soDecl),
+                scope: 'function',
+                decls,
+              };
+              i++; // consume asm
+              break;
+            }
+
+            const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(tDecl);
+            if (!m) {
+              diag(diagnostics, modulePath, `Invalid var declaration`, { line: i + 1, column: 1 });
+              i++;
+              continue;
+            }
+
+            const localName = m[1]!;
+            const typeText = m[2]!.trim();
+            const declSpan = span(file, soDecl, eoDecl);
+            const typeExpr = parseTypeExprFromText(typeText, declSpan);
+            if (!typeExpr) {
+              diag(diagnostics, modulePath, `Unsupported type in var declaration`, {
+                line: i + 1,
+                column: 1,
+              });
+              i++;
+              continue;
+            }
+
+            decls.push({ kind: 'VarDecl', span: declSpan, name: localName, typeExpr });
+            i++;
+          }
+          break;
+        }
+
         if (t2 !== 'asm') {
-          diag(diagnostics, modulePath, `PR1 expects "asm" immediately inside func`, {
+          diag(diagnostics, modulePath, `Expected "asm" inside func (optionally after "var")`, {
             line: i + 1,
             column: 1,
           });
+          i++;
+          continue;
         }
+        asmStartOffset = so2;
         i++;
         break;
       }
@@ -756,15 +871,14 @@ export function parseModuleFile(
           const asmSpan = span(file, asmStartOffset, funcEndOffset);
           const asm: AsmBlockNode = { kind: 'AsmBlock', span: asmSpan, items: asmItems };
 
-          const returnTypeNode: TypeExprNode = { kind: 'TypeName', span: headerSpan, name: 'void' };
-
           const funcNode: FuncDeclNode = {
             kind: 'FuncDecl',
             span: funcSpan,
             name,
             exported,
-            params: [],
-            returnType: returnTypeNode,
+            params,
+            returnType,
+            ...(locals ? { locals } : {}),
             asm,
           };
           items.push(funcNode);
@@ -802,6 +916,104 @@ export function parseModuleFile(
         break;
       }
 
+      continue;
+    }
+
+    if (rest.startsWith('extern ')) {
+      if (exportPrefix.length > 0) {
+        diag(diagnostics, modulePath, `export not supported on extern declarations`, {
+          line: lineNo,
+          column: 1,
+        });
+        i++;
+        continue;
+      }
+
+      const decl = rest.slice('extern '.length).trimStart();
+      if (!decl.startsWith('func ')) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Unsupported extern declaration in current subset (expected "extern func ...")`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
+
+      const header = decl.slice('func '.length).trimStart();
+      const openParen = header.indexOf('(');
+      const closeParen = header.lastIndexOf(')');
+      if (openParen < 0 || closeParen < openParen) {
+        diag(diagnostics, modulePath, `Invalid extern func declaration`, {
+          line: lineNo,
+          column: 1,
+        });
+        i++;
+        continue;
+      }
+
+      const name = header.slice(0, openParen).trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        diag(diagnostics, modulePath, `Invalid extern func name`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+
+      const afterClose = header.slice(closeParen + 1).trimStart();
+      const m = /^:\s*(.+?)\s+at\s+(.+)$/.exec(afterClose);
+      if (!m) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid extern func declaration: expected ": <retType> at <imm16>"`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
+
+      const stmtSpan = span(file, lineStartOffset, lineEndOffset);
+      const paramsText = header.slice(openParen + 1, closeParen);
+      const params = parseParamsFromText(modulePath, paramsText, stmtSpan, diagnostics);
+      if (!params) {
+        i++;
+        continue;
+      }
+
+      const retTypeText = m[1]!.trim();
+      const returnType = parseTypeExprFromText(retTypeText, stmtSpan);
+      if (!returnType) {
+        diag(diagnostics, modulePath, `Unsupported extern func return type`, {
+          line: lineNo,
+          column: 1,
+        });
+        i++;
+        continue;
+      }
+
+      const atText = m[2]!.trim();
+      const at = parseImmExprFromText(modulePath, atText, stmtSpan, diagnostics);
+      if (!at) {
+        i++;
+        continue;
+      }
+
+      const externFunc: ExternFuncNode = {
+        kind: 'ExternFunc',
+        span: stmtSpan,
+        name,
+        params,
+        returnType,
+        at,
+      };
+      const externDecl: ExternDeclNode = {
+        kind: 'ExternDecl',
+        span: stmtSpan,
+        funcs: [externFunc],
+      };
+      items.push(externDecl);
+      i++;
       continue;
     }
 
