@@ -11,6 +11,7 @@ import type {
   ParamNode,
   ProgramNode,
   SectionDirectiveNode,
+  SourceSpan,
   VarBlockNode,
 } from '../frontend/ast.js';
 import type { CompileEnv } from '../semantics/env.js';
@@ -20,6 +21,17 @@ import { encodeInstruction } from '../z80/encode.js';
 
 function diag(diagnostics: Diagnostic[], file: string, message: string): void {
   diagnostics.push({ id: DiagnosticIds.EmitError, severity: 'error', message, file });
+}
+
+function diagAt(diagnostics: Diagnostic[], span: SourceSpan, message: string): void {
+  diagnostics.push({
+    id: DiagnosticIds.EmitError,
+    severity: 'error',
+    message,
+    file: span.file,
+    line: span.start.line,
+    column: span.start.column,
+  });
 }
 
 /**
@@ -344,9 +356,9 @@ export function emitProgram(
             const args = asmItem.operands;
             const params = callable.kind === 'func' ? callable.node.params : callable.node.params;
             if (args.length !== params.length) {
-              diag(
+              diagAt(
                 diagnostics,
-                asmItem.span.file,
+                asmItem.span,
                 `Call to "${asmItem.head}" has ${args.length} argument(s) but expects ${params.length}.`,
               );
               continue;
@@ -359,9 +371,9 @@ export function emitProgram(
               const param = params[ai]!;
               const ty = typeNameOf(param);
               if (!ty) {
-                diag(
+                diagAt(
                   diagnostics,
-                  asmItem.span.file,
+                  asmItem.span,
                   `Unsupported parameter type for "${param.name}".`,
                 );
                 ok = false;
@@ -379,9 +391,9 @@ export function emitProgram(
                 if (arg.kind === 'Imm') {
                   const v = evalImmExpr(arg.expr, env, diagnostics);
                   if (v === undefined || v < 0 || v > 0xff) {
-                    diag(
+                    diagAt(
                       diagnostics,
-                      asmItem.span.file,
+                      asmItem.span,
                       `Byte argument out of range for "${param.name}".`,
                     );
                     ok = false;
@@ -391,9 +403,9 @@ export function emitProgram(
                   if (!ok) break;
                   continue;
                 }
-                diag(
+                diagAt(
                   diagnostics,
-                  asmItem.span.file,
+                  asmItem.span,
                   `Unsupported byte argument form for "${param.name}" in call to "${asmItem.head}".`,
                 );
                 ok = false;
@@ -411,9 +423,9 @@ export function emitProgram(
                 if (arg.kind === 'Imm') {
                   const v = evalImmExpr(arg.expr, env, diagnostics);
                   if (v === undefined || v < 0 || v > 0xffff) {
-                    diag(
+                    diagAt(
                       diagnostics,
-                      asmItem.span.file,
+                      asmItem.span,
                       `Word argument out of range for "${param.name}".`,
                     );
                     ok = false;
@@ -423,9 +435,9 @@ export function emitProgram(
                   if (!ok) break;
                   continue;
                 }
-                diag(
+                diagAt(
                   diagnostics,
-                  asmItem.span.file,
+                  asmItem.span,
                   `Unsupported word argument form for "${param.name}" in call to "${asmItem.head}".`,
                 );
                 ok = false;

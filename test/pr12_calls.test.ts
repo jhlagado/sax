@@ -33,4 +33,26 @@ describe('PR12 calls (extern + func)', () => {
     // main: call helper (at 4), ret; helper: ret
     expect(bin!.bytes).toEqual(Uint8Array.of(0xcd, 0x04, 0x00, 0xc9, 0xc9));
   });
+
+  it('diagnoses wrong argument count with a source location', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr12_call_wrong_arity.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toContain('expects 1');
+    expect(res.diagnostics[0]?.file).toBe(entry);
+    expect(res.diagnostics[0]?.line).toBe(6);
+    expect(res.diagnostics[0]?.column).toBe(1);
+  });
+
+  it('diagnoses out-of-range byte arguments with a source location', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr12_call_byte_oob.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toContain('Byte argument out of range');
+    expect(res.diagnostics[0]?.file).toBe(entry);
+    expect(res.diagnostics[0]?.line).toBe(6);
+    expect(res.diagnostics[0]?.column).toBe(1);
+  });
 });
