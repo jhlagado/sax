@@ -1,0 +1,13 @@
+op pick(x: reg8)
+  nop
+end
+
+op pick(x: A)
+  nop
+end
+
+export func main(): void
+  asm
+    pick A
+    ret
+end

@@ -1,0 +1,13 @@
+op first()
+  second
+end
+
+op second()
+  first
+end
+
+export func main(): void
+  asm
+    first
+    ret
+end

@@ -1,0 +1,9 @@
+op loadi(dst: reg8, val: imm8)
+  ld dst, val
+end
+
+export func main(): void
+  asm
+    loadi B, 7
+    ret
+end

@@ -13,6 +13,8 @@ import type {
   ExternFuncNode,
   FuncDeclNode,
   ImmExprNode,
+  OpDeclNode,
+  OpMatcherNode,
   ProgramNode,
   SectionDirectiveNode,
   SourceSpan,
@@ -79,6 +81,8 @@ export function emitProgram(
     | { kind: 'func'; node: FuncDeclNode }
     | { kind: 'extern'; node: ExternFuncNode; address: number };
   const callables = new Map<string, Callable>();
+  const opsByName = new Map<string, OpDeclNode[]>();
+  const declaredOpNames = new Set<string>();
 
   const reg8 = new Set(['A', 'B', 'C', 'D', 'E', 'H', 'L']);
   const reg16 = new Set(['BC', 'DE', 'HL']);
@@ -287,6 +291,108 @@ export function emitProgram(
         return 'P';
       default:
         return undefined;
+    }
+  };
+
+  const normalizeFixedToken = (op: AsmOperandNode): string | undefined => {
+    switch (op.kind) {
+      case 'Reg':
+        return op.name.toUpperCase();
+      case 'Imm':
+        if (op.expr.kind === 'ImmName') return op.expr.name.toUpperCase();
+        return undefined;
+      default:
+        return undefined;
+    }
+  };
+
+  const matcherMatchesOperand = (matcher: OpMatcherNode, operand: AsmOperandNode): boolean => {
+    const evalImmNoDiag = (expr: ImmExprNode): number | undefined => {
+      const scratch: Diagnostic[] = [];
+      return evalImmExpr(expr, env, scratch);
+    };
+    const inferMemWidth = (op: AsmOperandNode): number | undefined => {
+      if (op.kind !== 'Mem') return undefined;
+      const resolved = resolveEa(op.expr, op.span);
+      if (!resolved?.typeExpr) return undefined;
+      return sizeOfTypeExpr(resolved.typeExpr, env, diagnostics);
+    };
+
+    switch (matcher.kind) {
+      case 'MatcherReg8':
+        return operand.kind === 'Reg' && reg8.has(operand.name.toUpperCase());
+      case 'MatcherReg16':
+        return (
+          operand.kind === 'Reg' &&
+          (operand.name.toUpperCase() === 'BC' ||
+            operand.name.toUpperCase() === 'DE' ||
+            operand.name.toUpperCase() === 'HL' ||
+            operand.name.toUpperCase() === 'SP')
+        );
+      case 'MatcherImm8': {
+        if (operand.kind !== 'Imm') return false;
+        const v = evalImmNoDiag(operand.expr);
+        return v !== undefined && v >= 0 && v <= 0xff;
+      }
+      case 'MatcherImm16': {
+        if (operand.kind !== 'Imm') return false;
+        const v = evalImmNoDiag(operand.expr);
+        return v !== undefined && v >= 0 && v <= 0xffff;
+      }
+      case 'MatcherEa':
+        return operand.kind === 'Ea';
+      case 'MatcherMem8': {
+        if (operand.kind !== 'Mem') return false;
+        const width = inferMemWidth(operand);
+        return width === undefined ? true : width === 1;
+      }
+      case 'MatcherMem16': {
+        if (operand.kind !== 'Mem') return false;
+        const width = inferMemWidth(operand);
+        return width === undefined ? true : width === 2;
+      }
+      case 'MatcherFixed': {
+        const got = normalizeFixedToken(operand);
+        return got !== undefined && got === matcher.token.toUpperCase();
+      }
+      default:
+        return false;
+    }
+  };
+
+  const cloneImmExpr = (expr: ImmExprNode): ImmExprNode => {
+    if (expr.kind === 'ImmLiteral') return { ...expr };
+    if (expr.kind === 'ImmName') return { ...expr };
+    if (expr.kind === 'ImmSizeof') return { ...expr };
+    if (expr.kind === 'ImmUnary') return { ...expr, expr: cloneImmExpr(expr.expr) };
+    return { ...expr, left: cloneImmExpr(expr.left), right: cloneImmExpr(expr.right) };
+  };
+
+  const cloneEaExpr = (ea: EaExprNode): EaExprNode => {
+    switch (ea.kind) {
+      case 'EaName':
+        return { ...ea };
+      case 'EaField':
+        return { ...ea, base: cloneEaExpr(ea.base) };
+      case 'EaIndex':
+        return { ...ea, base: cloneEaExpr(ea.base) };
+      case 'EaAdd':
+      case 'EaSub':
+        return { ...ea, base: cloneEaExpr(ea.base), offset: cloneImmExpr(ea.offset) };
+    }
+  };
+
+  const cloneOperand = (op: AsmOperandNode): AsmOperandNode => {
+    switch (op.kind) {
+      case 'Reg':
+      case 'PortC':
+        return { ...op };
+      case 'Imm':
+      case 'PortImm8':
+        return { ...op, expr: cloneImmExpr(op.expr) } as AsmOperandNode;
+      case 'Ea':
+      case 'Mem':
+        return { ...op, expr: cloneEaExpr(op.expr) } as AsmOperandNode;
     }
   };
 
@@ -681,6 +787,12 @@ export function emitProgram(
       if (item.kind === 'FuncDecl') {
         const f = item as FuncDeclNode;
         callables.set(f.name.toLowerCase(), { kind: 'func', node: f });
+      } else if (item.kind === 'OpDecl') {
+        const op = item as OpDeclNode;
+        const key = op.name.toLowerCase();
+        const existing = opsByName.get(key);
+        if (existing) existing.push(op);
+        else opsByName.set(key, [op]);
       } else if (item.kind === 'ExternDecl') {
         const ex = item as ExternDeclNode;
         for (const fn of ex.funcs) {
@@ -846,6 +958,18 @@ export function emitProgram(
         continue;
       }
 
+      if (item.kind === 'OpDecl') {
+        const op = item as OpDeclNode;
+        const key = op.name.toLowerCase();
+        if (taken.has(op.name) && !declaredOpNames.has(key)) {
+          diag(diagnostics, op.span.file, `Duplicate symbol name "${op.name}".`);
+        } else {
+          taken.add(op.name);
+          declaredOpNames.add(key);
+        }
+        continue;
+      }
+
       if (item.kind === 'FuncDecl') {
         stackSlotOffsets.clear();
         stackSlotTypes.clear();
@@ -917,6 +1041,7 @@ export function emitProgram(
 
         type FlowState = { reachable: boolean; spDelta: number; spValid: boolean };
         let flow: FlowState = { reachable: true, spDelta: 0, spValid: true };
+        const opExpansionStack: string[] = [];
 
         const syncFromFlow = (): void => {
           spDeltaTracked = flow.spDelta;
@@ -1231,6 +1356,127 @@ export function emitProgram(
             for (let k = 0; k < args.length; k++) {
               emitInstr('pop', [{ kind: 'Reg', span: asmItem.span, name: 'BC' }], asmItem.span);
             }
+            syncToFlow();
+            return;
+          }
+
+          const opCandidates = opsByName.get(asmItem.head.toLowerCase());
+          if (opCandidates && opCandidates.length > 0) {
+            const matches = opCandidates.filter((candidate) => {
+              if (candidate.params.length !== asmItem.operands.length) return false;
+              for (let idx = 0; idx < candidate.params.length; idx++) {
+                const param = candidate.params[idx]!;
+                const arg = asmItem.operands[idx]!;
+                if (!matcherMatchesOperand(param.matcher, arg)) return false;
+              }
+              return true;
+            });
+            if (matches.length === 0) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `No matching op overload for "${asmItem.head}" with provided operands.`,
+              );
+              return;
+            }
+            if (matches.length > 1) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `Ambiguous op overload for "${asmItem.head}" (${matches.length} matches).`,
+              );
+              return;
+            }
+            const opDecl = matches[0]!;
+            const opKey = opDecl.name.toLowerCase();
+            if (opExpansionStack.includes(opKey)) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `Cyclic op expansion detected for "${opDecl.name}".`,
+              );
+              return;
+            }
+
+            const bindings = new Map<string, AsmOperandNode>();
+            for (let idx = 0; idx < opDecl.params.length; idx++) {
+              bindings.set(opDecl.params[idx]!.name.toLowerCase(), asmItem.operands[idx]!);
+            }
+
+            const substituteImm = (expr: ImmExprNode): ImmExprNode => {
+              if (expr.kind === 'ImmName') {
+                const bound = bindings.get(expr.name.toLowerCase());
+                if (bound && bound.kind === 'Imm') return cloneImmExpr(bound.expr);
+                return { ...expr };
+              }
+              if (expr.kind === 'ImmUnary') return { ...expr, expr: substituteImm(expr.expr) };
+              if (expr.kind === 'ImmBinary') {
+                return {
+                  ...expr,
+                  left: substituteImm(expr.left),
+                  right: substituteImm(expr.right),
+                };
+              }
+              return { ...expr };
+            };
+
+            const substituteOperand = (operand: AsmOperandNode): AsmOperandNode => {
+              if (operand.kind === 'Imm' && operand.expr.kind === 'ImmName') {
+                const bound = bindings.get(operand.expr.name.toLowerCase());
+                if (bound) return cloneOperand(bound);
+                return { ...operand, expr: substituteImm(operand.expr) };
+              }
+              if (operand.kind === 'Imm') return { ...operand, expr: substituteImm(operand.expr) };
+              if (
+                (operand.kind === 'Ea' || operand.kind === 'Mem') &&
+                operand.expr.kind === 'EaName'
+              ) {
+                const bound = bindings.get(operand.expr.name.toLowerCase());
+                if (bound?.kind === 'Ea') return cloneOperand(bound);
+                if (bound?.kind === 'Reg') {
+                  return {
+                    ...operand,
+                    expr: { kind: 'EaName', span: operand.expr.span, name: bound.name },
+                  };
+                }
+                if (bound?.kind === 'Imm' && bound.expr.kind === 'ImmName') {
+                  return {
+                    ...operand,
+                    expr: { kind: 'EaName', span: operand.expr.span, name: bound.expr.name },
+                  };
+                }
+                return cloneOperand(operand);
+              }
+              return cloneOperand(operand);
+            };
+
+            opExpansionStack.push(opKey);
+            for (const bodyItem of opDecl.body.items) {
+              if (bodyItem.kind === 'AsmInstruction') {
+                const expanded: AsmInstructionNode = {
+                  kind: 'AsmInstruction',
+                  span: bodyItem.span,
+                  head: bodyItem.head,
+                  operands: bodyItem.operands.map((o) => substituteOperand(o)),
+                };
+                emitAsmInstruction(expanded);
+                continue;
+              }
+              if (bodyItem.kind === 'AsmLabel') {
+                diagAt(
+                  diagnostics,
+                  bodyItem.span,
+                  `Labels inside op bodies are not supported in current subset.`,
+                );
+                continue;
+              }
+              diagAt(
+                diagnostics,
+                bodyItem.span,
+                `Structured control inside op bodies is not supported in current subset.`,
+              );
+            }
+            opExpansionStack.pop();
             syncToFlow();
             return;
           }

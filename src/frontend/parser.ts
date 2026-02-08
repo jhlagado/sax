@@ -18,6 +18,9 @@ import type {
   ImmExprNode,
   ModuleFileNode,
   ModuleItemNode,
+  OpDeclNode,
+  OpMatcherNode,
+  OpParamNode,
   ParamNode,
   ProgramNode,
   RecordFieldNode,
@@ -593,6 +596,62 @@ function parseParamsFromText(
   return out;
 }
 
+function parseOpMatcherFromText(matcherText: string, matcherSpan: SourceSpan): OpMatcherNode {
+  const t = matcherText.trim();
+  const lower = t.toLowerCase();
+  switch (lower) {
+    case 'reg8':
+      return { kind: 'MatcherReg8', span: matcherSpan };
+    case 'reg16':
+      return { kind: 'MatcherReg16', span: matcherSpan };
+    case 'imm8':
+      return { kind: 'MatcherImm8', span: matcherSpan };
+    case 'imm16':
+      return { kind: 'MatcherImm16', span: matcherSpan };
+    case 'ea':
+      return { kind: 'MatcherEa', span: matcherSpan };
+    case 'mem8':
+      return { kind: 'MatcherMem8', span: matcherSpan };
+    case 'mem16':
+      return { kind: 'MatcherMem16', span: matcherSpan };
+    default:
+      return { kind: 'MatcherFixed', span: matcherSpan, token: t };
+  }
+}
+
+function parseOpParamsFromText(
+  filePath: string,
+  paramsText: string,
+  paramsSpan: SourceSpan,
+  diagnostics: Diagnostic[],
+): OpParamNode[] | undefined {
+  const trimmed = paramsText.trim();
+  if (trimmed.length === 0) return [];
+
+  const parts = trimmed.split(',').map((p) => p.trim());
+  const out: OpParamNode[] = [];
+  for (const part of parts) {
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(part);
+    if (!m) {
+      diag(diagnostics, filePath, `Invalid op parameter declaration`, {
+        line: paramsSpan.start.line,
+        column: paramsSpan.start.column,
+      });
+      return undefined;
+    }
+
+    const name = m[1]!;
+    const matcherText = m[2]!.trim();
+    out.push({
+      kind: 'OpParam',
+      span: paramsSpan,
+      name,
+      matcher: parseOpMatcherFromText(matcherText, paramsSpan),
+    });
+  }
+  return out;
+}
+
 /**
  * Parse a single `.zax` module file from an in-memory source string.
  *
@@ -1035,6 +1094,105 @@ export function parseModuleFile(
         break;
       }
 
+      continue;
+    }
+
+    if (rest.startsWith('op ')) {
+      const exported = exportPrefix.length > 0;
+      const header = rest.slice('op '.length).trimStart();
+      const openParen = header.indexOf('(');
+      const closeParen = header.lastIndexOf(')');
+      if (openParen < 0 || closeParen < openParen) {
+        diag(diagnostics, modulePath, `Invalid op header`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+
+      const name = header.slice(0, openParen).trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        diag(diagnostics, modulePath, `Invalid op name`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+
+      const trailing = header.slice(closeParen + 1).trim();
+      if (trailing.length > 0) {
+        diag(diagnostics, modulePath, `Invalid op header: unexpected trailing tokens`, {
+          line: lineNo,
+          column: 1,
+        });
+        i++;
+        continue;
+      }
+
+      const opStartOffset = lineStartOffset;
+      const headerSpan = span(file, lineStartOffset, lineEndOffset);
+      const paramsText = header.slice(openParen + 1, closeParen);
+      const params = parseOpParamsFromText(modulePath, paramsText, headerSpan, diagnostics);
+      if (!params) {
+        i++;
+        continue;
+      }
+      i++;
+
+      const bodyItems: AsmItemNode[] = [];
+      const controlStack: AsmControlFrame[] = [];
+      let terminated = false;
+      let opEndOffset = file.text.length;
+      while (i < lineCount) {
+        const { raw: rawLine, startOffset: so, endOffset: eo } = getRawLine(i);
+        const content = stripComment(rawLine).trim();
+        if (content.length === 0) {
+          i++;
+          continue;
+        }
+        if (content === 'end' && controlStack.length === 0) {
+          terminated = true;
+          opEndOffset = eo;
+          i++;
+          break;
+        }
+
+        const fullSpan = span(file, so, eo);
+        const labelMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/.exec(content);
+        if (labelMatch) {
+          const label = labelMatch[1]!;
+          const remainder = labelMatch[2] ?? '';
+          bodyItems.push({ kind: 'AsmLabel', span: fullSpan, name: label });
+          if (remainder.trim().length > 0) {
+            const stmt = parseAsmStatement(
+              modulePath,
+              remainder,
+              fullSpan,
+              diagnostics,
+              controlStack,
+            );
+            if (stmt) bodyItems.push(stmt);
+          }
+          i++;
+          continue;
+        }
+
+        const stmt = parseAsmStatement(modulePath, content, fullSpan, diagnostics, controlStack);
+        if (stmt) bodyItems.push(stmt);
+        i++;
+      }
+
+      if (!terminated) {
+        diag(diagnostics, modulePath, `Unterminated op "${name}": missing "end"`, {
+          line: lineNo,
+          column: 1,
+        });
+      }
+
+      items.push({
+        kind: 'OpDecl',
+        span: span(file, opStartOffset, opEndOffset),
+        name,
+        exported,
+        params,
+        body: { kind: 'AsmBlock', span: span(file, opStartOffset, opEndOffset), items: bodyItems },
+      } as OpDeclNode);
       continue;
     }
 
