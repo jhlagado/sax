@@ -27,6 +27,16 @@ describe('PR17 bin/hex ingestion', () => {
     );
   });
 
+  it('includes raw bin bytes into code section', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr17_bin_code.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes).toEqual(Uint8Array.of(0xc9, 0xaa, 0xbb, 0xcc));
+  });
+
   it('ingests Intel HEX bytes at absolute addresses and binds base symbol', async () => {
     const entry = join(__dirname, 'fixtures', 'pr17_hex_basic.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

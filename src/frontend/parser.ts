@@ -1450,7 +1450,16 @@ export function parseModuleFile(
     }
 
     if (rest.startsWith('bin ')) {
-      const m = /^bin\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(code|data|var)\s+from\s+"([^"]+)"$/i.exec(
+      const varTarget = /^bin\s+[A-Za-z_][A-Za-z0-9_]*\s+in\s+var\s+from\s+"[^"]+"$/i.test(rest);
+      if (varTarget) {
+        diag(diagnostics, modulePath, `bin declarations cannot target section "var"`, {
+          line: lineNo,
+          column: 1,
+        });
+        i++;
+        continue;
+      }
+      const m = /^bin\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(code|data)\s+from\s+"([^"]+)"$/i.exec(
         rest,
       );
       if (!m) {

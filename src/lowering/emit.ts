@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { Diagnostic } from '../diagnostics/types.js';
 import { DiagnosticIds } from '../diagnostics/types.js';
@@ -797,12 +797,7 @@ export function emitProgram(
     for (const c of candidates) {
       if (seen.has(c)) continue;
       seen.add(c);
-      try {
-        readFileSync(c);
-        return c;
-      } catch {
-        // keep probing
-      }
+      if (existsSync(c)) return c;
     }
     diag(diagnostics, fromFile, `Failed to resolve input path "${fromPath}".`);
     return undefined;
@@ -2247,7 +2242,7 @@ export function emitProgram(
       continue;
     }
     if (bytes.has(addr)) {
-      diag(diagnostics, primaryFile, `Byte overlap at address ${addr}.`);
+      diag(diagnostics, primaryFile, `HEX data overlaps emitted bytes at address ${addr}.`);
       continue;
     }
     bytes.set(addr, b);

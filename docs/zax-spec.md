@@ -612,6 +612,7 @@ hex bios from "rom/bios.hex"
 - All data record addresses must fit in 16 bits (`$0000..$FFFF`). Any out-of-range address is a compile error.
 - Intel HEX checksums must be validated. A record with an invalid checksum is a compile error.
 - `hex <name> from "<path>"` binds `<name>` to the lowest address written by the HEX file (type `addr`). If the HEX file contains no data records, it is a compile error.
+  - For disjoint HEX ranges, this remains the minimum written address across all ranges.
 - HEX output is written to absolute addresses in the final address space and does not advance any section’s location counter.
 - If a HEX-written byte overlaps any other emission, it is a compile error (regardless of whether the bytes are equal). This is an instance of the general overlap rule in Section 2.2.
 - The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address. Unwritten addresses within this range are filled with the **gap fill byte**, `$00`. `var` contributes no bytes.
