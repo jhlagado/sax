@@ -1,0 +1,14 @@
+export func main(): void
+  asm
+    select A
+      case 1
+        if NZ
+          while NZ
+            nop
+          end
+        end
+      else
+        nop
+    end
+    ret
+end

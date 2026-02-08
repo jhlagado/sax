@@ -443,6 +443,112 @@ function parseAsmInstruction(
   return { kind: 'AsmInstruction', span: instrSpan, head, operands };
 }
 
+type AsmControlFrame = 'If' | 'While' | 'Repeat' | 'Select';
+
+function parseAsmStatement(
+  filePath: string,
+  text: string,
+  stmtSpan: SourceSpan,
+  diagnostics: Diagnostic[],
+  controlStack: AsmControlFrame[],
+): AsmItemNode | undefined {
+  const trimmed = text.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower === 'repeat') {
+    controlStack.push('Repeat');
+    return { kind: 'Repeat', span: stmtSpan };
+  }
+
+  if (lower === 'else') {
+    const top = controlStack[controlStack.length - 1];
+    if (top === 'Select') return { kind: 'SelectElse', span: stmtSpan };
+    if (top !== 'If') {
+      diag(diagnostics, filePath, `"else" without matching "if" or "select"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+    }
+    return { kind: 'Else', span: stmtSpan };
+  }
+
+  if (lower === 'end') {
+    const top = controlStack.pop();
+    if (!top) {
+      diag(diagnostics, filePath, `Unexpected "end" in asm block`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    if (top === 'Repeat') {
+      diag(diagnostics, filePath, `"repeat" blocks must close with "until <cc>"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+    }
+    return { kind: 'End', span: stmtSpan };
+  }
+
+  const ifMatch = /^if\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
+  if (ifMatch) {
+    const cc = ifMatch[1]!;
+    controlStack.push('If');
+    return { kind: 'If', span: stmtSpan, cc };
+  }
+
+  const whileMatch = /^while\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
+  if (whileMatch) {
+    const cc = whileMatch[1]!;
+    controlStack.push('While');
+    return { kind: 'While', span: stmtSpan, cc };
+  }
+
+  const untilMatch = /^until\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
+  if (untilMatch) {
+    const cc = untilMatch[1]!;
+    const top = controlStack.pop();
+    if (top !== 'Repeat') {
+      diag(diagnostics, filePath, `"until" without matching "repeat"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+    }
+    return { kind: 'Until', span: stmtSpan, cc };
+  }
+
+  const selectMatch = /^select\s+(.+)$/i.exec(trimmed);
+  if (selectMatch) {
+    const selectorText = selectMatch[1]!.trim();
+    const selector = parseAsmOperand(filePath, selectorText, stmtSpan, diagnostics);
+    if (!selector) {
+      diag(diagnostics, filePath, `Invalid select selector`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    controlStack.push('Select');
+    return { kind: 'Select', span: stmtSpan, selector };
+  }
+
+  const caseMatch = /^case\s+(.+)$/i.exec(trimmed);
+  if (caseMatch) {
+    const exprText = caseMatch[1]!.trim();
+    const value = parseImmExprFromText(filePath, exprText, stmtSpan, diagnostics);
+    if (!value) {
+      diag(diagnostics, filePath, `Invalid case value`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    return { kind: 'Case', span: stmtSpan, value };
+  }
+
+  return parseAsmInstruction(filePath, trimmed, stmtSpan, diagnostics);
+}
+
 function parseParamsFromText(
   filePath: string,
   paramsText: string,
@@ -854,6 +960,7 @@ export function parseModuleFile(
       }
 
       const asmItems: AsmItemNode[] = [];
+      const asmControlStack: AsmControlFrame[] = [];
       let terminated = false;
       while (i < lineCount) {
         const { raw: rawLine, startOffset: lineOffset, endOffset } = getRawLine(i);
@@ -864,7 +971,7 @@ export function parseModuleFile(
           continue;
         }
 
-        if (content === 'end') {
+        if (content === 'end' && asmControlStack.length === 0) {
           terminated = true;
           const funcEndOffset = endOffset;
           const funcSpan = span(file, funcStartOffset, funcEndOffset);
@@ -896,15 +1003,27 @@ export function parseModuleFile(
           const labelNode: AsmLabelNode = { kind: 'AsmLabel', span: fullSpan, name: label };
           asmItems.push(labelNode);
           if (remainder.trim().length > 0) {
-            const instrNode = parseAsmInstruction(modulePath, remainder, fullSpan, diagnostics);
-            if (instrNode) asmItems.push(instrNode);
+            const stmtNode = parseAsmStatement(
+              modulePath,
+              remainder,
+              fullSpan,
+              diagnostics,
+              asmControlStack,
+            );
+            if (stmtNode) asmItems.push(stmtNode);
           }
           i++;
           continue;
         }
 
-        const instrNode = parseAsmInstruction(modulePath, content, fullSpan, diagnostics);
-        if (instrNode) asmItems.push(instrNode);
+        const stmtNode = parseAsmStatement(
+          modulePath,
+          content,
+          fullSpan,
+          diagnostics,
+          asmControlStack,
+        );
+        if (stmtNode) asmItems.push(stmtNode);
         i++;
       }
 

@@ -1020,6 +1020,9 @@ Rules:
 - Duplicate `case` values within the same `select` are a compile error.
 - Nested `select` is allowed.
 - Each `case` arm matches exactly one value in v0.1 (no `case 1,2,3` syntax).
+- Backlog item (post-v0.1): add shared-case clauses so multiple values can target one body, either via:
+  - grouped syntax (e.g., `case 0, 1`), or
+  - stacked-case syntax where consecutive `case` lines before statements share one clause body.
 - `case` and `else` are only valid inside `select` (and `else` is also valid inside `if`). Encountering them outside their enclosing construct is a compile error.
 - A `select` must contain at least one arm (`case` or `else`). A `select` with no arms is a compile error.
 

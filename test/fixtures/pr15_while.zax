@@ -1,0 +1,7 @@
+export func main(): void
+  asm
+    while NZ
+      nop
+    end
+    ret
+end

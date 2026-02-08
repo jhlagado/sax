@@ -1,0 +1,5 @@
+export func main(): void
+  asm
+    until NZ
+    ret
+end
