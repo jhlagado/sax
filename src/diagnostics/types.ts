@@ -39,6 +39,9 @@ export const DiagnosticIds = {
   /** Internal error during parsing (unexpected exception). */
   InternalParseError: 'ZAX002',
 
+  /** Import could not be resolved on any search path. */
+  ImportNotFound: 'ZAX003',
+
   /** Generic parse error (syntax / unsupported in current PR subset). */
   ParseError: 'ZAX100',
 
