@@ -382,7 +382,14 @@ export function emitProgram(
       case 'EaField':
         return { ...ea, base: cloneEaExpr(ea.base) };
       case 'EaIndex':
-        return { ...ea, base: cloneEaExpr(ea.base) };
+        return {
+          ...ea,
+          base: cloneEaExpr(ea.base),
+          index:
+            ea.index.kind === 'IndexEa'
+              ? { ...ea.index, expr: cloneEaExpr(ea.index.expr) }
+              : { ...ea.index },
+        };
       case 'EaAdd':
       case 'EaSub':
         return { ...ea, base: cloneEaExpr(ea.base), offset: cloneImmExpr(ea.offset) };

@@ -205,13 +205,16 @@ function parseImmExprFromText(
   exprText: string,
   exprSpan: SourceSpan,
   diagnostics: Diagnostic[],
+  emitDiagnostics = true,
 ): ImmExprNode | undefined {
   const tokenized = tokenizeImm(exprText);
   if (!tokenized) {
-    diag(diagnostics, filePath, `Invalid imm expression: ${exprText}`, {
-      line: exprSpan.start.line,
-      column: exprSpan.start.column,
-    });
+    if (emitDiagnostics) {
+      diag(diagnostics, filePath, `Invalid imm expression: ${exprText}`, {
+        line: exprSpan.start.line,
+        column: exprSpan.start.column,
+      });
+    }
     return undefined;
   }
 
@@ -293,13 +296,37 @@ function parseImmExprFromText(
 
   const root = parseExpr(1);
   if (!root || idx !== tokens.length) {
-    diag(diagnostics, filePath, `Invalid imm expression: ${exprText}`, {
-      line: exprSpan.start.line,
-      column: exprSpan.start.column,
-    });
+    if (emitDiagnostics) {
+      diag(diagnostics, filePath, `Invalid imm expression: ${exprText}`, {
+        line: exprSpan.start.line,
+        column: exprSpan.start.column,
+      });
+    }
     return undefined;
   }
   return root;
+}
+
+function parseBalancedBracketContent(text: string): { inside: string; rest: string } | undefined {
+  if (!text.startsWith('[')) return undefined;
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (ch === '[') {
+      depth++;
+      continue;
+    }
+    if (ch !== ']') continue;
+    depth--;
+    if (depth === 0) {
+      return {
+        inside: text.slice(1, i),
+        rest: text.slice(i + 1),
+      };
+    }
+    if (depth < 0) return undefined;
+  }
+  return undefined;
 }
 
 /**
@@ -320,9 +347,13 @@ function parseEaIndexFromText(
   if (t.toUpperCase() === 'HL') return { kind: 'IndexMemHL', span: indexSpan };
   if (/^(A|B|C|D|E|H|L)$/i.test(t)) return { kind: 'IndexReg8', span: indexSpan, reg: t };
 
-  const imm = parseImmExprFromText(filePath, t, indexSpan, diagnostics);
-  if (!imm) return undefined;
-  return { kind: 'IndexImm', span: indexSpan, value: imm };
+  const imm = parseImmExprFromText(filePath, t, indexSpan, diagnostics, false);
+  if (imm) return { kind: 'IndexImm', span: indexSpan, value: imm };
+
+  const ea = parseEaExprFromText(filePath, t, indexSpan, diagnostics);
+  if (ea) return { kind: 'IndexEa', span: indexSpan, expr: ea };
+
+  return undefined;
 }
 
 /**
@@ -355,14 +386,13 @@ function parseEaExprFromText(
       continue;
     }
     if (rest.startsWith('[')) {
-      /* TODO: handle nested brackets like `arr[table[0]]` (PR3 does not need this yet). */
-      const close = rest.indexOf(']');
-      if (close < 0) return undefined;
-      const inside = rest.slice(1, close);
+      const bracket = parseBalancedBracketContent(rest);
+      if (!bracket) return undefined;
+      const inside = bracket.inside;
       const index = parseEaIndexFromText(filePath, inside, exprSpan, diagnostics);
       if (!index) return undefined;
       expr = { kind: 'EaIndex', span: exprSpan, base: expr, index };
-      rest = rest.slice(close + 1).trimStart();
+      rest = bracket.rest.trimStart();
       continue;
     }
     break;

@@ -383,7 +383,8 @@ export type EaExprNode =
 export type EaIndexNode =
   | { kind: 'IndexImm'; span: SourceSpan; value: ImmExprNode }
   | { kind: 'IndexReg8'; span: SourceSpan; reg: string }
-  | { kind: 'IndexMemHL'; span: SourceSpan };
+  | { kind: 'IndexMemHL'; span: SourceSpan }
+  | { kind: 'IndexEa'; span: SourceSpan; expr: EaExprNode };
 
 /**
  * Union of all AST node types.
