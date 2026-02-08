@@ -83,6 +83,14 @@ export function emitProgram(
   const pending: PendingSymbol[] = [];
   const taken = new Set<string>();
   const fixups: { offset: number; baseLower: string; addend: number; file: string }[] = [];
+  const rel8Fixups: {
+    offset: number;
+    origin: number;
+    baseLower: string;
+    addend: number;
+    file: string;
+    mnemonic: string;
+  }[] = [];
 
   type Callable =
     | { kind: 'func'; node: FuncDeclNode }
@@ -243,6 +251,26 @@ export function emitProgram(
     fixups.push({ offset: start + 1, baseLower, addend, file: span.file });
   };
 
+  const emitRel8Fixup = (
+    opcode: number,
+    baseLower: string,
+    addend: number,
+    span: SourceSpan,
+    mnemonic: string,
+  ): void => {
+    const start = codeOffset;
+    codeBytes.set(codeOffset++, opcode);
+    codeBytes.set(codeOffset++, 0x00);
+    rel8Fixups.push({
+      offset: start + 1,
+      origin: start + 2,
+      baseLower,
+      addend,
+      file: span.file,
+      mnemonic,
+    });
+  };
+
   const conditionOpcodeFromName = (nameRaw: string): number | undefined => {
     const asName = nameRaw.toUpperCase();
     switch (asName) {
@@ -262,6 +290,20 @@ export function emitProgram(
         return 0xf2;
       case 'M':
         return 0xfa;
+      default:
+        return undefined;
+    }
+  };
+  const jrConditionOpcodeFromName = (nameRaw: string): number | undefined => {
+    switch (nameRaw.toUpperCase()) {
+      case 'NZ':
+        return 0x20;
+      case 'Z':
+        return 0x28;
+      case 'NC':
+        return 0x30;
+      case 'C':
+        return 0x38;
       default:
         return undefined;
     }
@@ -1745,6 +1787,75 @@ export function emitProgram(
           }
 
           const head = asmItem.head.toLowerCase();
+          const emitRel8FromOperand = (
+            operand: AsmOperandNode,
+            opcode: number,
+            mnemonic: string,
+          ): boolean => {
+            if (operand.kind !== 'Imm') {
+              diagAt(diagnostics, asmItem.span, `${mnemonic} expects an immediate target.`);
+              return false;
+            }
+            if (operand.expr.kind === 'ImmName') {
+              emitRel8Fixup(opcode, operand.expr.name.toLowerCase(), 0, asmItem.span, mnemonic);
+              return true;
+            }
+            const value = evalImmExpr(operand.expr, env, diagnostics);
+            if (value === undefined) {
+              diagAt(diagnostics, asmItem.span, `Failed to evaluate ${mnemonic} target.`);
+              return false;
+            }
+            if (value < -128 || value > 127) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `${mnemonic} relative branch displacement out of range (-128..127): ${value}.`,
+              );
+              return false;
+            }
+            emitCodeBytes(Uint8Array.of(opcode, value & 0xff), asmItem.span.file);
+            return true;
+          };
+          if (head === 'jr') {
+            if (asmItem.operands.length === 1) {
+              if (!emitRel8FromOperand(asmItem.operands[0]!, 0x18, 'jr')) return;
+              flow.reachable = false;
+              syncToFlow();
+              return;
+            }
+            if (asmItem.operands.length === 2) {
+              const ccOp = asmItem.operands[0]!;
+              const ccName =
+                ccOp.kind === 'Imm' && ccOp.expr.kind === 'ImmName'
+                  ? ccOp.expr.name
+                  : ccOp.kind === 'Reg'
+                    ? ccOp.name
+                    : undefined;
+              const opcode = ccName ? jrConditionOpcodeFromName(ccName) : undefined;
+              if (opcode === undefined) {
+                diagAt(diagnostics, asmItem.span, `Unsupported jr condition.`);
+                return;
+              }
+              if (!emitRel8FromOperand(asmItem.operands[1]!, opcode, `jr ${ccName!.toLowerCase()}`))
+                return;
+              syncToFlow();
+              return;
+            }
+          }
+          if (head === 'djnz') {
+            if (asmItem.operands.length !== 1) {
+              diagAt(diagnostics, asmItem.span, `djnz expects one target operand.`);
+              return;
+            }
+            const target = asmItem.operands[0]!;
+            if (target.kind !== 'Imm') {
+              diagAt(diagnostics, asmItem.span, `djnz expects an immediate target.`);
+              return;
+            }
+            if (!emitRel8FromOperand(target, 0x10, 'djnz')) return;
+            syncToFlow();
+            return;
+          }
           if (head === 'ret') {
             if (asmItem.operands.length === 0) {
               diagIfRetStackImbalanced();
@@ -2294,6 +2405,29 @@ export function emitProgram(
     }
     codeBytes.set(fx.offset, addr & 0xff);
     codeBytes.set(fx.offset + 1, (addr >> 8) & 0xff);
+  }
+  for (const fx of rel8Fixups) {
+    const base = addrByNameLower.get(fx.baseLower);
+    const target = base === undefined ? undefined : base + fx.addend;
+    if (target === undefined) {
+      diag(
+        diagnostics,
+        fx.file,
+        `Unresolved symbol "${fx.baseLower}" in rel8 ${fx.mnemonic} fixup.`,
+      );
+      continue;
+    }
+    const origin = codeBase + fx.origin;
+    const disp = target - origin;
+    if (disp < -128 || disp > 127) {
+      diag(
+        diagnostics,
+        fx.file,
+        `${fx.mnemonic} target out of range for rel8 branch (${disp}, expected -128..127).`,
+      );
+      continue;
+    }
+    codeBytes.set(fx.offset, disp & 0xff);
   }
 
   for (const [addr, b] of hexBytes) {

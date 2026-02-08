@@ -55,6 +55,10 @@ function reg16Name(op: AsmOperandNode): string | undefined {
   return n === 'BC' || n === 'DE' || n === 'HL' || n === 'SP' || n === 'AF' ? n : undefined;
 }
 
+function isMemHL(op: AsmOperandNode): boolean {
+  return op.kind === 'Mem' && op.expr.kind === 'EaName' && op.expr.name.toUpperCase() === 'HL';
+}
+
 /**
  * Encode a single `asm` instruction node into Z80 machine-code bytes.
  *
@@ -267,6 +271,63 @@ export function encodeInstruction(
         diag(diagnostics, node, `pop supports BC/DE/HL/AF only`);
         return undefined;
     }
+  }
+
+  const encodeAluAOrImm8OrMemHL = (
+    rBase: number,
+    immOpcode: number,
+    memOpcode: number,
+    mnemonic: string,
+    allowExplicitA = false,
+  ): Uint8Array | undefined => {
+    let src: AsmOperandNode | undefined;
+    if (ops.length === 1) src = ops[0]!;
+    else if (allowExplicitA && ops.length === 2 && regName(ops[0]!) === 'A') src = ops[1]!;
+    if (!src) return undefined;
+
+    const reg = regName(src);
+    if (reg) {
+      const code = reg8Code(reg);
+      if (code === undefined) {
+        diag(diagnostics, node, `${mnemonic} expects reg8/imm8/(hl)`);
+        return undefined;
+      }
+      return Uint8Array.of(rBase + code);
+    }
+
+    if (isMemHL(src)) return Uint8Array.of(memOpcode);
+
+    const n = immValue(src, env);
+    if (n === undefined || n < 0 || n > 0xff) {
+      diag(diagnostics, node, `${mnemonic} expects imm8`);
+      return undefined;
+    }
+    return Uint8Array.of(immOpcode, n & 0xff);
+  };
+
+  if (head === 'sub') {
+    const encoded = encodeAluAOrImm8OrMemHL(0x90, 0xd6, 0x96, 'sub', true);
+    if (encoded) return encoded;
+  }
+
+  if (head === 'cp') {
+    const encoded = encodeAluAOrImm8OrMemHL(0xb8, 0xfe, 0xbe, 'cp', true);
+    if (encoded) return encoded;
+  }
+
+  if (head === 'and') {
+    const encoded = encodeAluAOrImm8OrMemHL(0xa0, 0xe6, 0xa6, 'and');
+    if (encoded) return encoded;
+  }
+
+  if (head === 'or') {
+    const encoded = encodeAluAOrImm8OrMemHL(0xb0, 0xf6, 0xb6, 'or');
+    if (encoded) return encoded;
+  }
+
+  if (head === 'xor') {
+    const encoded = encodeAluAOrImm8OrMemHL(0xa8, 0xee, 0xae, 'xor');
+    if (encoded) return encoded;
   }
 
   diag(diagnostics, node, `Unsupported instruction in PR1 subset: ${node.head}`);
