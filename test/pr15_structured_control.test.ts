@@ -128,6 +128,16 @@ describe('PR15 structured asm control flow', () => {
     expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
   });
 
+  it('diagnoses select with no arms', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_select_no_arms.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe(
+      '"select" must contain at least one arm ("case" or "else")',
+    );
+  });
+
   it('supports stacked case labels sharing a single clause body', async () => {
     const entry = join(__dirname, 'fixtures', 'pr28_select_stacked_case_shared_body.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
