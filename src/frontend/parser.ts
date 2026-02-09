@@ -505,6 +505,10 @@ function parseAsmOperand(
   if (expr) {
     return { kind: 'Imm', span: operandSpan, expr };
   }
+  if (t.startsWith("'")) {
+    // Char literal parsing failures already produce an "Invalid imm expression" diagnostic.
+    return undefined;
+  }
 
   diag(diagnostics, filePath, `Unsupported operand in PR3 subset: ${t}`, {
     line: operandSpan.start.line,
