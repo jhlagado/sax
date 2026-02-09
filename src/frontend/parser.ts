@@ -500,6 +500,7 @@ function parseAsmOperand(
   operandText: string,
   operandSpan: SourceSpan,
   diagnostics: Diagnostic[],
+  emitDiagnostics = true,
 ): AsmOperandNode | undefined {
   const t = operandText.trim();
   if (t.length === 0) return undefined;
@@ -523,7 +524,7 @@ function parseAsmOperand(
     if (ea) return { kind: 'Ea', span: operandSpan, expr: ea };
   }
 
-  const expr = parseImmExprFromText(filePath, t, operandSpan, diagnostics);
+  const expr = parseImmExprFromText(filePath, t, operandSpan, diagnostics, emitDiagnostics);
   if (expr) {
     return { kind: 'Imm', span: operandSpan, expr };
   }
@@ -532,10 +533,12 @@ function parseAsmOperand(
     return undefined;
   }
 
-  diag(diagnostics, filePath, `Unsupported operand: ${t}`, {
-    line: operandSpan.start.line,
-    column: operandSpan.start.column,
-  });
+  if (emitDiagnostics) {
+    diag(diagnostics, filePath, `Unsupported operand: ${t}`, {
+      line: operandSpan.start.line,
+      column: operandSpan.start.column,
+    });
+  }
   return undefined;
 }
 
@@ -766,13 +769,18 @@ function parseAsmStatement(
   const selectMatch = /^select\s+(.+)$/i.exec(trimmed);
   if (selectMatch) {
     const selectorText = selectMatch[1]!.trim();
-    const selector = parseAsmOperand(filePath, selectorText, stmtSpan, diagnostics);
+    const selector = parseAsmOperand(filePath, selectorText, stmtSpan, diagnostics, false);
     if (!selector) {
       diag(diagnostics, filePath, `Invalid select selector`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
       });
-      return undefined;
+      controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false, openSpan: stmtSpan });
+      return {
+        kind: 'Select',
+        span: stmtSpan,
+        selector: { kind: 'Imm', span: stmtSpan, expr: immLiteral(filePath, stmtSpan, 0) },
+      };
     }
     controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false, openSpan: stmtSpan });
     return { kind: 'Select', span: stmtSpan, selector };

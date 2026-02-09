@@ -267,6 +267,14 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics[0]?.message).toBe('"select" expects a selector');
   });
 
+  it('diagnoses invalid select selector (no cascades)', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_select_invalid_selector.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('Invalid select selector');
+  });
+
   it('diagnoses case without a value', async () => {
     const entry = join(__dirname, 'fixtures', 'parser_case_missing_value.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
