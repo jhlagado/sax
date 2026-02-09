@@ -1037,6 +1037,10 @@ Rules:
   - `case 0`
   - `case 1`
   - `<body>`
+- Shared-case example (no fallthrough, shared body):
+  - `case 0`
+  - `case 1`
+  - `nop`
 - `case` and `else` are only valid inside `select` (and `else` is also valid inside `if`). Encountering them outside their enclosing construct is a compile error.
 - A `select` must contain at least one arm (`case` or `else`). A `select` with no arms is a compile error.
 
