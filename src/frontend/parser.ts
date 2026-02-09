@@ -573,6 +573,14 @@ function parseAsmStatement(
 
   const caseMatch = /^case\s+(.+)$/i.exec(trimmed);
   if (caseMatch) {
+    const top = controlStack[controlStack.length - 1];
+    if (top !== 'Select') {
+      diag(diagnostics, filePath, `"case" without matching "select"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
     const exprText = caseMatch[1]!.trim();
     const value = parseImmExprFromText(filePath, exprText, stmtSpan, diagnostics);
     if (!value) {
