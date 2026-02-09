@@ -82,10 +82,18 @@ function parseTypeExprFromText(typeText: string, typeSpan: SourceSpan): TypeExpr
   let typeExpr: TypeExprNode = { kind: 'TypeName', span: typeSpan, name };
 
   while (rest.startsWith('[')) {
-    const m = /^\[\s*([0-9]+)\s*\]/.exec(rest);
+    const m = /^\[\s*([0-9]+)?\s*\]/.exec(rest);
     if (!m) return undefined;
-    const len = Number.parseInt(m[1]!, 10);
-    typeExpr = { kind: 'ArrayType', span: typeSpan, element: typeExpr, length: len };
+    const lenText = m[1];
+    typeExpr =
+      lenText === undefined
+        ? { kind: 'ArrayType', span: typeSpan, element: typeExpr }
+        : {
+            kind: 'ArrayType',
+            span: typeSpan,
+            element: typeExpr,
+            length: Number.parseInt(lenText, 10),
+          };
     rest = rest.slice(m[0].length).trimStart();
   }
 
