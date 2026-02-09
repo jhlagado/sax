@@ -15,6 +15,27 @@ Progress snapshot (rough, assembler-first):
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
+Progress estimate (percentage):
+
+- Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
+- Working estimate (risk-weighted): ~45% complete (range 40-50%).
+- Why this is not higher: the remaining work is wide (ISA coverage, CLI contract, listing fidelity, hardening) and is not represented by a finite checklist of already-numbered items.
+
+Working estimate scorecard (risk-weighted, subjective):
+
+- Spec gate: ~60%
+- Parser/AST gate: ~55%
+- Codegen gate: ~50%
+- ISA gate: ~35%
+- CLI/output gate: ~55-60% (improving; see PR #88)
+- Hardening gate: ~30%
+
+What moves the needle fastest:
+
+- Make the CLI/output gate real: implement `docs/zax-cli.md` options in code, and add contract tests that verify the artifact set and naming rules.
+- Expand ISA coverage with fixtures + negative tests until every instruction needed by `examples/*.zax` and the v0.1 spec is supported (or explicitly rejected).
+- Add hardening gates that are difficult to game: examples compile (already exists) plus determinism checks and broad negative fixture classes.
+
 ---
 
 ## 1) Reality Check (Current State)
@@ -106,6 +127,33 @@ Treat ZAX as "integration-ready" only when every gate below is green:
 
 ## 4) Execution Plan (Serious Ordering)
 
+### Plan you can track (concrete milestones)
+
+Milestone 1: CLI contract is real (Gate 5 trending green)
+
+- Implement the `docs/zax-cli.md` baseline flags in the real CLI.
+- Add tests that run the CLI end-to-end and assert:
+- Primary output selection matches `--type`.
+- Sibling artifacts exist/suppress correctly.
+- Paths are deterministic and portable.
+- Exit with non-zero on diagnostics errors.
+
+Milestone 2: “Spec complete or explicitly rejected” (Gate 1 trending green)
+
+- Audit `docs/zax-spec.md` v0.1 sections and map each rule to:
+- A passing test/fixture (accepted behavior), or
+- A stable diagnostic + fixture (intentional rejection).
+
+Milestone 3: ISA and lowering hardening (Gates 3 and 4 trending green)
+
+- ISA: drive encoding expansion by failure cases and v0.1 examples.
+- Lowering: add deep interaction tests (calls + locals + ops + nested structured control + SP tracking).
+
+Milestone 4: Acceptance and determinism (Gate 6 trending green)
+
+- Make determinism checks part of the contract (not just “best effort”).
+- Expand negative fixture classes until regressions are obvious and localized.
+
 ### Phase A - Parser/AST closure
 
 Objective: finish language-front-end behavior before more backend complexity.
@@ -188,7 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- None.
+- #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
+
+Next after #88 merges (anchored as soon as opened):
+
+1. Next PR: CLI parity sweep (remaining `docs/zax-cli.md` flags + contract tests).
+2. Next PR: `.lst` improvement tranche (still deterministic, but closer to assembler listings; keep scope tight).
+3. Next PR: ISA coverage tranche driven by examples (add missing encodings + negative tests).
+4. Next PR: Lowering interaction torture suite (nested control + calls + locals + ops + SP tracking).
+5. Next PR: Spec audit pass (map each v0.1 rule to a test or a stable rejection diagnostic).
 
 Completed (anchored, most recent first):
 
