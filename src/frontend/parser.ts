@@ -666,6 +666,13 @@ function parseAsmStatement(
     controlStack.push({ kind: 'If', elseSeen: false, openSpan: stmtSpan });
     return { kind: 'If', span: stmtSpan, cc };
   }
+  if (lower.startsWith('if ')) {
+    diag(diagnostics, filePath, `"if" expects a condition code`, {
+      line: stmtSpan.start.line,
+      column: stmtSpan.start.column,
+    });
+    return undefined;
+  }
   if (lower === 'if') {
     diag(diagnostics, filePath, `"if" expects a condition code`, {
       line: stmtSpan.start.line,
@@ -680,6 +687,13 @@ function parseAsmStatement(
     const cc = whileMatch[1]!;
     controlStack.push({ kind: 'While', openSpan: stmtSpan });
     return { kind: 'While', span: stmtSpan, cc };
+  }
+  if (lower.startsWith('while ')) {
+    diag(diagnostics, filePath, `"while" expects a condition code`, {
+      line: stmtSpan.start.line,
+      column: stmtSpan.start.column,
+    });
+    return undefined;
   }
   if (lower === 'while') {
     diag(diagnostics, filePath, `"while" expects a condition code`, {
@@ -719,6 +733,22 @@ function parseAsmStatement(
     }
     controlStack.pop();
     return { kind: 'Until', span: stmtSpan, cc };
+  }
+  if (lower.startsWith('until ')) {
+    const top = controlStack[controlStack.length - 1];
+    if (top?.kind !== 'Repeat') {
+      diag(diagnostics, filePath, `"until" without matching "repeat"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    diag(diagnostics, filePath, `"until" expects a condition code`, {
+      line: stmtSpan.start.line,
+      column: stmtSpan.start.column,
+    });
+    controlStack.pop();
+    return { kind: 'Until', span: stmtSpan, cc: missingCc };
   }
 
   if (lower === 'select') {
