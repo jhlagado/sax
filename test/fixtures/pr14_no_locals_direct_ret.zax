@@ -1,4 +1,4 @@
 export func main(): void
   asm
-    ret
+    ; fallthrough: implicit ret
 end

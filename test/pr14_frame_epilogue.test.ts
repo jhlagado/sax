@@ -32,7 +32,7 @@ describe('PR14 frame slots and epilogue rewriting', () => {
     expect(bin!.bytes).toEqual(Uint8Array.of(0xc2, 0x07, 0x00, 0x00, 0xc3, 0x07, 0x00, 0xc9));
   });
 
-  it('keeps direct ret when there are no locals and no ret cc', async () => {
+  it('emits an implicit ret on fallthrough when there are no locals and no ret cc', async () => {
     const entry = join(__dirname, 'fixtures', 'pr14_no_locals_direct_ret.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.diagnostics).toEqual([]);
