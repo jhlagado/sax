@@ -291,6 +291,15 @@ export function encodeInstruction(
       }
     }
 
+    // ld (hl), n
+    if (isMemHL(ops[0]!) && n !== undefined) {
+      if (n < 0 || n > 0xff) {
+        diag(diagnostics, node, `ld (hl), n expects imm8`);
+        return undefined;
+      }
+      return Uint8Array.of(0x36, n & 0xff);
+    }
+
     // ld sp, hl
     if (r === 'SP' && src === 'HL') {
       return Uint8Array.of(0xf9);
@@ -299,44 +308,54 @@ export function encodeInstruction(
 
   if (head === 'inc' && ops.length === 1) {
     const r = regName(ops[0]!);
-    if (!r) {
-      diag(diagnostics, node, `inc expects register operand`);
-      return undefined;
+    if (r) {
+      const r8 = reg8Code(r);
+      if (r8 !== undefined) {
+        // inc r8
+        return Uint8Array.of(0x04 + (r8 << 3));
+      }
+      // inc rr
+      switch (r) {
+        case 'BC':
+          return Uint8Array.of(0x03);
+        case 'DE':
+          return Uint8Array.of(0x13);
+        case 'HL':
+          return Uint8Array.of(0x23);
+        case 'SP':
+          return Uint8Array.of(0x33);
+      }
     }
-    switch (r) {
-      case 'BC':
-        return Uint8Array.of(0x03);
-      case 'DE':
-        return Uint8Array.of(0x13);
-      case 'HL':
-        return Uint8Array.of(0x23);
-      case 'SP':
-        return Uint8Array.of(0x33);
-      default:
-        diag(diagnostics, node, `inc supports BC/DE/HL/SP in current subset`);
-        return undefined;
-    }
+    // inc (hl)
+    if (isMemHL(ops[0]!)) return Uint8Array.of(0x34);
+    diag(diagnostics, node, `inc expects r8/rr/(hl) operand`);
+    return undefined;
   }
 
   if (head === 'dec' && ops.length === 1) {
     const r = regName(ops[0]!);
-    if (!r) {
-      diag(diagnostics, node, `dec expects register operand`);
-      return undefined;
+    if (r) {
+      const r8 = reg8Code(r);
+      if (r8 !== undefined) {
+        // dec r8
+        return Uint8Array.of(0x05 + (r8 << 3));
+      }
+      // dec rr
+      switch (r) {
+        case 'BC':
+          return Uint8Array.of(0x0b);
+        case 'DE':
+          return Uint8Array.of(0x1b);
+        case 'HL':
+          return Uint8Array.of(0x2b);
+        case 'SP':
+          return Uint8Array.of(0x3b);
+      }
     }
-    switch (r) {
-      case 'BC':
-        return Uint8Array.of(0x0b);
-      case 'DE':
-        return Uint8Array.of(0x1b);
-      case 'HL':
-        return Uint8Array.of(0x2b);
-      case 'SP':
-        return Uint8Array.of(0x3b);
-      default:
-        diag(diagnostics, node, `dec supports BC/DE/HL/SP in current subset`);
-        return undefined;
-    }
+    // dec (hl)
+    if (isMemHL(ops[0]!)) return Uint8Array.of(0x35);
+    diag(diagnostics, node, `dec expects r8/rr/(hl) operand`);
+    return undefined;
   }
 
   if (head === 'push' && ops.length === 1) {

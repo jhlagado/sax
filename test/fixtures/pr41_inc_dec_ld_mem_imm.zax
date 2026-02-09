@@ -1,0 +1,12 @@
+export func main(): void
+  asm
+    ld hl, $1000
+    ld (hl), $2A
+    inc a
+    dec a
+    inc (hl)
+    dec (hl)
+    inc b
+    dec c
+  end
+
