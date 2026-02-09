@@ -482,7 +482,11 @@ function parseAsmInstruction(
   return { kind: 'AsmInstruction', span: instrSpan, head, operands };
 }
 
-type AsmControlFrame = 'If' | 'While' | 'Repeat' | 'Select';
+type AsmControlFrame =
+  | { kind: 'If' }
+  | { kind: 'While' }
+  | { kind: 'Repeat' }
+  | { kind: 'Select'; elseSeen: boolean };
 
 function parseAsmStatement(
   filePath: string,
@@ -495,14 +499,24 @@ function parseAsmStatement(
   const lower = trimmed.toLowerCase();
 
   if (lower === 'repeat') {
-    controlStack.push('Repeat');
+    controlStack.push({ kind: 'Repeat' });
     return { kind: 'Repeat', span: stmtSpan };
   }
 
   if (lower === 'else') {
     const top = controlStack[controlStack.length - 1];
-    if (top === 'Select') return { kind: 'SelectElse', span: stmtSpan };
-    if (top !== 'If') {
+    if (top?.kind === 'Select') {
+      if (top.elseSeen) {
+        diag(diagnostics, filePath, `"else" duplicated in select`, {
+          line: stmtSpan.start.line,
+          column: stmtSpan.start.column,
+        });
+        return undefined;
+      }
+      top.elseSeen = true;
+      return { kind: 'SelectElse', span: stmtSpan };
+    }
+    if (top?.kind !== 'If') {
       diag(diagnostics, filePath, `"else" without matching "if" or "select"`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
@@ -521,7 +535,7 @@ function parseAsmStatement(
       });
       return undefined;
     }
-    if (top === 'Repeat') {
+    if (top.kind === 'Repeat') {
       diag(diagnostics, filePath, `"repeat" blocks must close with "until <cc>"`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
@@ -534,14 +548,14 @@ function parseAsmStatement(
   const ifMatch = /^if\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
   if (ifMatch) {
     const cc = ifMatch[1]!;
-    controlStack.push('If');
+    controlStack.push({ kind: 'If' });
     return { kind: 'If', span: stmtSpan, cc };
   }
 
   const whileMatch = /^while\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
   if (whileMatch) {
     const cc = whileMatch[1]!;
-    controlStack.push('While');
+    controlStack.push({ kind: 'While' });
     return { kind: 'While', span: stmtSpan, cc };
   }
 
@@ -549,7 +563,7 @@ function parseAsmStatement(
   if (untilMatch) {
     const cc = untilMatch[1]!;
     const top = controlStack[controlStack.length - 1];
-    if (top !== 'Repeat') {
+    if (top?.kind !== 'Repeat') {
       diag(diagnostics, filePath, `"until" without matching "repeat"`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
@@ -571,15 +585,22 @@ function parseAsmStatement(
       });
       return undefined;
     }
-    controlStack.push('Select');
+    controlStack.push({ kind: 'Select', elseSeen: false });
     return { kind: 'Select', span: stmtSpan, selector };
   }
 
   const caseMatch = /^case\s+(.+)$/i.exec(trimmed);
   if (caseMatch) {
     const top = controlStack[controlStack.length - 1];
-    if (top !== 'Select') {
+    if (top?.kind !== 'Select') {
       diag(diagnostics, filePath, `"case" without matching "select"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    if (top.elseSeen) {
+      diag(diagnostics, filePath, `"case" after "else" in select`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
       });
