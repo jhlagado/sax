@@ -549,13 +549,29 @@ function parseAsmInstruction(
   if (trimmed.length === 0) return undefined;
   const firstSpace = trimmed.search(/\s/);
   const head = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
+  const headLower = head.toLowerCase();
   const rest = firstSpace === -1 ? '' : trimmed.slice(firstSpace).trim();
 
   const operands: AsmOperandNode[] = [];
   if (rest.length > 0) {
+    const parseInOutOperand = (operandText: string): AsmOperandNode | undefined => {
+      const t = operandText.trim();
+      if (t.startsWith('(') && t.endsWith(')')) {
+        const inner = t.slice(1, -1).trim();
+        if (/^c$/i.test(inner)) return { kind: 'PortC', span: instrSpan };
+        const expr = parseImmExprFromText(filePath, inner, instrSpan, diagnostics);
+        if (expr) return { kind: 'PortImm8', span: instrSpan, expr };
+        // Fall through to the generic operand parser to produce a reasonable diagnostic.
+      }
+      return parseAsmOperand(filePath, t, instrSpan, diagnostics);
+    };
+
     const parts = rest.split(',').map((p) => p.trim());
     for (const part of parts) {
-      const opNode = parseAsmOperand(filePath, part, instrSpan, diagnostics);
+      const opNode =
+        headLower === 'in' || headLower === 'out'
+          ? parseInOutOperand(part)
+          : parseAsmOperand(filePath, part, instrSpan, diagnostics);
       if (opNode) operands.push(opNode);
     }
   }

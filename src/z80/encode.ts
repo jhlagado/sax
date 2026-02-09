@@ -24,6 +24,11 @@ function immValue(op: AsmOperandNode, env: CompileEnv): number | undefined {
   return evalImmExpr(op.expr, env);
 }
 
+function portImmValue(op: AsmOperandNode, env: CompileEnv): number | undefined {
+  if (op.kind !== 'PortImm8') return undefined;
+  return evalImmExpr(op.expr, env);
+}
+
 function regName(op: AsmOperandNode): string | undefined {
   return op.kind === 'Reg' ? op.name.toUpperCase() : undefined;
 }
@@ -244,6 +249,70 @@ export function encodeInstruction(
 
   if (head === 'reti' && ops.length === 0) return Uint8Array.of(0xed, 0x4d);
   if (head === 'retn' && ops.length === 0) return Uint8Array.of(0xed, 0x45);
+
+  if (head === 'in' && ops.length === 2) {
+    const dst = regName(ops[0]!);
+    const dst8 = dst ? reg8Code(dst) : undefined;
+
+    if (dst8 === undefined) {
+      diag(diagnostics, node, `in expects a reg8 destination`);
+      return undefined;
+    }
+
+    const port = ops[1]!;
+    if (port.kind === 'PortC') {
+      // in r,(c) => ED 40 + r*8
+      return Uint8Array.of(0xed, 0x40 + (dst8 << 3));
+    }
+    if (port.kind === 'PortImm8') {
+      // in a,(n) => DB n
+      if (dst !== 'A') {
+        diag(diagnostics, node, `in a,(n) immediate port form requires destination A`);
+        return undefined;
+      }
+      const n = portImmValue(port, env);
+      if (n === undefined || n < 0 || n > 0xff) {
+        diag(diagnostics, node, `in a,(n) expects an imm8 port number`);
+        return undefined;
+      }
+      return Uint8Array.of(0xdb, n & 0xff);
+    }
+
+    diag(diagnostics, node, `in expects a port operand (c) or (imm8)`);
+    return undefined;
+  }
+
+  if (head === 'out' && ops.length === 2) {
+    const port = ops[0]!;
+    const src = regName(ops[1]!);
+    const src8 = src ? reg8Code(src) : undefined;
+
+    if (src8 === undefined) {
+      diag(diagnostics, node, `out expects a reg8 source`);
+      return undefined;
+    }
+
+    if (port.kind === 'PortC') {
+      // out (c),r => ED 41 + r*8
+      return Uint8Array.of(0xed, 0x41 + (src8 << 3));
+    }
+    if (port.kind === 'PortImm8') {
+      // out (n),a => D3 n
+      if (src !== 'A') {
+        diag(diagnostics, node, `out (n),a immediate port form requires source A`);
+        return undefined;
+      }
+      const n = portImmValue(port, env);
+      if (n === undefined || n < 0 || n > 0xff) {
+        diag(diagnostics, node, `out (n),a expects an imm8 port number`);
+        return undefined;
+      }
+      return Uint8Array.of(0xd3, n & 0xff);
+    }
+
+    diag(diagnostics, node, `out expects a port operand (c) or (imm8)`);
+    return undefined;
+  }
 
   if (head === 'jp' && ops.length === 1) {
     // jp (hl) / jp (ix) / jp (iy)
