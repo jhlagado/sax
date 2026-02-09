@@ -173,22 +173,31 @@ describe('PR15 structured asm control flow', () => {
     const entry = join(__dirname, 'fixtures', 'pr15_until_without_repeat.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
-    expect(res.diagnostics.some((d) => d.message.includes('without matching "repeat"'))).toBe(true);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"until" without matching "repeat"');
   });
 
   it('diagnoses case without matching select', async () => {
     const entry = join(__dirname, 'fixtures', 'pr30_case_without_select.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
-    expect(res.diagnostics.some((d) => d.message.includes('without matching "select"'))).toBe(true);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"case" without matching "select"');
   });
 
   it('diagnoses else without matching if or select', async () => {
     const entry = join(__dirname, 'fixtures', 'pr30_else_without_if_or_select.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
-    expect(
-      res.diagnostics.some((d) => d.message.includes('without matching "if" or "select"')),
-    ).toBe(true);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"else" without matching "if" or "select"');
+  });
+
+  it('diagnoses repeat closed by end (until required)', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr32_repeat_closed_by_end.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"repeat" blocks must close with "until <cc>"');
   });
 });

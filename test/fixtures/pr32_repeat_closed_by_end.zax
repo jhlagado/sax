@@ -1,0 +1,6 @@
+export func main(): void
+  asm
+    repeat
+      nop
+    end
+  end

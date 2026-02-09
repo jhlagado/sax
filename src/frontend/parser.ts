@@ -507,6 +507,7 @@ function parseAsmStatement(
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
       });
+      return undefined;
     }
     return { kind: 'Else', span: stmtSpan };
   }
@@ -525,6 +526,7 @@ function parseAsmStatement(
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
       });
+      return undefined;
     }
     return { kind: 'End', span: stmtSpan };
   }
@@ -546,13 +548,15 @@ function parseAsmStatement(
   const untilMatch = /^until\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
   if (untilMatch) {
     const cc = untilMatch[1]!;
-    const top = controlStack.pop();
+    const top = controlStack[controlStack.length - 1];
     if (top !== 'Repeat') {
       diag(diagnostics, filePath, `"until" without matching "repeat"`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
       });
+      return undefined;
     }
+    controlStack.pop();
     return { kind: 'Until', span: stmtSpan, cc };
   }
 
