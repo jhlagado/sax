@@ -200,4 +200,20 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics).toHaveLength(1);
     expect(res.diagnostics[0]?.message).toBe('"repeat" blocks must close with "until <cc>"');
   });
+
+  it('diagnoses case after else in select', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr33_select_case_after_else.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"case" after "else" in select');
+  });
+
+  it('diagnoses duplicate else in select', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr33_select_duplicate_else.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"else" duplicated in select');
+  });
 });

@@ -1,0 +1,9 @@
+export func main(): void
+  asm
+    select A
+      else
+        nop
+      else
+        nop
+    end
+  end

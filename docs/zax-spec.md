@@ -1017,6 +1017,7 @@ Rules:
   - Comparisons are by 16-bit equality.
   - For `reg8` selectors, the selector value is in the range `0..255` (zero-extended). `case` values outside `0..255` can never match; the compiler may warn.
 - `else` is optional and is taken if no `case` matches. If no `else` is present and no `case` matches, control transfers to after the enclosing `end`.
+- If present, `else` must be the final arm in the `select`. A `case` after `else` is a compile error.
 - There is no fallthrough: after a `case` body finishes, control transfers to after the enclosing `end` (unless the case body terminates, e.g., `ret`).
 - Duplicate `case` values within the same `select` are a compile error.
 - Nested `select` is allowed.
