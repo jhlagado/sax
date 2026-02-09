@@ -251,6 +251,14 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics[0]?.message).toBe('"case" expects a value');
   });
 
+  it('diagnoses unterminated control at EOF', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_unterminated_if_eof.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics.some((d) => d.message === '"if" without matching "end"')).toBe(true);
+    expect(res.diagnostics.some((d) => d.message.includes('Unterminated func "main"'))).toBe(true);
+  });
+
   it('diagnoses repeat closed by end (until required)', async () => {
     const entry = join(__dirname, 'fixtures', 'pr32_repeat_closed_by_end.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
