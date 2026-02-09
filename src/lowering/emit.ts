@@ -119,6 +119,7 @@ export function emitProgram(
     if (typeExpr.kind !== 'TypeName') return undefined;
     const lower = typeExpr.name.toLowerCase();
     if (lower === 'byte' || lower === 'word' || lower === 'addr') return lower;
+    if (lower === 'ptr') return 'addr';
     if (seen.has(lower)) return undefined;
     seen.add(lower);
     const decl = env.types.get(typeExpr.name);
@@ -2528,7 +2529,7 @@ export function emitProgram(
                 ? type.name
                 : undefined;
           const elementSize =
-            elementType === 'word' || elementType === 'addr'
+            elementType === 'word' || elementType === 'addr' || elementType === 'ptr'
               ? 2
               : elementType === 'byte'
                 ? 1
