@@ -294,6 +294,28 @@ export function emitProgram(
         return undefined;
     }
   };
+  const callConditionOpcodeFromName = (nameRaw: string): number | undefined => {
+    switch (nameRaw.toUpperCase()) {
+      case 'NZ':
+        return 0xc4;
+      case 'Z':
+        return 0xcc;
+      case 'NC':
+        return 0xd4;
+      case 'C':
+        return 0xdc;
+      case 'PO':
+        return 0xe4;
+      case 'PE':
+        return 0xec;
+      case 'P':
+        return 0xf4;
+      case 'M':
+        return 0xfc;
+      default:
+        return undefined;
+    }
+  };
   const jrConditionOpcodeFromName = (nameRaw: string): number | undefined => {
     switch (nameRaw.toUpperCase()) {
       case 'NZ':
@@ -1877,6 +1899,56 @@ export function emitProgram(
               diagIfRetStackImbalanced();
               emitSyntheticEpilogue = true;
               emitJumpCondTo(op, epilogueLabel, asmItem.span);
+              syncToFlow();
+              return;
+            }
+          }
+
+          if (head === 'jp' && asmItem.operands.length === 1) {
+            const target = asmItem.operands[0]!;
+            if (target.kind === 'Imm' && target.expr.kind === 'ImmName') {
+              emitAbs16Fixup(0xc3, target.expr.name.toLowerCase(), 0, asmItem.span);
+              flow.reachable = false;
+              syncToFlow();
+              return;
+            }
+          }
+          if (head === 'jp' && asmItem.operands.length === 2) {
+            const ccOp = asmItem.operands[0]!;
+            const ccName =
+              ccOp.kind === 'Imm' && ccOp.expr.kind === 'ImmName'
+                ? ccOp.expr.name
+                : ccOp.kind === 'Reg'
+                  ? ccOp.name
+                  : undefined;
+            const opcode = ccName ? conditionOpcodeFromName(ccName) : undefined;
+            const target = asmItem.operands[1]!;
+            if (opcode !== undefined && target.kind === 'Imm' && target.expr.kind === 'ImmName') {
+              emitAbs16Fixup(opcode, target.expr.name.toLowerCase(), 0, asmItem.span);
+              syncToFlow();
+              return;
+            }
+          }
+          if (head === 'call' && asmItem.operands.length === 1) {
+            const target = asmItem.operands[0]!;
+            if (target.kind === 'Imm' && target.expr.kind === 'ImmName') {
+              emitAbs16Fixup(0xcd, target.expr.name.toLowerCase(), 0, asmItem.span);
+              syncToFlow();
+              return;
+            }
+          }
+          if (head === 'call' && asmItem.operands.length === 2) {
+            const ccOp = asmItem.operands[0]!;
+            const ccName =
+              ccOp.kind === 'Imm' && ccOp.expr.kind === 'ImmName'
+                ? ccOp.expr.name
+                : ccOp.kind === 'Reg'
+                  ? ccOp.name
+                  : undefined;
+            const opcode = ccName ? callConditionOpcodeFromName(ccName) : undefined;
+            const target = asmItem.operands[1]!;
+            if (opcode !== undefined && target.kind === 'Imm' && target.expr.kind === 'ImmName') {
+              emitAbs16Fixup(opcode, target.expr.name.toLowerCase(), 0, asmItem.span);
               syncToFlow();
               return;
             }

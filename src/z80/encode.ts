@@ -59,6 +59,58 @@ function isMemHL(op: AsmOperandNode): boolean {
   return op.kind === 'Mem' && op.expr.kind === 'EaName' && op.expr.name.toUpperCase() === 'HL';
 }
 
+function conditionName(op: AsmOperandNode): string | undefined {
+  if (op.kind === 'Reg') return op.name.toUpperCase();
+  if (op.kind === 'Imm' && op.expr.kind === 'ImmName') return op.expr.name.toUpperCase();
+  return undefined;
+}
+
+function jpConditionOpcode(name: string): number | undefined {
+  switch (name) {
+    case 'NZ':
+      return 0xc2;
+    case 'Z':
+      return 0xca;
+    case 'NC':
+      return 0xd2;
+    case 'C':
+      return 0xda;
+    case 'PO':
+      return 0xe2;
+    case 'PE':
+      return 0xea;
+    case 'P':
+      return 0xf2;
+    case 'M':
+      return 0xfa;
+    default:
+      return undefined;
+  }
+}
+
+function callConditionOpcode(name: string): number | undefined {
+  switch (name) {
+    case 'NZ':
+      return 0xc4;
+    case 'Z':
+      return 0xcc;
+    case 'NC':
+      return 0xd4;
+    case 'C':
+      return 0xdc;
+    case 'PO':
+      return 0xe4;
+    case 'PE':
+      return 0xec;
+    case 'P':
+      return 0xf4;
+    case 'M':
+      return 0xfc;
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Encode a single `asm` instruction node into Z80 machine-code bytes.
  *
@@ -115,6 +167,16 @@ export function encodeInstruction(
     }
     return Uint8Array.of(0xcd, n & 0xff, (n >> 8) & 0xff);
   }
+  if (head === 'call' && ops.length === 2) {
+    const cc = conditionName(ops[0]!);
+    const opcode = cc ? callConditionOpcode(cc) : undefined;
+    const n = immValue(ops[1]!, env);
+    if (opcode === undefined || n === undefined || n < 0 || n > 0xffff) {
+      diag(diagnostics, node, `call cc, nn expects condition + imm16`);
+      return undefined;
+    }
+    return Uint8Array.of(opcode, n & 0xff, (n >> 8) & 0xff);
+  }
 
   if (head === 'jp' && ops.length === 1) {
     const n = immValue(ops[0]!, env);
@@ -123,6 +185,16 @@ export function encodeInstruction(
       return undefined;
     }
     return Uint8Array.of(0xc3, n & 0xff, (n >> 8) & 0xff);
+  }
+  if (head === 'jp' && ops.length === 2) {
+    const cc = conditionName(ops[0]!);
+    const opcode = cc ? jpConditionOpcode(cc) : undefined;
+    const n = immValue(ops[1]!, env);
+    if (opcode === undefined || n === undefined || n < 0 || n > 0xffff) {
+      diag(diagnostics, node, `jp cc, nn expects condition + imm16`);
+      return undefined;
+    }
+    return Uint8Array.of(opcode, n & 0xff, (n >> 8) & 0xff);
   }
 
   if (head === 'ld' && ops.length === 2) {
@@ -327,6 +399,49 @@ export function encodeInstruction(
 
   if (head === 'xor') {
     const encoded = encodeAluAOrImm8OrMemHL(0xa8, 0xee, 0xae, 'xor');
+    if (encoded) return encoded;
+  }
+
+  if (head === 'adc') {
+    const encoded = encodeAluAOrImm8OrMemHL(0x88, 0xce, 0x8e, 'adc', true);
+    if (encoded) return encoded;
+  }
+
+  if (head === 'sbc') {
+    const encoded = encodeAluAOrImm8OrMemHL(0x98, 0xde, 0x9e, 'sbc', true);
+    if (encoded) return encoded;
+  }
+
+  const encodeBitLike = (base: number, mnemonic: string): Uint8Array | undefined => {
+    if (ops.length !== 2) return undefined;
+    const bit = immValue(ops[0]!, env);
+    if (bit === undefined || bit < 0 || bit > 7) {
+      diag(diagnostics, node, `${mnemonic} expects bit index 0..7`);
+      return undefined;
+    }
+    const src = ops[1]!;
+    if (isMemHL(src)) {
+      return Uint8Array.of(0xcb, base + (bit << 3) + 0x06);
+    }
+    const reg = regName(src);
+    const code = reg ? reg8Code(reg) : undefined;
+    if (code === undefined) {
+      diag(diagnostics, node, `${mnemonic} expects reg8 or (hl)`);
+      return undefined;
+    }
+    return Uint8Array.of(0xcb, base + (bit << 3) + code);
+  };
+
+  if (head === 'bit') {
+    const encoded = encodeBitLike(0x40, 'bit');
+    if (encoded) return encoded;
+  }
+  if (head === 'res') {
+    const encoded = encodeBitLike(0x80, 'res');
+    if (encoded) return encoded;
+  }
+  if (head === 'set') {
+    const encoded = encodeBitLike(0xc0, 'set');
     if (encoded) return encoded;
   }
 
