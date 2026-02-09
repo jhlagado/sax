@@ -580,10 +580,10 @@ function parseAsmInstruction(
 }
 
 type AsmControlFrame =
-  | { kind: 'If'; elseSeen: boolean }
-  | { kind: 'While' }
-  | { kind: 'Repeat' }
-  | { kind: 'Select'; elseSeen: boolean; armSeen: boolean };
+  | { kind: 'If'; elseSeen: boolean; openSpan: SourceSpan }
+  | { kind: 'While'; openSpan: SourceSpan }
+  | { kind: 'Repeat'; openSpan: SourceSpan }
+  | { kind: 'Select'; elseSeen: boolean; armSeen: boolean; openSpan: SourceSpan };
 
 function parseAsmStatement(
   filePath: string,
@@ -598,7 +598,7 @@ function parseAsmStatement(
   const missingCc = '__missing__';
 
   if (lower === 'repeat') {
-    controlStack.push({ kind: 'Repeat' });
+    controlStack.push({ kind: 'Repeat', openSpan: stmtSpan });
     return { kind: 'Repeat', span: stmtSpan };
   }
 
@@ -663,7 +663,7 @@ function parseAsmStatement(
   const ifMatch = /^if\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
   if (ifMatch) {
     const cc = ifMatch[1]!;
-    controlStack.push({ kind: 'If', elseSeen: false });
+    controlStack.push({ kind: 'If', elseSeen: false, openSpan: stmtSpan });
     return { kind: 'If', span: stmtSpan, cc };
   }
   if (lower === 'if') {
@@ -671,14 +671,14 @@ function parseAsmStatement(
       line: stmtSpan.start.line,
       column: stmtSpan.start.column,
     });
-    controlStack.push({ kind: 'If', elseSeen: false });
+    controlStack.push({ kind: 'If', elseSeen: false, openSpan: stmtSpan });
     return { kind: 'If', span: stmtSpan, cc: missingCc };
   }
 
   const whileMatch = /^while\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
   if (whileMatch) {
     const cc = whileMatch[1]!;
-    controlStack.push({ kind: 'While' });
+    controlStack.push({ kind: 'While', openSpan: stmtSpan });
     return { kind: 'While', span: stmtSpan, cc };
   }
   if (lower === 'while') {
@@ -686,7 +686,7 @@ function parseAsmStatement(
       line: stmtSpan.start.line,
       column: stmtSpan.start.column,
     });
-    controlStack.push({ kind: 'While' });
+    controlStack.push({ kind: 'While', openSpan: stmtSpan });
     return { kind: 'While', span: stmtSpan, cc: missingCc };
   }
 
@@ -726,7 +726,7 @@ function parseAsmStatement(
       line: stmtSpan.start.line,
       column: stmtSpan.start.column,
     });
-    controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false });
+    controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false, openSpan: stmtSpan });
     return {
       kind: 'Select',
       span: stmtSpan,
@@ -744,7 +744,7 @@ function parseAsmStatement(
       });
       return undefined;
     }
-    controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false });
+    controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false, openSpan: stmtSpan });
     return { kind: 'Select', span: stmtSpan, selector };
   }
 
@@ -1519,6 +1519,14 @@ export function parseModuleFile(
       }
 
       if (!terminated) {
+        for (const frame of asmControlStack) {
+          const span = frame.openSpan;
+          const msg =
+            frame.kind === 'Repeat'
+              ? `"repeat" without matching "until <cc>"`
+              : `"${frame.kind.toLowerCase()}" without matching "end"`;
+          diag(diagnostics, modulePath, msg, { line: span.start.line, column: span.start.column });
+        }
         diag(diagnostics, modulePath, `Unterminated func "${name}": missing "end"`, {
           line: lineNo,
           column: 1,
@@ -1611,6 +1619,14 @@ export function parseModuleFile(
       }
 
       if (!terminated) {
+        for (const frame of controlStack) {
+          const span = frame.openSpan;
+          const msg =
+            frame.kind === 'Repeat'
+              ? `"repeat" without matching "until <cc>"`
+              : `"${frame.kind.toLowerCase()}" without matching "end"`;
+          diag(diagnostics, modulePath, msg, { line: span.start.line, column: span.start.column });
+        }
         diag(diagnostics, modulePath, `Unterminated op "${name}": missing "end"`, {
           line: lineNo,
           column: 1,
