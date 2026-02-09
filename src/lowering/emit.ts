@@ -20,6 +20,7 @@ import type {
   OpDeclNode,
   OpMatcherNode,
   ProgramNode,
+  RecordFieldNode,
   SectionDirectiveNode,
   SourceSpan,
   TypeExprNode,
