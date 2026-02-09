@@ -583,7 +583,7 @@ type AsmControlFrame =
   | { kind: 'If' }
   | { kind: 'While' }
   | { kind: 'Repeat' }
-  | { kind: 'Select'; elseSeen: boolean };
+  | { kind: 'Select'; elseSeen: boolean; armSeen: boolean };
 
 function parseAsmStatement(
   filePath: string,
@@ -611,6 +611,7 @@ function parseAsmStatement(
         return undefined;
       }
       top.elseSeen = true;
+      top.armSeen = true;
       return { kind: 'SelectElse', span: stmtSpan };
     }
     if (top?.kind !== 'If') {
@@ -634,6 +635,13 @@ function parseAsmStatement(
     }
     if (top.kind === 'Repeat') {
       diag(diagnostics, filePath, `"repeat" blocks must close with "until <cc>"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    if (top.kind === 'Select' && !top.armSeen) {
+      diag(diagnostics, filePath, `"select" must contain at least one arm ("case" or "else")`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
       });
@@ -682,7 +690,7 @@ function parseAsmStatement(
       });
       return undefined;
     }
-    controlStack.push({ kind: 'Select', elseSeen: false });
+    controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false });
     return { kind: 'Select', span: stmtSpan, selector };
   }
 
@@ -703,6 +711,7 @@ function parseAsmStatement(
       });
       return undefined;
     }
+    top.armSeen = true;
     const exprText = caseMatch[1]!.trim();
     const value = parseImmExprFromText(filePath, exprText, stmtSpan, diagnostics);
     if (!value) {
