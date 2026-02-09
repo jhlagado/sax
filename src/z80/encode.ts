@@ -481,6 +481,40 @@ export function encodeInstruction(
     if (encoded) return encoded;
   }
 
+  const encodeCbRotateShift = (base: number, mnemonic: string): Uint8Array | undefined => {
+    if (ops.length !== 1) return undefined;
+    const operand = ops[0]!;
+    if (isMemHL(operand)) return Uint8Array.of(0xcb, base + 0x06);
+    const reg = regName(operand);
+    const code = reg ? reg8Code(reg) : undefined;
+    if (code === undefined) {
+      diag(diagnostics, node, `${mnemonic} expects reg8 or (hl)`);
+      return undefined;
+    }
+    return Uint8Array.of(0xcb, base + code);
+  };
+
+  if (head === 'rl') {
+    const encoded = encodeCbRotateShift(0x10, 'rl');
+    if (encoded) return encoded;
+  }
+  if (head === 'rr') {
+    const encoded = encodeCbRotateShift(0x18, 'rr');
+    if (encoded) return encoded;
+  }
+  if (head === 'sla') {
+    const encoded = encodeCbRotateShift(0x20, 'sla');
+    if (encoded) return encoded;
+  }
+  if (head === 'sra') {
+    const encoded = encodeCbRotateShift(0x28, 'sra');
+    if (encoded) return encoded;
+  }
+  if (head === 'srl') {
+    const encoded = encodeCbRotateShift(0x38, 'srl');
+    if (encoded) return encoded;
+  }
+
   diag(diagnostics, node, `Unsupported instruction in PR1 subset: ${node.head}`);
   return undefined;
 }

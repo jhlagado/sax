@@ -1,0 +1,8 @@
+export func main(): void
+  asm
+    rl b
+    rr c
+    sla d
+    sra (hl)
+    srl a
+end
