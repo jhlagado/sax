@@ -653,6 +653,17 @@ Relative `extern` semantics (v0.1):
 
 Expressions are used in `imm` and `ea` contexts.
 
+### 7.0 Fixups and Forward References (v0.1)
+
+ZAX supports forward references for labels and symbols that are ultimately resolved to an address (e.g. `jp label`, `jr label`, `call func`, `ld hl, dataSymbol`).
+
+Implementation model (v0.1):
+
+- During code emission, the compiler may emit placeholder bytes and record a fixup at that location.
+- After all code/data/var addresses are known, fixups are resolved by writing the computed target address (abs16) or displacement (rel8) into the emitted bytes.
+- If a referenced symbol is never defined, compilation fails with an unresolved symbol diagnostic.
+- For rel8 branches (`jr`, `djnz`), if the final displacement is not in `-128..127`, compilation fails.
+
 ### 7.1 `imm` (Immediate) Expressions
 
 Allowed:
