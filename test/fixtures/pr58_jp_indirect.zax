@@ -1,0 +1,7 @@
+export func main(): void
+  asm
+    jp (hl)
+    jp (ix)
+    jp (iy)
+end
+

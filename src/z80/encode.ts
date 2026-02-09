@@ -59,6 +59,10 @@ function isMemHL(op: AsmOperandNode): boolean {
   return op.kind === 'Mem' && op.expr.kind === 'EaName' && op.expr.name.toUpperCase() === 'HL';
 }
 
+function isMemRegName(op: AsmOperandNode, reg: string): boolean {
+  return op.kind === 'Mem' && op.expr.kind === 'EaName' && op.expr.name.toUpperCase() === reg;
+}
+
 function conditionName(op: AsmOperandNode): string | undefined {
   if (op.kind === 'Reg') return op.name.toUpperCase();
   if (op.kind === 'Imm' && op.expr.kind === 'ImmName') return op.expr.name.toUpperCase();
@@ -242,6 +246,11 @@ export function encodeInstruction(
   if (head === 'retn' && ops.length === 0) return Uint8Array.of(0xed, 0x45);
 
   if (head === 'jp' && ops.length === 1) {
+    // jp (hl) / jp (ix) / jp (iy)
+    if (isMemRegName(ops[0]!, 'HL')) return Uint8Array.of(0xe9);
+    if (isMemRegName(ops[0]!, 'IX')) return Uint8Array.of(0xdd, 0xe9);
+    if (isMemRegName(ops[0]!, 'IY')) return Uint8Array.of(0xfd, 0xe9);
+
     const n = immValue(ops[0]!, env);
     if (n === undefined || n < 0 || n > 0xffff) {
       diag(diagnostics, node, `jp expects imm16`);
