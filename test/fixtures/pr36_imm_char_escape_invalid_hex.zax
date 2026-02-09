@@ -1,0 +1,4 @@
+export func main(): void
+  asm
+    ld a, '\xZ1'
+  end

@@ -1,0 +1,7 @@
+export func main(): void
+  asm
+    ld a, '\\'
+    ld b, '\''
+    ld c, '\"'
+    ld d, '\x41'
+  end
