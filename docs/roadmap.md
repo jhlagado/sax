@@ -7,7 +7,7 @@ Core policy:
 - Build a fully working assembler first.
 - Defer Debug80 integration until assembler completion gates are met.
 
-**Last updated:** 2026-02-08
+**Last updated:** 2026-02-09
 
 ---
 
@@ -180,9 +180,15 @@ Use only real GitHub PR numbers:
 - For work not opened yet, refer to it as "next PR".
 - As soon as a PR is opened, update this section with its actual `#<number>`.
 
-Planned order:
+Completed (anchored):
 
-1. Next PR: Parser/AST closure pass (edge cases + diagnostic consistency + tests).
+1. #28: Shared-case `select` semantics (stacked `case` labels share one body) + tests + spec update.
+2. #29: Deduplicate `select` join stack-mismatch diagnostics + regression test.
+3. #30: Parser hardening: diagnose `case` (and `else`) outside valid control context + negative fixtures.
+
+Next:
+
+1. Next PR (#31): Parser/AST closure pass (edge cases + diagnostic consistency + negative fixtures).
 2. Following PR: Lowering/frame/op safety pass (SP/control/cleanup invariants + tests).
 3. Following PR: ISA expansion tranche 1 (high-frequency instructions + diagnostics + fixtures).
 4. Following PR: ISA expansion tranche 2 (remaining control/bit/system instructions).
