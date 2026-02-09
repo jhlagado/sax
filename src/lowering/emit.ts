@@ -983,6 +983,14 @@ export function emitProgram(
           diagAt(diagnostics, inst.span, `ld (ea), imm expects imm16.`);
           return true;
         }
+        const r = resolveEa(dst.expr, inst.span);
+        if (r?.kind === 'abs') {
+          // Fast path for absolute EA: store via `ld (nn), hl` after loading HL with the immediate.
+          // This is smaller than emitting two separate byte stores.
+          if (!loadImm16ToHL(v, inst.span)) return true;
+          emitAbs16Fixup(0x22, r.baseLower, r.addend, inst.span); // ld (nn), hl
+          return true;
+        }
         if (!materializeEaAddressToHL(dst.expr, inst.span)) return true;
         const lo = v & 0xff;
         const hi = (v >> 8) & 0xff;

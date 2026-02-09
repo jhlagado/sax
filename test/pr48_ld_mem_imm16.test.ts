@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 describe('PR48: lower ld (ea), imm16 for word/addr destinations', () => {
-  it('lowers ld (abs-word), imm16 to two byte stores', async () => {
+  it('lowers ld (abs-word), imm16 via ld (nn),hl', async () => {
     const entry = join(__dirname, 'fixtures', 'pr48_ld_mem_imm16_abs.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.diagnostics).toEqual([]);
@@ -18,8 +18,8 @@ describe('PR48: lower ld (ea), imm16 for word/addr destinations', () => {
     const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
     expect(bin).toBeDefined();
     expect(bin!.bytes).toEqual(
-      // ld hl,$1000; ld (hl),$34; inc hl; ld (hl),$12; ret
-      Uint8Array.of(0x21, 0x00, 0x10, 0x36, 0x34, 0x23, 0x36, 0x12, 0xc9),
+      // ld hl,$1234; ld ($1000),hl; ret
+      Uint8Array.of(0x21, 0x34, 0x12, 0x22, 0x00, 0x10, 0xc9),
     );
   });
 
