@@ -2108,23 +2108,29 @@ export function emitProgram(
               while (j < items.length) {
                 const armItem = items[j]!;
                 if (armItem.kind === 'Case') {
-                  const v = evalImmExpr(armItem.value, env, diagnostics);
-                  if (v === undefined) {
-                    diagAt(diagnostics, armItem.span, `Failed to evaluate case value.`);
-                  } else {
-                    const key = v & 0xffff;
-                    if (caseValues.has(key)) {
-                      diagAt(diagnostics, armItem.span, `Duplicate case value ${key}.`);
+                  const bodyLabel = newHiddenLabel('__zax_case');
+                  defineCodeLabel(bodyLabel, armItem.span, 'local');
+                  let k = j;
+                  while (k < items.length) {
+                    const caseItem = items[k]!;
+                    if (caseItem.kind !== 'Case') break;
+                    const v = evalImmExpr(caseItem.value, env, diagnostics);
+                    if (v === undefined) {
+                      diagAt(diagnostics, caseItem.span, `Failed to evaluate case value.`);
                     } else {
-                      caseValues.add(key);
-                      const bodyLabel = newHiddenLabel('__zax_case');
-                      caseArms.push({ value: key, bodyLabel, span: armItem.span });
-                      defineCodeLabel(bodyLabel, armItem.span, 'local');
+                      const key = v & 0xffff;
+                      if (caseValues.has(key)) {
+                        diagAt(diagnostics, caseItem.span, `Duplicate case value ${key}.`);
+                      } else {
+                        caseValues.add(key);
+                        caseArms.push({ value: key, bodyLabel, span: caseItem.span });
+                      }
                     }
+                    k++;
                   }
                   restoreFlow(entry);
                   sawArm = true;
-                  j = lowerRange(j + 1, new Set(['Case', 'SelectElse', 'End']));
+                  j = lowerRange(k, new Set(['Case', 'SelectElse', 'End']));
                   closeArm(items[Math.min(j, items.length - 1)]!.span);
                   continue;
                 }

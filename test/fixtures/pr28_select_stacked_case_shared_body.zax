@@ -1,0 +1,12 @@
+export func main(): void
+  asm
+    ld a, 1
+    select A
+      case 0
+      case 1
+        push BC
+      else
+        push BC
+    end
+    pop BC
+  end

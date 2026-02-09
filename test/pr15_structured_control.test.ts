@@ -118,6 +118,40 @@ describe('PR15 structured asm control flow', () => {
     expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
   });
 
+  it('supports stacked case labels sharing a single clause body', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr28_select_stacked_case_shared_body.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect([...bin!.bytes]).toContain(0xc5);
+    expect([...bin!.bytes]).toContain(0xc1);
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
+
+  it('supports stacked case labels across 3+ values', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr28_select_stacked_case_many_labels.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect([...bin!.bytes]).toContain(0x06); // ld b, imm8 (shared stacked-case body)
+    expect([...bin!.bytes]).toContain(0x0e); // ld c, imm8 (else body)
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
+
+  it('treats non-empty case body as a boundary for later stacked cases', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr28_select_stacked_case_split_body.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect([...bin!.bytes]).toContain(0x00); // nop in case 0 body
+    expect([...bin!.bytes]).toContain(0x06); // ld b, imm8 in shared body for case 1/2
+    expect([...bin!.bytes]).toContain(0x0e); // ld c, imm8 in else body
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
+
   it('diagnoses duplicate case values in select', async () => {
     const entry = join(__dirname, 'fixtures', 'pr15_select_duplicate_case.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
