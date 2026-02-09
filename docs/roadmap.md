@@ -182,18 +182,20 @@ Use only real GitHub PR numbers:
 
 Completed (anchored, most recent first):
 
-1. #39: Listing output (`.lst`) artifact + contract test + CLI note.
-2. #38: Document examples as compiled contract (`examples/README.md`).
-3. #37: Fixups and forward references (spec + tests).
-4. #36: Expand char literal escape coverage (tests).
-5. #35: Char literals in `imm` expressions (parser + tests).
-6. #34: Examples compile gate (CI contract test + example updates).
-7. #33: Parser `select` arm ordering hardening.
-8. #32: Harden asm control keyword parsing (prevent cascaded diagnostics).
-9. #31: Roadmap anchors updated to real PR numbers (remove placeholders).
-10. #30: Diagnose `case` outside `select` during parsing (negative fixtures).
-11. #29: Deduplicate `select` join mismatch diagnostics (regression test).
-12. #28: Stacked `select case` labels share one body (spec + tests).
+1. #41: ISA: `inc`/`dec` reg8 + `(hl)`, and `ld (hl), imm8` (fixture + test).
+2. #40: Implicit return after label (treat labels as re-entry points).
+3. #39: Listing output (`.lst`) artifact + contract test + CLI note.
+4. #38: Document examples as compiled contract (`examples/README.md`).
+5. #37: Fixups and forward references (spec + tests).
+6. #36: Expand char literal escape coverage (tests).
+7. #35: Char literals in `imm` expressions (parser + tests).
+8. #34: Examples compile gate (CI contract test + example updates).
+9. #33: Parser `select` arm ordering hardening.
+10. #32: Harden asm control keyword parsing (prevent cascaded diagnostics).
+11. #31: Roadmap anchors updated to real PR numbers (remove placeholders).
+12. #30: Diagnose `case` outside `select` during parsing (negative fixtures).
+13. #29: Deduplicate `select` join mismatch diagnostics (regression test).
+14. #28: Stacked `select case` labels share one body (spec + tests).
 
 Next (assembler-first):
 
