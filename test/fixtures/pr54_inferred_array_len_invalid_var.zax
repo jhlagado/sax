@@ -1,0 +1,8 @@
+var
+  xs: byte[]
+
+export func main(): void
+  asm
+    nop
+end
+
