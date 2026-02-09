@@ -250,6 +250,19 @@ export function encodeInstruction(
   if (head === 'reti' && ops.length === 0) return Uint8Array.of(0xed, 0x4d);
   if (head === 'retn' && ops.length === 0) return Uint8Array.of(0xed, 0x45);
 
+  if (head === 'neg' && ops.length === 0) return Uint8Array.of(0xed, 0x44);
+  if (head === 'rrd' && ops.length === 0) return Uint8Array.of(0xed, 0x67);
+  if (head === 'rld' && ops.length === 0) return Uint8Array.of(0xed, 0x6f);
+
+  if (head === 'ld' && ops.length === 2) {
+    const dst = regName(ops[0]!);
+    const src = regName(ops[1]!);
+    if (dst === 'I' && src === 'A') return Uint8Array.of(0xed, 0x47);
+    if (dst === 'A' && src === 'I') return Uint8Array.of(0xed, 0x57);
+    if (dst === 'R' && src === 'A') return Uint8Array.of(0xed, 0x4f);
+    if (dst === 'A' && src === 'R') return Uint8Array.of(0xed, 0x5f);
+  }
+
   if (head === 'in' && ops.length === 2) {
     const dst = regName(ops[0]!);
     const dst8 = dst ? reg8Code(dst) : undefined;
