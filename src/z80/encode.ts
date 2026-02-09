@@ -151,6 +151,12 @@ export function encodeInstruction(
   const ops = node.operands;
 
   if (head === 'nop' && ops.length === 0) return Uint8Array.of(0x00);
+  if (head === 'halt' && ops.length === 0) return Uint8Array.of(0x76);
+  if (head === 'di' && ops.length === 0) return Uint8Array.of(0xf3);
+  if (head === 'ei' && ops.length === 0) return Uint8Array.of(0xfb);
+  if (head === 'scf' && ops.length === 0) return Uint8Array.of(0x37);
+  if (head === 'ccf' && ops.length === 0) return Uint8Array.of(0x3f);
+  if (head === 'cpl' && ops.length === 0) return Uint8Array.of(0x2f);
   if (head === 'ret' && ops.length === 0) return Uint8Array.of(0xc9);
   if (head === 'ret' && ops.length === 1) {
     const cc = conditionName(ops[0]!);
@@ -409,6 +415,28 @@ export function encodeInstruction(
         return undefined;
     }
   }
+
+  if (head === 'ex' && ops.length === 2) {
+    const a = regName(ops[0]!);
+    const b = regName(ops[1]!);
+    if ((a === 'DE' && b === 'HL') || (a === 'HL' && b === 'DE')) return Uint8Array.of(0xeb); // ex de,hl
+    if (
+      (ops[0]!.kind === 'Mem' &&
+        ops[0]!.expr.kind === 'EaName' &&
+        ops[0]!.expr.name.toUpperCase() === 'SP' &&
+        b === 'HL') ||
+      (ops[1]!.kind === 'Mem' &&
+        ops[1]!.expr.kind === 'EaName' &&
+        ops[1]!.expr.name.toUpperCase() === 'SP' &&
+        a === 'HL')
+    ) {
+      return Uint8Array.of(0xe3); // ex (sp),hl
+    }
+    diag(diagnostics, node, `ex supports "DE, HL" and "(SP), HL" only`);
+    return undefined;
+  }
+
+  if (head === 'exx' && ops.length === 0) return Uint8Array.of(0xd9);
 
   const encodeAluAOrImm8OrMemHL = (
     rBase: number,

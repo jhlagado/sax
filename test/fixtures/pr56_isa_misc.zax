@@ -1,0 +1,13 @@
+export func main(): void
+  asm
+    di
+    ei
+    scf
+    ccf
+    cpl
+    ex de, hl
+    ex (sp), hl
+    exx
+    halt
+end
+
