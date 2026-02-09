@@ -805,7 +805,7 @@ function parseAsmStatement(
     }
     top.armSeen = true;
     const exprText = caseMatch[1]!.trim();
-    const value = parseImmExprFromText(filePath, exprText, stmtSpan, diagnostics);
+    const value = parseImmExprFromText(filePath, exprText, stmtSpan, diagnostics, false);
     if (!value) {
       diag(diagnostics, filePath, `Invalid case value`, {
         line: stmtSpan.start.line,

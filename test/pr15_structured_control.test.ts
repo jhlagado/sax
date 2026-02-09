@@ -283,6 +283,22 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics[0]?.message).toBe('"case" expects a value');
   });
 
+  it('diagnoses invalid case value with one diagnostic (comma)', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_case_invalid_value_comma.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('Invalid case value');
+  });
+
+  it('diagnoses invalid case value with one diagnostic (list)', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_case_invalid_value_list.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('Invalid case value');
+  });
+
   it('diagnoses unterminated control at EOF', async () => {
     const entry = join(__dirname, 'fixtures', 'parser_unterminated_if_eof.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
