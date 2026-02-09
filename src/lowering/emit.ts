@@ -2183,12 +2183,30 @@ export function emitProgram(
               emitJumpTo(elseLabel ?? endLabel, items[j]!.span);
 
               defineCodeLabel(endLabel, items[j]!.span, 'local');
-              let joined: FlowState = { reachable: false, spDelta: 0, spValid: true };
-              for (const armExit of armExits) {
-                joined = joinFlows(joined, armExit, items[j]!.span, 'select');
+              const joinInputs = [...armExits];
+              if (!elseLabel) joinInputs.push(entry);
+              const reachable = joinInputs.filter((f) => f.reachable);
+              if (reachable.length === 0) {
+                restoreFlow({ reachable: false, spDelta: 0, spValid: true });
+              } else {
+                const base = reachable[0]!;
+                const allValid = reachable.every((f) => f.spValid);
+                if (allValid) {
+                  const mismatch = reachable.find((f) => f.spDelta !== base.spDelta);
+                  if (mismatch) {
+                    diagAt(
+                      diagnostics,
+                      items[j]!.span,
+                      `Stack depth mismatch at select join (${base.spDelta} vs ${mismatch.spDelta}).`,
+                    );
+                  }
+                }
+                restoreFlow({
+                  reachable: true,
+                  spDelta: base.spDelta,
+                  spValid: allValid,
+                });
               }
-              if (!elseLabel) joined = joinFlows(joined, entry, items[j]!.span, 'select');
-              restoreFlow(joined);
               i = j + 1;
               continue;
             }
