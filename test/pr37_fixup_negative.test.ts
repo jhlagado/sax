@@ -36,4 +36,22 @@ describe('PR37 fixup negatives', () => {
       res.diagnostics.some((d) => d.message.includes('jr target out of range for rel8 branch')),
     ).toBe(true);
   });
+
+  it('diagnoses conditional jr rel8 out-of-range fixups', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr37_rel8_out_of_range_jr_cond.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(
+      res.diagnostics.some((d) => d.message.includes('jr nz target out of range for rel8 branch')),
+    ).toBe(true);
+  });
+
+  it('diagnoses djnz rel8 out-of-range fixups', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr37_rel8_out_of_range_djnz.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(
+      res.diagnostics.some((d) => d.message.includes('djnz target out of range for rel8 branch')),
+    ).toBe(true);
+  });
 });
