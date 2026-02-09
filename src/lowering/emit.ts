@@ -1593,6 +1593,7 @@ export function emitProgram(
           emitAbs16Fixup(op, label.toLowerCase(), 0, span);
         };
         const emitJumpIfFalse = (cc: string, label: string, span: SourceSpan): boolean => {
+          if (cc === '__missing__') return false;
           const inv = inverseConditionName(cc);
           if (!inv) {
             diagAt(diagnostics, span, `Unsupported condition code "${cc}".`);

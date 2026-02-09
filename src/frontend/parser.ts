@@ -595,6 +595,8 @@ function parseAsmStatement(
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
 
+  const missingCc = '__missing__';
+
   if (lower === 'repeat') {
     controlStack.push({ kind: 'Repeat' });
     return { kind: 'Repeat', span: stmtSpan };
@@ -664,6 +666,14 @@ function parseAsmStatement(
     controlStack.push({ kind: 'If', elseSeen: false });
     return { kind: 'If', span: stmtSpan, cc };
   }
+  if (lower === 'if') {
+    diag(diagnostics, filePath, `"if" expects a condition code`, {
+      line: stmtSpan.start.line,
+      column: stmtSpan.start.column,
+    });
+    controlStack.push({ kind: 'If', elseSeen: false });
+    return { kind: 'If', span: stmtSpan, cc: missingCc };
+  }
 
   const whileMatch = /^while\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
   if (whileMatch) {
@@ -671,7 +681,31 @@ function parseAsmStatement(
     controlStack.push({ kind: 'While' });
     return { kind: 'While', span: stmtSpan, cc };
   }
+  if (lower === 'while') {
+    diag(diagnostics, filePath, `"while" expects a condition code`, {
+      line: stmtSpan.start.line,
+      column: stmtSpan.start.column,
+    });
+    controlStack.push({ kind: 'While' });
+    return { kind: 'While', span: stmtSpan, cc: missingCc };
+  }
 
+  if (lower === 'until') {
+    const top = controlStack[controlStack.length - 1];
+    if (top?.kind !== 'Repeat') {
+      diag(diagnostics, filePath, `"until" without matching "repeat"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    diag(diagnostics, filePath, `"until" expects a condition code`, {
+      line: stmtSpan.start.line,
+      column: stmtSpan.start.column,
+    });
+    controlStack.pop();
+    return { kind: 'Until', span: stmtSpan, cc: missingCc };
+  }
   const untilMatch = /^until\s+([A-Za-z][A-Za-z0-9]*)$/i.exec(trimmed);
   if (untilMatch) {
     const cc = untilMatch[1]!;
@@ -687,6 +721,18 @@ function parseAsmStatement(
     return { kind: 'Until', span: stmtSpan, cc };
   }
 
+  if (lower === 'select') {
+    diag(diagnostics, filePath, `"select" expects a selector`, {
+      line: stmtSpan.start.line,
+      column: stmtSpan.start.column,
+    });
+    controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false });
+    return {
+      kind: 'Select',
+      span: stmtSpan,
+      selector: { kind: 'Imm', span: stmtSpan, expr: immLiteral(filePath, stmtSpan, 0) },
+    };
+  }
   const selectMatch = /^select\s+(.+)$/i.exec(trimmed);
   if (selectMatch) {
     const selectorText = selectMatch[1]!.trim();

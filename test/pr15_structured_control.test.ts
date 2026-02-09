@@ -211,6 +211,38 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics[0]?.message).toBe('"else" duplicated in if');
   });
 
+  it('diagnoses if without a condition code', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_if_missing_cc.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"if" expects a condition code');
+  });
+
+  it('diagnoses while without a condition code', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_while_missing_cc.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"while" expects a condition code');
+  });
+
+  it('diagnoses until without a condition code', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_until_missing_cc.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"until" expects a condition code');
+  });
+
+  it('diagnoses select without a selector', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_select_missing_selector.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"select" expects a selector');
+  });
+
   it('diagnoses repeat closed by end (until required)', async () => {
     const entry = join(__dirname, 'fixtures', 'pr32_repeat_closed_by_end.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
