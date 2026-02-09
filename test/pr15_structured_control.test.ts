@@ -243,6 +243,14 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics[0]?.message).toBe('"select" expects a selector');
   });
 
+  it('diagnoses case without a value', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_case_missing_value.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"case" expects a value');
+  });
+
   it('diagnoses repeat closed by end (until required)', async () => {
     const entry = join(__dirname, 'fixtures', 'pr32_repeat_closed_by_end.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

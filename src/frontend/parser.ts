@@ -777,6 +777,29 @@ function parseAsmStatement(
     }
     return { kind: 'Case', span: stmtSpan, value };
   }
+  if (lower === 'case') {
+    const top = controlStack[controlStack.length - 1];
+    if (top?.kind !== 'Select') {
+      diag(diagnostics, filePath, `"case" without matching "select"`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    if (top.elseSeen) {
+      diag(diagnostics, filePath, `"case" after "else" in select`, {
+        line: stmtSpan.start.line,
+        column: stmtSpan.start.column,
+      });
+      return undefined;
+    }
+    top.armSeen = true;
+    diag(diagnostics, filePath, `"case" expects a value`, {
+      line: stmtSpan.start.line,
+      column: stmtSpan.start.column,
+    });
+    return undefined;
+  }
 
   return parseAsmInstruction(filePath, trimmed, stmtSpan, diagnostics);
 }
