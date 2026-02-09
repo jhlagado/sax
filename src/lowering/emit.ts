@@ -944,7 +944,7 @@ export function emitProgram(
       }
     }
 
-    // LD (ea), imm8 (only for byte-typed destinations)
+    // LD (ea), imm (imm8 for byte, imm16 for word/addr)
     if (dst.kind === 'Mem' && src.kind === 'Imm') {
       if (isEaNameHL(dst.expr)) return false; // let the encoder handle (hl)
       const resolved = resolveEa(dst.expr, inst.span);
@@ -952,24 +952,82 @@ export function emitProgram(
         resolved?.typeExpr !== undefined
           ? resolveScalarKind(resolved.typeExpr, new Set())
           : undefined;
-      if (scalar !== 'byte') {
-        diagAt(diagnostics, inst.span, `ld (ea), imm is supported only for byte destinations.`);
-        return true;
-      }
       const v = evalImmExpr(src.expr, env, diagnostics);
-      if (v === undefined || v < 0 || v > 0xff) {
-        diagAt(diagnostics, inst.span, `ld (ea), imm expects imm8.`);
+      if (v === undefined) {
+        diagAt(diagnostics, inst.span, `ld (ea), imm expects a constant imm expression.`);
         return true;
       }
-      if (!materializeEaAddressToHL(dst.expr, inst.span)) return true;
-      return emitInstr(
-        'ld',
-        [
-          { kind: 'Mem', span: inst.span, expr: { kind: 'EaName', span: inst.span, name: 'HL' } },
-          { kind: 'Imm', span: inst.span, expr: { kind: 'ImmLiteral', span: inst.span, value: v } },
-        ],
+
+      if (scalar === 'byte') {
+        if (v < 0 || v > 0xff) {
+          diagAt(diagnostics, inst.span, `ld (ea), imm expects imm8.`);
+          return true;
+        }
+        if (!materializeEaAddressToHL(dst.expr, inst.span)) return true;
+        return emitInstr(
+          'ld',
+          [
+            { kind: 'Mem', span: inst.span, expr: { kind: 'EaName', span: inst.span, name: 'HL' } },
+            {
+              kind: 'Imm',
+              span: inst.span,
+              expr: { kind: 'ImmLiteral', span: inst.span, value: v },
+            },
+          ],
+          inst.span,
+        );
+      }
+
+      if (scalar === 'word' || scalar === 'addr') {
+        if (v < 0 || v > 0xffff) {
+          diagAt(diagnostics, inst.span, `ld (ea), imm expects imm16.`);
+          return true;
+        }
+        if (!materializeEaAddressToHL(dst.expr, inst.span)) return true;
+        const lo = v & 0xff;
+        const hi = (v >> 8) & 0xff;
+        if (
+          !emitInstr(
+            'ld',
+            [
+              {
+                kind: 'Mem',
+                span: inst.span,
+                expr: { kind: 'EaName', span: inst.span, name: 'HL' },
+              },
+              {
+                kind: 'Imm',
+                span: inst.span,
+                expr: { kind: 'ImmLiteral', span: inst.span, value: lo },
+              },
+            ],
+            inst.span,
+          )
+        ) {
+          return true;
+        }
+        if (!emitInstr('inc', [{ kind: 'Reg', span: inst.span, name: 'HL' }], inst.span))
+          return true;
+        return emitInstr(
+          'ld',
+          [
+            { kind: 'Mem', span: inst.span, expr: { kind: 'EaName', span: inst.span, name: 'HL' } },
+            {
+              kind: 'Imm',
+              span: inst.span,
+              expr: { kind: 'ImmLiteral', span: inst.span, value: hi },
+            },
+          ],
+          inst.span,
+        );
+      }
+
+      diagAt(
+        diagnostics,
         inst.span,
+        `ld (ea), imm is supported only for byte/word/addr destinations.`,
       );
+      return true;
     }
 
     return false;

@@ -1,0 +1,7 @@
+export func main(): void
+  var
+    y: word
+  asm
+    ld (y), $1234
+  end
+

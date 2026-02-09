@@ -29,7 +29,7 @@ describe('PR43: ld (ea), imm8 lowering', () => {
         formats: defaultFormatWriters,
       },
     );
-    expect(res.diagnostics.some((d) => d.message.includes('only for byte destinations'))).toBe(
+    expect(res.diagnostics.some((d) => d.message.includes('byte/word/addr destinations'))).toBe(
       true,
     );
   });

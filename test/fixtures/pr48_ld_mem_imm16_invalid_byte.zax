@@ -1,10 +1,10 @@
-section code at $0000
 section var at $1000
 
 var
-  y: byte[2]
+  x: byte
 
 export func main(): void
   asm
-    ld (y), $2A
+    ld (x), $1234
   end
+
