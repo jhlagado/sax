@@ -219,6 +219,14 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics[0]?.message).toBe('"if" expects a condition code');
   });
 
+  it('diagnoses invalid if syntax (no cascades)', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_if_invalid_cc.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"if" expects a condition code');
+  });
+
   it('diagnoses while without a condition code', async () => {
     const entry = join(__dirname, 'fixtures', 'parser_while_missing_cc.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
@@ -227,8 +235,24 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics[0]?.message).toBe('"while" expects a condition code');
   });
 
+  it('diagnoses invalid while syntax (no cascades)', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_while_invalid_cc.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"while" expects a condition code');
+  });
+
   it('diagnoses until without a condition code', async () => {
     const entry = join(__dirname, 'fixtures', 'parser_until_missing_cc.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"until" expects a condition code');
+  });
+
+  it('diagnoses invalid until syntax (no cascades)', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_until_invalid_cc.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
     expect(res.diagnostics).toHaveLength(1);
