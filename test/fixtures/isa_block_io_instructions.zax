@@ -1,0 +1,12 @@
+export func main(): void
+  asm
+    ini
+    inir
+    ind
+    indr
+    outi
+    otir
+    outd
+    otdr
+    ; fallthrough: implicit ret
+end

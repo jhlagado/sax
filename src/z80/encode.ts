@@ -282,6 +282,16 @@ export function encodeInstruction(
   if (head === 'cpd' && ops.length === 0) return Uint8Array.of(0xed, 0xa9);
   if (head === 'cpdr' && ops.length === 0) return Uint8Array.of(0xed, 0xb9);
 
+  if (head === 'ini' && ops.length === 0) return Uint8Array.of(0xed, 0xa2);
+  if (head === 'inir' && ops.length === 0) return Uint8Array.of(0xed, 0xb2);
+  if (head === 'ind' && ops.length === 0) return Uint8Array.of(0xed, 0xaa);
+  if (head === 'indr' && ops.length === 0) return Uint8Array.of(0xed, 0xba);
+
+  if (head === 'outi' && ops.length === 0) return Uint8Array.of(0xed, 0xa3);
+  if (head === 'otir' && ops.length === 0) return Uint8Array.of(0xed, 0xb3);
+  if (head === 'outd' && ops.length === 0) return Uint8Array.of(0xed, 0xab);
+  if (head === 'otdr' && ops.length === 0) return Uint8Array.of(0xed, 0xbb);
+
   if (head === 'ld' && ops.length === 2) {
     const dst = regName(ops[0]!);
     const src = regName(ops[1]!);
