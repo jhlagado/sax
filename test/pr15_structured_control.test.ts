@@ -84,6 +84,16 @@ describe('PR15 structured asm control flow', () => {
     ).toBe(true);
   });
 
+  it('reports select join stack mismatch once', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr29_select_stack_mismatch_dedup.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    const joinMismatch = res.diagnostics.filter((d) =>
+      d.message.includes('Stack depth mismatch at select join'),
+    );
+    expect(joinMismatch).toHaveLength(1);
+  });
+
   it('supports nested structured control flow', async () => {
     const entry = join(__dirname, 'fixtures', 'pr15_nested_while_if.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
