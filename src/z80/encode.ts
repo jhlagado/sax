@@ -505,6 +505,16 @@ export function encodeInstruction(
     }
     // inc (hl)
     if (isMemHL(ops[0]!)) return Uint8Array.of(0x34);
+    // inc (ix/iy+disp)
+    const idx = memIndexed(ops[0]!, env);
+    if (idx) {
+      const disp = idx.disp;
+      if (disp < -128 || disp > 127) {
+        diag(diagnostics, node, `inc (ix/iy+disp) expects disp8`);
+        return undefined;
+      }
+      return Uint8Array.of(idx.prefix, 0x34, disp & 0xff);
+    }
     diag(diagnostics, node, `inc expects r8/rr/(hl) operand`);
     return undefined;
   }
@@ -531,6 +541,16 @@ export function encodeInstruction(
     }
     // dec (hl)
     if (isMemHL(ops[0]!)) return Uint8Array.of(0x35);
+    // dec (ix/iy+disp)
+    const idx = memIndexed(ops[0]!, env);
+    if (idx) {
+      const disp = idx.disp;
+      if (disp < -128 || disp > 127) {
+        diag(diagnostics, node, `dec (ix/iy+disp) expects disp8`);
+        return undefined;
+      }
+      return Uint8Array.of(idx.prefix, 0x35, disp & 0xff);
+    }
     diag(diagnostics, node, `dec expects r8/rr/(hl) operand`);
     return undefined;
   }
