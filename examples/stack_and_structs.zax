@@ -28,20 +28,37 @@ end
 ; Bump sprites[i].x by dx (dx is zero-extended in v0.1).
 export func bump_sprite_x(i: byte, dx: byte): void
   asm
-    ; Convert i to an index register
+    ; In v0.1, non-constant array indexing is limited to element sizes 1 and 2.
+    ; Sprite is larger, so we dispatch on i and use constant indices.
     ld a, (i)
-    ld c, a
-
-    ; HL = sprites[i].x
-    ; (Non-encodable ea operands are lowered by the compiler.)
-    ld hl, (sprites[C].x)
-
-    ; HL += dx
-    ld a, (dx)
-    ld e, a
-    ld d, 0
-    add hl, de
-
-    ; sprites[i].x = HL
-    ld (sprites[C].x), hl
+    select A
+      case 0
+        ld hl, (sprites[0].x)
+        ld a, (dx)
+        ld e, a
+        ld d, 0
+        add hl, de
+        ld (sprites[0].x), hl
+      case 1
+        ld hl, (sprites[1].x)
+        ld a, (dx)
+        ld e, a
+        ld d, 0
+        add hl, de
+        ld (sprites[1].x), hl
+      case 2
+        ld hl, (sprites[2].x)
+        ld a, (dx)
+        ld e, a
+        ld d, 0
+        add hl, de
+        ld (sprites[2].x), hl
+      case 3
+        ld hl, (sprites[3].x)
+        ld a, (dx)
+        ld e, a
+        ld d, 0
+        add hl, de
+        ld (sprites[3].x), hl
+    end
 end

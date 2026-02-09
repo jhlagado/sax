@@ -775,7 +775,10 @@ export function emitProgram(
 
   const materializeEaAddressToHL = (ea: EaExprNode, span: SourceSpan): boolean => {
     const r = resolveEa(ea, span);
-    if (!r) return false;
+    if (!r) {
+      if (!pushEaAddress(ea, span)) return false;
+      return emitInstr('pop', [{ kind: 'Reg', span, name: 'HL' }], span);
+    }
     if (r.kind === 'abs') {
       emitAbs16Fixup(0x21, r.baseLower, r.addend, span); // ld hl, nn
       return true;
@@ -800,9 +803,12 @@ export function emitProgram(
     if (inst.head.toLowerCase() !== 'ld' || inst.operands.length !== 2) return false;
     const dst = inst.operands[0]!;
     const src = inst.operands[1]!;
+    const isEaNameHL = (ea: EaExprNode): boolean =>
+      ea.kind === 'EaName' && ea.name.toUpperCase() === 'HL';
 
     // LD r8, (ea)
     if (dst.kind === 'Reg' && src.kind === 'Mem') {
+      if (isEaNameHL(src.expr)) return false; // let the encoder handle (hl)
       const d = reg8Code.get(dst.name.toUpperCase());
       if (d !== undefined) {
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
@@ -830,6 +836,7 @@ export function emitProgram(
 
     // LD (ea), r8/r16
     if (dst.kind === 'Mem' && src.kind === 'Reg') {
+      if (isEaNameHL(dst.expr)) return false; // let the encoder handle (hl)
       const s8 = reg8Code.get(src.name.toUpperCase());
       if (s8 !== undefined) {
         if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
@@ -839,8 +846,13 @@ export function emitProgram(
 
       const r16 = src.name.toUpperCase();
       if (r16 === 'HL') {
+        // Preserve HL value while materializing the destination address into HL.
+        if (!emitInstr('push', [{ kind: 'Reg', span: inst.span, name: 'HL' }], inst.span))
+          return false;
         if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x75, 0x23, 0x74), inst.span.file);
+        if (!emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span))
+          return false;
+        emitCodeBytes(Uint8Array.of(0x73, 0x23, 0x72), inst.span.file);
         return true;
       }
       if (r16 === 'DE') {
@@ -1951,6 +1963,30 @@ export function emitProgram(
               emitAbs16Fixup(opcode, target.expr.name.toLowerCase(), 0, asmItem.span);
               syncToFlow();
               return;
+            }
+          }
+
+          if (head === 'ld' && asmItem.operands.length === 2) {
+            const dstOp = asmItem.operands[0]!;
+            const srcOp = asmItem.operands[1]!;
+            const dst = dstOp.kind === 'Reg' ? dstOp.name.toUpperCase() : undefined;
+            const opcode =
+              dst === 'BC'
+                ? 0x01
+                : dst === 'DE'
+                  ? 0x11
+                  : dst === 'HL'
+                    ? 0x21
+                    : dst === 'SP'
+                      ? 0x31
+                      : undefined;
+            if (opcode !== undefined && srcOp.kind === 'Imm' && srcOp.expr.kind === 'ImmName') {
+              const v = evalImmExpr(srcOp.expr, env, diagnostics);
+              if (v === undefined) {
+                emitAbs16Fixup(opcode, srcOp.expr.name.toLowerCase(), 0, asmItem.span);
+                syncToFlow();
+                return;
+              }
             }
           }
 

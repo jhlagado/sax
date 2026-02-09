@@ -3,7 +3,7 @@
 ; Minimal example showing:
 ; - extern absolute binding
 ; - calling convention via function-call syntax inside `asm`
-; - simple control flow (repeat/until)
+; - simple control flow (loop + conditional jump)
 
 ; BIOS entry point example (address is illustrative)
 extern func bios_putc(ch: byte): void at $F003
@@ -14,26 +14,18 @@ data
   msg: byte[10] = "HELLO, ZAX"
 
 export func main(): void
-  var
-    p: addr
   asm
-    ; p = &msg
     ld hl, msg
-    ld (p), hl
-
-    ld b, MsgLen
-    repeat
-      ; load byte at *p into A
-      ld hl, (p)
-      ld a, (hl)
-      inc hl
-      ld (p), hl
-      push bc
+    ld bc, MsgLen
+  loop:
+    ld a, (hl)
+    push bc
       bios_putc A
       pop bc
-
-      ; repeat until B reaches 0
-      dec b
-    until Z
+    inc hl
+    dec bc
+    ld a, b
+    or c
+    jp nz, loop
 
 end
