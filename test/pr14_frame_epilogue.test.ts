@@ -21,6 +21,18 @@ describe('PR14 frame slots and epilogue rewriting', () => {
     expect(bin!.bytes).toEqual(Uint8Array.of(0xc5, 0xc3, 0x04, 0x00, 0xc1, 0xc9));
   });
 
+  it('does not emit a dead epilogue jump after a terminal ret', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr14_terminal_ret_no_dead_jump.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+
+    // push bc; jp epilogue; epilogue: pop bc; ret
+    expect(bin!.bytes).toEqual(Uint8Array.of(0xc5, 0xc3, 0x04, 0x00, 0xc1, 0xc9));
+  });
+
   it('rewrites conditional ret to a conditional jp to epilogue', async () => {
     const entry = join(__dirname, 'fixtures', 'pr14_ret_cc_rewrite.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

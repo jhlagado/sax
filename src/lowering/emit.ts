@@ -2480,7 +2480,12 @@ export function emitProgram(
         }
 
         if (emitSyntheticEpilogue) {
-          emitAbs16Fixup(0xc3, epilogueLabel.toLowerCase(), 0, item.span);
+          // When control can fall through to the end of the function body, route it through the
+          // synthetic epilogue. If flow is unreachable here (e.g. a terminal `ret`), avoid emitting
+          // a dead jump before the epilogue label.
+          if (flow.reachable) {
+            emitAbs16Fixup(0xc3, epilogueLabel.toLowerCase(), 0, item.span);
+          }
           pending.push({
             kind: 'label',
             name: epilogueLabel,

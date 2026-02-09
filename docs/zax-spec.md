@@ -26,7 +26,7 @@ ZAX is not a “high-level language”. It is still assembly: you choose registe
 
 ### 0.2 A First ZAX File (Non-normative)
 
-```
+````
 const MsgLen = 5
 
 data
@@ -51,11 +51,9 @@ export func main(): void
       bios_putc A
       pop bc
       dec b
-    until Z
-
-    ret
-end
-```
+	    until Z
+	end
+	```
 
 Key ideas this demonstrates:
 
@@ -290,9 +288,11 @@ Type sizes (v0.1):
 
 Syntax:
 
-```
+````
+
 type Name byte
 type Ptr16 ptr
+
 ```
 
 Type expressions (v0.1):
@@ -321,7 +321,9 @@ Arrays and nesting (v0.1):
 Syntax:
 
 ```
+
 enum Mode Read, Write, Append
+
 ```
 
 Semantics:
@@ -345,8 +347,10 @@ Notes (v0.1):
 Syntax:
 
 ```
+
 const MaxValue = 1024
 export const Public = $8000
+
 ```
 
 - `const` values are compile-time `imm` expressions.
@@ -392,13 +396,15 @@ Notes (v0.1):
 Record types are layout descriptions:
 
 ```
+
 type Sprite
-  x: word
-  y: word
-  w: byte
-  h: byte
-  flags: byte
+x: word
+y: word
+w: byte
+h: byte
+flags: byte
 end
+
 ```
 
 Layout rules:
@@ -416,9 +422,11 @@ Field access:
 Example: arrays of records use `ea` paths (informative):
 
 ```
+
 ; `sprites[C].x` is an `ea` (address), not a value.
-ld hl, (sprites[C].x)     ; load word at sprites[C].x
-ld (sprites[C].x), hl     ; store word to sprites[C].x
+ld hl, (sprites[C].x) ; load word at sprites[C].x
+ld (sprites[C].x), hl ; store word to sprites[C].x
+
 ```
 
 ### 5.3 Unions (Overlays)
@@ -428,11 +436,13 @@ Union types overlay multiple field interpretations on the same memory region (C-
 Syntax:
 
 ```
+
 union Value
-  b: byte
-  w: word
-  p: ptr
+b: byte
+w: word
+p: ptr
 end
+
 ```
 
 Layout rules (v0.1):
@@ -451,13 +461,15 @@ Field access:
 Example (informative):
 
 ```
+
 var
-  v: Value
+v: Value
 
 asm
-  ld a, (v.b)     ; read low byte
-  ld hl, (v.w)    ; read word overlay
-  ld de, (v.p)    ; read pointer overlay
+ld a, (v.b) ; read low byte
+ld hl, (v.w) ; read word overlay
+ld de, (v.p) ; read pointer overlay
+
 ```
 
 ---
@@ -523,9 +535,11 @@ Non-guarantees (v0.1):
 Syntax:
 
 ```
+
 var
-  total: word
-  mode: byte
+total: word
+mode: byte
+
 ```
 
 - Declares storage in `var` (uninitialized; emits no bytes).
@@ -538,10 +552,12 @@ var
 Syntax:
 
 ```
+
 data
-  table: word[4] = { 1, 2, 3, 4 }
-  banner: byte[] = "HELLO"
-  bytes: byte[3] = { $00, $01, $FF }
+table: word[4] = { 1, 2, 3, 4 }
+banner: byte[] = "HELLO"
+bytes: byte[3] = { $00, $01, $FF }
+
 ```
 
 - Declares storage in `data`.
@@ -566,18 +582,20 @@ Type vs initializer (v0.1):
 Nested record initializer example (v0.1):
 
 ```
+
 type Point
-  x: word
-  y: word
+x: word
+y: word
 end
 
 type Rect
-  topLeft: Point
-  bottomRight: Point
+topLeft: Point
+bottomRight: Point
 end
 
 data
-  r: Rect = { 0, 0, 100, 100 } ; tl.x, tl.y, br.x, br.y
+r: Rect = { 0, 0, 100, 100 } ; tl.x, tl.y, br.x, br.y
+
 ```
 
 ### 6.4 `bin` / `hex` (External Bytes)
@@ -585,7 +603,9 @@ data
 `bin` emits a contiguous byte blob into a target section and binds a base name to its start address:
 
 ```
+
 bin legacy in code from "asm80/legacy.bin"
+
 ```
 
 - The name `legacy` becomes an address-valued symbol of type `addr`.
@@ -601,7 +621,9 @@ Path resolution (v0.1):
 `hex` reads Intel HEX and emits bytes at absolute addresses specified by records:
 
 ```
+
 hex bios from "rom/bios.hex"
+
 ```
 
 `hex` binding and placement rules (v0.1):
@@ -623,7 +645,9 @@ hex bios from "rom/bios.hex"
 Bind callable names to absolute addresses:
 
 ```
+
 extern func bios_putc(ch: byte): void at $F003
+
 ```
 
 Standalone `extern func` rules (v0.1):
@@ -633,11 +657,13 @@ Standalone `extern func` rules (v0.1):
 Bind multiple entry points relative to a `bin` base:
 
 ```
+
 bin legacy in code from "asm80/legacy.bin"
 extern legacy
-  func legacy_init(): void at $0000
-  func legacy_putc(ch: byte): void at $0030
+func legacy_init(): void at $0000
+func legacy_putc(ch: byte): void at $0030
 end
+
 ```
 
 Relative `extern` semantics (v0.1):
@@ -720,16 +746,16 @@ Notes (v0.1):
 Syntax:
 
 ```
-export func add(a: word, b: word): word
-  var
-    temp: word
-  asm
-    ld hl, (a)
-    ld de, (b)
-    add hl, de
-    ret
-end
-```
+
+    export func add(a: word, b: word): word
+      var
+        temp: word
+      asm
+        ld hl, (a)
+        ld de, (b)
+        add hl, de
+    end
+    ```
 
 Rules:
 
