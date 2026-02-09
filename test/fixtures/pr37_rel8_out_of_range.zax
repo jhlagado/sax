@@ -147,5 +147,5 @@ export func main(): void
     nop
     nop
   far:
-    ret
+    nop
   end

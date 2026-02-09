@@ -10,7 +10,6 @@ describe('parser nested EA index expressions', () => {
 export func main(): void
   asm
     ld hl, arr[table[0]]
-    ret
 end
 `;
     const diagnostics: Diagnostic[] = [];
@@ -35,7 +34,6 @@ end
 export func main(): void
   asm
     ld hl, arr[table[0]
-    ret
 end
 `;
     const diagnostics: Diagnostic[] = [];

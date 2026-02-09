@@ -3,5 +3,5 @@ export func main(): void
     jr target
     nop
   target:
-    ret
+    nop
   end

@@ -3,5 +3,5 @@ export func main(): void
     jp target
     nop
   target:
-    ret
+    nop
   end

@@ -2019,6 +2019,12 @@ export function emitProgram(
             if (stopKinds.has(it.kind)) return i;
             if (it.kind === 'AsmLabel') {
               defineCodeLabel(it.name, it.span, 'global');
+              if (!flow.reachable) {
+                flow.reachable = true;
+                flow.spValid = false;
+                flow.spDelta = 0;
+                syncFromFlow();
+              }
               i++;
               continue;
             }
