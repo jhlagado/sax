@@ -1,0 +1,8 @@
+export func main(): void
+  asm
+    rlca
+    rrca
+    rla
+    rra
+    ret nz
+end

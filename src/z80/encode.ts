@@ -111,6 +111,29 @@ function callConditionOpcode(name: string): number | undefined {
   }
 }
 
+function retConditionOpcode(name: string): number | undefined {
+  switch (name) {
+    case 'NZ':
+      return 0xc0;
+    case 'Z':
+      return 0xc8;
+    case 'NC':
+      return 0xd0;
+    case 'C':
+      return 0xd8;
+    case 'PO':
+      return 0xe0;
+    case 'PE':
+      return 0xe8;
+    case 'P':
+      return 0xf0;
+    case 'M':
+      return 0xf8;
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Encode a single `asm` instruction node into Z80 machine-code bytes.
  *
@@ -129,6 +152,19 @@ export function encodeInstruction(
 
   if (head === 'nop' && ops.length === 0) return Uint8Array.of(0x00);
   if (head === 'ret' && ops.length === 0) return Uint8Array.of(0xc9);
+  if (head === 'ret' && ops.length === 1) {
+    const cc = conditionName(ops[0]!);
+    const opcode = cc ? retConditionOpcode(cc) : undefined;
+    if (opcode === undefined) {
+      diag(diagnostics, node, `ret cc expects a valid condition code`);
+      return undefined;
+    }
+    return Uint8Array.of(opcode);
+  }
+  if (head === 'rlca' && ops.length === 0) return Uint8Array.of(0x07);
+  if (head === 'rrca' && ops.length === 0) return Uint8Array.of(0x0f);
+  if (head === 'rla' && ops.length === 0) return Uint8Array.of(0x17);
+  if (head === 'rra' && ops.length === 0) return Uint8Array.of(0x1f);
 
   if (head === 'add' && ops.length === 2) {
     const dst = regName(ops[0]!);
