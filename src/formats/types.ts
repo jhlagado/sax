@@ -73,6 +73,22 @@ export interface WriteBinOptions {}
 export interface WriteD8mOptions {}
 
 /**
+ * Options for listing writing.
+ *
+ * Note: the listing format is currently a deterministic byte dump plus a symbol table.
+ */
+export interface WriteListingOptions {
+  /**
+   * Line ending to use when emitting text formats.
+   */
+  lineEnding?: '\n' | '\r\n';
+  /**
+   * Number of bytes shown per listing line.
+   */
+  bytesPerLine?: number;
+}
+
+/**
  * In-memory Intel HEX artifact.
  */
 export interface HexArtifact {
@@ -135,6 +151,6 @@ export interface FormatWriters {
   writeListing?(
     map: EmittedByteMap,
     symbols: SymbolEntry[],
-    opts?: Record<string, unknown>,
+    opts?: WriteListingOptions,
   ): ListingArtifact;
 }

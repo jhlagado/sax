@@ -28,6 +28,11 @@ ZAX uses a single “primary output path” to derive sibling artifacts.
     - Listing: `artifactBase + ".lst"`
     - Debug map (D8M v1): `artifactBase + ".d8dbg.json"`
 
+Listing note:
+
+- In v0.1, `.lst` is a deterministic byte dump plus a symbol table (not a full source listing).
+- Use `.d8dbg.json` (D8M) for debugger-grade source mapping.
+
 Directory creation:
 
 - If `--output` points into a directory that does not exist, the assembler creates it.

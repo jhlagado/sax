@@ -18,18 +18,19 @@ function hasErrors(diagnostics: Diagnostic[]): boolean {
 
 function withDefaults(
   options: CompilerOptions,
-): Required<Pick<CompilerOptions, 'emitBin' | 'emitHex' | 'emitD8m'>> {
-  const anyEmitSpecified = [options.emitBin, options.emitHex, options.emitD8m].some(
+): Required<Pick<CompilerOptions, 'emitBin' | 'emitHex' | 'emitD8m' | 'emitListing'>> {
+  const anyPrimaryEmitSpecified = [options.emitBin, options.emitHex, options.emitD8m].some(
     (v) => v !== undefined,
   );
-  if (!anyEmitSpecified) {
-    return { emitBin: true, emitHex: true, emitD8m: true };
-  }
-  return {
-    emitBin: options.emitBin ?? false,
-    emitHex: options.emitHex ?? false,
-    emitD8m: options.emitD8m ?? false,
-  };
+
+  const emitBin = anyPrimaryEmitSpecified ? (options.emitBin ?? false) : true;
+  const emitHex = anyPrimaryEmitSpecified ? (options.emitHex ?? false) : true;
+  const emitD8m = anyPrimaryEmitSpecified ? (options.emitD8m ?? false) : true;
+
+  // Listing is a sidecar artifact: default to on unless explicitly suppressed.
+  const emitListing = options.emitListing ?? true;
+
+  return { emitBin, emitHex, emitD8m, emitListing };
 }
 
 function normalizePath(p: string): string {
@@ -286,6 +287,18 @@ export const compile: CompileFn = async (
   }
   if (emit.emitD8m) {
     artifacts.push(deps.formats.writeD8m(map, symbols));
+  }
+  if (emit.emitListing) {
+    if (deps.formats.writeListing) {
+      artifacts.push(deps.formats.writeListing(map, symbols));
+    } else {
+      diagnostics.push({
+        id: DiagnosticIds.Unknown,
+        severity: 'warning',
+        message: 'emitListing=true but no listing writer is configured; skipping .lst artifact.',
+        file: program.entryFile,
+      });
+    }
   }
 
   return { diagnostics, artifacts };

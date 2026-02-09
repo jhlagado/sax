@@ -30,7 +30,7 @@ The codebase has meaningful progress, but it is **not near complete** for a prod
 
 2. Parser/AST behavior is not fully settled.
 
-- `src/frontend/parser.ts` is large (~1,618 lines) with known edge-case TODOs.
+- `src/frontend/parser.ts` is large (~1,618 lines); behavior is still subset-constrained and needs broader negative coverage.
 - Several grammar/behavior areas are subset-constrained or intentionally unsupported today.
 - Parser robustness/error recovery strategy is still shallow.
 
@@ -42,7 +42,7 @@ The codebase has meaningful progress, but it is **not near complete** for a prod
 
 4. Output/tooling completeness is partial.
 
-- `.bin`, `.hex`, and D8M exist, but `.lst` is still not complete.
+- `.bin`, `.hex`, D8M, and a minimal `.lst` exist, but `.lst` is not yet a full source listing (currently a byte dump + symbols).
 - CLI parity with `docs/zax-cli.md` is not fully proven as a stable contract.
 
 5. Hardening and acceptance are incomplete.
@@ -180,21 +180,28 @@ Use only real GitHub PR numbers:
 - For work not opened yet, refer to it as "next PR".
 - As soon as a PR is opened, update this section with its actual `#<number>`.
 
-Completed (anchored):
+Completed (anchored, most recent first):
 
-1. #28: Shared-case `select` semantics (stacked `case` labels share one body) + tests + spec update.
-2. #29: Deduplicate `select` join stack-mismatch diagnostics + regression test.
-3. #30: Parser hardening: diagnose `case` (and `else`) outside valid control context + negative fixtures.
+1. #38: Document examples as compiled contract (`examples/README.md`).
+2. #37: Fixups and forward references (spec + tests).
+3. #36: Expand char literal escape coverage (tests).
+4. #35: Char literals in `imm` expressions (parser + tests).
+5. #34: Examples compile gate (CI contract test + example updates).
+6. #33: Parser `select` arm ordering hardening.
+7. #32: Harden asm control keyword parsing (prevent cascaded diagnostics).
+8. #31: Roadmap anchors updated to real PR numbers (remove placeholders).
+9. #30: Diagnose `case` outside `select` during parsing (negative fixtures).
+10. #29: Deduplicate `select` join mismatch diagnostics (regression test).
+11. #28: Stacked `select case` labels share one body (spec + tests).
 
-Next:
+Next (assembler-first):
 
-1. Next PR (#31): Parser/AST closure pass (edge cases + diagnostic consistency + negative fixtures).
+1. Next PR: Parser/AST closure pass (tighten remaining edge cases, eliminate core TODOs, expand negative fixtures).
 2. Following PR: Lowering/frame/op safety pass (SP/control/cleanup invariants + tests).
-3. Following PR: ISA expansion tranche 1 (high-frequency instructions + diagnostics + fixtures).
-4. Following PR: ISA expansion tranche 2 (remaining control/bit/system instructions).
-5. Following PR: CLI parity + `.lst` implementation.
-6. Following PR: Hardening sweep (examples CI gate + negative coverage + determinism).
-7. Following PR: Debug80 integration (only if all gates pass).
+3. Following PR: ISA coverage tranche (prioritize v0.1 workflows + fixtures).
+4. Following PR: CLI parity + `.lst` completion (contract tests).
+5. Following PR: Hardening sweep (determinism + negative coverage + cross-platform gates).
+6. Following PR: Debug80 integration (only after all gates pass).
 
 ---
 
