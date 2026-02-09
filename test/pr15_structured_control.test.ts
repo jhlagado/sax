@@ -182,4 +182,13 @@ describe('PR15 structured asm control flow', () => {
     expect(res.artifacts).toEqual([]);
     expect(res.diagnostics.some((d) => d.message.includes('without matching "select"'))).toBe(true);
   });
+
+  it('diagnoses else without matching if or select', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr30_else_without_if_or_select.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(
+      res.diagnostics.some((d) => d.message.includes('without matching "if" or "select"')),
+    ).toBe(true);
+  });
 });
