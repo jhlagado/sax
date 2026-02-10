@@ -268,6 +268,21 @@ export function emitProgram(
     fixups.push({ offset: start + 2, baseLower, addend, file: span.file });
   };
 
+  const emitAbs16FixupPrefixed = (
+    prefix: number,
+    opcode2: number,
+    baseLower: string,
+    addend: number,
+    span: SourceSpan,
+  ): void => {
+    const start = codeOffset;
+    codeBytes.set(codeOffset++, prefix);
+    codeBytes.set(codeOffset++, opcode2);
+    codeBytes.set(codeOffset++, 0x00);
+    codeBytes.set(codeOffset++, 0x00);
+    fixups.push({ offset: start + 2, baseLower, addend, file: span.file });
+  };
+
   const emitRel8Fixup = (
     opcode: number,
     baseLower: string,
@@ -900,6 +915,28 @@ export function emitProgram(
           return true;
         }
       }
+      if (r16 === 'IX' || r16 === 'IY') {
+        const r = resolveEa(src.expr, inst.span);
+        if (r?.kind === 'abs') {
+          emitAbs16FixupPrefixed(
+            r16 === 'IX' ? 0xdd : 0xfd,
+            0x2a,
+            r.baseLower,
+            r.addend,
+            inst.span,
+          ); // ld ix/iy, (nn)
+          return true;
+        }
+        if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
+        emitCodeBytes(Uint8Array.of(0x7e, 0x23, 0x66, 0x6f), inst.span.file);
+        if (
+          !emitInstr('push', [{ kind: 'Reg', span: inst.span, name: 'HL' }], inst.span) ||
+          !emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: r16 }], inst.span)
+        ) {
+          return false;
+        }
+        return true;
+      }
     }
 
     // LD (ea), r8/r16
@@ -963,6 +1000,28 @@ export function emitProgram(
           emitAbs16FixupEd(0x73, r.baseLower, r.addend, inst.span); // ld (nn), sp
           return true;
         }
+      }
+      if (r16 === 'IX' || r16 === 'IY') {
+        const r = resolveEa(dst.expr, inst.span);
+        if (r?.kind === 'abs') {
+          emitAbs16FixupPrefixed(
+            r16 === 'IX' ? 0xdd : 0xfd,
+            0x22,
+            r.baseLower,
+            r.addend,
+            inst.span,
+          ); // ld (nn), ix/iy
+          return true;
+        }
+        if (
+          !emitInstr('push', [{ kind: 'Reg', span: inst.span, name: r16 }], inst.span) ||
+          !emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span)
+        ) {
+          return false;
+        }
+        if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
+        emitCodeBytes(Uint8Array.of(0x73, 0x23, 0x72), inst.span.file);
+        return true;
       }
     }
 
@@ -2179,6 +2238,24 @@ export function emitProgram(
               const v = evalImmExpr(srcOp.expr, env, diagnostics);
               if (v === undefined) {
                 emitAbs16Fixup(opcode, srcOp.expr.name.toLowerCase(), 0, asmItem.span);
+                syncToFlow();
+                return;
+              }
+            }
+            if (
+              (dst === 'IX' || dst === 'IY') &&
+              srcOp.kind === 'Imm' &&
+              srcOp.expr.kind === 'ImmName'
+            ) {
+              const v = evalImmExpr(srcOp.expr, env, diagnostics);
+              if (v === undefined) {
+                emitAbs16FixupPrefixed(
+                  dst === 'IX' ? 0xdd : 0xfd,
+                  0x21,
+                  srcOp.expr.name.toLowerCase(),
+                  0,
+                  asmItem.span,
+                );
                 syncToFlow();
                 return;
               }
