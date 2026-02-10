@@ -1,6 +1,6 @@
 export func main(): void
   asm
-    if z,
-      nop
+    select (ix+)
     end
   end
+

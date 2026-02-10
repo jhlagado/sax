@@ -138,6 +138,14 @@ describe('PR15 structured asm control flow', () => {
     );
   });
 
+  it('diagnoses invalid select selector without follow-on arm diagnostics', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr98_select_invalid_selector_no_cascade.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('Invalid select selector');
+  });
+
   it('supports stacked case labels sharing a single clause body', async () => {
     const entry = join(__dirname, 'fixtures', 'pr28_select_stacked_case_shared_body.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

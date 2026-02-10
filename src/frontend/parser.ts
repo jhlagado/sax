@@ -586,7 +586,13 @@ type AsmControlFrame =
   | { kind: 'If'; elseSeen: boolean; openSpan: SourceSpan }
   | { kind: 'While'; openSpan: SourceSpan }
   | { kind: 'Repeat'; openSpan: SourceSpan }
-  | { kind: 'Select'; elseSeen: boolean; armSeen: boolean; openSpan: SourceSpan };
+  | {
+      kind: 'Select';
+      elseSeen: boolean;
+      armSeen: boolean;
+      openSpan: SourceSpan;
+      recoverOnly?: boolean;
+    };
 
 function parseAsmStatement(
   filePath: string,
@@ -653,7 +659,7 @@ function parseAsmStatement(
       });
       return undefined;
     }
-    if (top.kind === 'Select' && !top.armSeen) {
+    if (top.kind === 'Select' && !top.armSeen && !top.recoverOnly) {
       diag(diagnostics, filePath, `"select" must contain at least one arm ("case" or "else")`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
@@ -674,7 +680,8 @@ function parseAsmStatement(
       line: stmtSpan.start.line,
       column: stmtSpan.start.column,
     });
-    return undefined;
+    controlStack.push({ kind: 'If', elseSeen: false, openSpan: stmtSpan });
+    return { kind: 'If', span: stmtSpan, cc: missingCc };
   }
   if (lower === 'if') {
     diag(diagnostics, filePath, `"if" expects a condition code`, {
@@ -696,7 +703,8 @@ function parseAsmStatement(
       line: stmtSpan.start.line,
       column: stmtSpan.start.column,
     });
-    return undefined;
+    controlStack.push({ kind: 'While', openSpan: stmtSpan });
+    return { kind: 'While', span: stmtSpan, cc: missingCc };
   }
   if (lower === 'while') {
     diag(diagnostics, filePath, `"while" expects a condition code`, {
@@ -775,7 +783,13 @@ function parseAsmStatement(
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
       });
-      controlStack.push({ kind: 'Select', elseSeen: false, armSeen: false, openSpan: stmtSpan });
+      controlStack.push({
+        kind: 'Select',
+        elseSeen: false,
+        armSeen: false,
+        openSpan: stmtSpan,
+        recoverOnly: true,
+      });
       return {
         kind: 'Select',
         span: stmtSpan,
