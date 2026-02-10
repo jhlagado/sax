@@ -217,6 +217,55 @@ function retConditionOpcode(name: string): number | undefined {
   }
 }
 
+function zeroOperandEdOpcode(head: string): number | undefined {
+  switch (head) {
+    case 'reti':
+      return 0x4d;
+    case 'retn':
+      return 0x45;
+    case 'neg':
+      return 0x44;
+    case 'rrd':
+      return 0x67;
+    case 'rld':
+      return 0x6f;
+    case 'ldi':
+      return 0xa0;
+    case 'ldir':
+      return 0xb0;
+    case 'ldd':
+      return 0xa8;
+    case 'lddr':
+      return 0xb8;
+    case 'cpi':
+      return 0xa1;
+    case 'cpir':
+      return 0xb1;
+    case 'cpd':
+      return 0xa9;
+    case 'cpdr':
+      return 0xb9;
+    case 'ini':
+      return 0xa2;
+    case 'inir':
+      return 0xb2;
+    case 'ind':
+      return 0xaa;
+    case 'indr':
+      return 0xba;
+    case 'outi':
+      return 0xa3;
+    case 'otir':
+      return 0xb3;
+    case 'outd':
+      return 0xab;
+    case 'otdr':
+      return 0xbb;
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Encode a single `asm` instruction node into Z80 machine-code bytes.
  *
@@ -362,32 +411,12 @@ export function encodeInstruction(
     return undefined;
   }
 
-  if (head === 'reti' && ops.length === 0) return Uint8Array.of(0xed, 0x4d);
-  if (head === 'retn' && ops.length === 0) return Uint8Array.of(0xed, 0x45);
-
-  if (head === 'neg' && ops.length === 0) return Uint8Array.of(0xed, 0x44);
-  if (head === 'rrd' && ops.length === 0) return Uint8Array.of(0xed, 0x67);
-  if (head === 'rld' && ops.length === 0) return Uint8Array.of(0xed, 0x6f);
-
-  if (head === 'ldi' && ops.length === 0) return Uint8Array.of(0xed, 0xa0);
-  if (head === 'ldir' && ops.length === 0) return Uint8Array.of(0xed, 0xb0);
-  if (head === 'ldd' && ops.length === 0) return Uint8Array.of(0xed, 0xa8);
-  if (head === 'lddr' && ops.length === 0) return Uint8Array.of(0xed, 0xb8);
-
-  if (head === 'cpi' && ops.length === 0) return Uint8Array.of(0xed, 0xa1);
-  if (head === 'cpir' && ops.length === 0) return Uint8Array.of(0xed, 0xb1);
-  if (head === 'cpd' && ops.length === 0) return Uint8Array.of(0xed, 0xa9);
-  if (head === 'cpdr' && ops.length === 0) return Uint8Array.of(0xed, 0xb9);
-
-  if (head === 'ini' && ops.length === 0) return Uint8Array.of(0xed, 0xa2);
-  if (head === 'inir' && ops.length === 0) return Uint8Array.of(0xed, 0xb2);
-  if (head === 'ind' && ops.length === 0) return Uint8Array.of(0xed, 0xaa);
-  if (head === 'indr' && ops.length === 0) return Uint8Array.of(0xed, 0xba);
-
-  if (head === 'outi' && ops.length === 0) return Uint8Array.of(0xed, 0xa3);
-  if (head === 'otir' && ops.length === 0) return Uint8Array.of(0xed, 0xb3);
-  if (head === 'outd' && ops.length === 0) return Uint8Array.of(0xed, 0xab);
-  if (head === 'otdr' && ops.length === 0) return Uint8Array.of(0xed, 0xbb);
+  const zeroOperandOpcode = zeroOperandEdOpcode(head);
+  if (zeroOperandOpcode !== undefined) {
+    if (ops.length === 0) return Uint8Array.of(0xed, zeroOperandOpcode);
+    diag(diagnostics, node, `${head} expects no operands`);
+    return undefined;
+  }
 
   if (head === 'ld' && ops.length === 2) {
     const dst = regName(ops[0]!);
