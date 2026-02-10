@@ -42,7 +42,7 @@ Understanding ops requires contrasting them with familiar alternatives:
 
 **C++ templates.** Templates operate on parsed, typed AST nodes. This is closer to ZAX ops: the compiler knows the types of template parameters and can perform type checking after substitution. However, C++ templates are primarily a type-parameterization mechanism, not an inline code-generation mechanism. They also carry substantial complexity (SFINAE, template specialization rules, and two-phase name lookup).
 
-**ZAX ops** take the AST-level approach of templates but apply it to assembly-language semantics. The compiler knows that a parameter declared as `reg16` will only ever bind to `HL`, `DE`, `BC`, or `SP` — not to an arbitrary token that happens to look like a register name in some contexts. This means the compiler can reason about ops statically: it can check that an expansion will produce valid instructions, it can resolve overloads unambiguously, and it can enforce preservation guarantees that would be impossible with text substitution.
+**ZAX ops** take the AST-level approach of templates but apply it to assembly-language semantics. The compiler knows that a parameter declared as `reg16` will only ever bind to `HL`, `DE`, `BC`, or `SP` — not to an arbitrary token that happens to look like a register name in some contexts. This means the compiler can reason about ops statically: it can check that an expansion will produce valid instructions and resolve overloads unambiguously — but register/flag effects remain whatever the inline instructions do.
 
 ### 1.2 Ops vs Functions
 
@@ -55,7 +55,7 @@ Ops are _not_ functions. They have no stack frame, no calling convention, no ret
 | Recursion | Forbidden (cyclic expansion error) | Permitted |
 | Local variables | Forbidden | Permitted (`var` block) |
 | Overloading | By operand matchers | Not supported in v0.1 |
-| Register preservation | Compiler-enforced autosave | Caller-save convention |
+| Register/flag effects | Inline code semantics | Caller-save convention |
 
 ### 1.3 When to Use Ops
 
@@ -64,7 +64,7 @@ Use ops when you want:
 - **Instruction-like syntax** for common patterns that the Z80 doesn't directly support
 - **Zero overhead** — no call/ret, no stack frame setup
 - **Overloading** by register type or immediate size
-- **Guaranteed register preservation** without manual push/pop
+- **Inline expansion** with explicit, visible instruction effects
 
 Use functions when you need:
 
@@ -103,7 +103,7 @@ op add16(dst: BC, src: reg16)
 end
 ```
 
-At the call site, `add16 DE, BC` reads like a native instruction. The compiler selects the `DE` overload, substitutes `BC` for `src`, and emits the exchange-based sequence. The caller doesn't need to know or care about the implementation — the op's preservation guarantees ensure that registers other than the destination are untouched.
+At the call site, `add16 DE, BC` reads like a native instruction. The compiler selects the `DE` overload, substitutes `BC` for `src`, and emits the exchange-based sequence. Because ops are inline expansions, any register/flag effects are exactly the effects of the instructions written in the op body.
 
 ---
 
@@ -350,13 +350,7 @@ function expand_op(call_site, op_name, operands):
         if instruction is op_invocation:
             replace instruction with expand_op(instruction.site, ...)
 
-    // 6. Clobber analysis and autosave insertion (Section 6)
-    destinations = identify_destinations(winner.parameters, bindings)
-    clobbered = analyze_clobbers(expanded_body)
-    preservation_needed = clobbered - destinations
-    wrap_with_preservation(expanded_body, preservation_needed)
-
-    // 7. Stack delta check
+    // 6. Stack delta check
     delta = compute_stack_delta(expanded_body)
     if delta != 0:
         error("op expansion has non-zero stack delta", call_site)
@@ -609,7 +603,7 @@ end
 
 Invoking `cmp16 HL, DE` selects the first overload (fixed `HL` in first param, `reg16` matching `DE` in second). The expansion emits `or a; sbc hl, de; add hl, de`. The caller can then test `Z` or `C` flags to determine the comparison result.
 
-Invoking `cmp16 HL, 1000` selects the second overload (`imm16` matching the literal). The expansion loads the immediate into `DE`, performs the subtract-and-restore, and pops `DE`. The compiler's autosave mechanism would also preserve `AF` if the op's destination convention requires it — but note that in this case, the _purpose_ of the op is to set flags, so the author likely intends `lhs` (the first parameter) to be the destination, and flags should be the observable output. This is a case where the naming convention matters: since neither parameter is named `dst*` or `out*`, the first parameter (`lhs`) is treated as the destination, meaning `HL` may be clobbered and flags are not auto-preserved. The op author has taken care to restore `HL` manually and intends the flag side-effects.
+Invoking `cmp16 HL, 1000` selects the second overload (`imm16` matching the literal). The expansion loads the immediate into `DE`, performs the subtract-and-restore, and pops `DE`. The op body restores `HL` manually and leaves flags set by `sbc`, which is the intended observable output.
 
 ### 7.2 A Byte-Fill Op
 
@@ -628,7 +622,7 @@ end
 
 Invoked as `fill8 screenBuffer, $20, 80`, this expands to a loop that writes the value `$20` to 80 consecutive bytes starting at the address `screenBuffer`. The `ea` matcher binds to the effective address of `screenBuffer` (its location in memory), and the two `imm8` matchers bind to the literal values.
 
-Note that this op clobbers `HL`, `B`, and `A` internally, plus flags. The autosave mechanism will preserve all of these except the destination. Since `dst` is the first parameter and matches the `dst*` naming convention, the destination is the `ea` — but an `ea` is an address, not a register. In practice, the compiler preserves the registers that were clobbered (`HL`, `B`, `A`, and flags) except as needed for the destination write. The exact preservation behavior depends on the compiler's clobber analysis.
+Note that this op clobbers `HL`, `B`, and `A` internally, plus flags. Because ops have no automatic preservation in v0.1, these effects are visible to the caller unless the op body explicitly saves/restores registers.
 
 ### 7.3 Overload Resolution in Action
 
@@ -811,13 +805,13 @@ The decision to make ops operate on parsed AST nodes rather than raw text was dr
 
 **Overload resolution.** Text-level macros have no notion of operand types, so they cannot support overloading or specificity-based dispatch. The op system's matcher types enable a principled overload mechanism that is predictable and explainable.
 
-**Compiler integration.** Because the compiler understands the op's parameter types and body structure, it can perform clobber analysis, insert preservation code, check stack deltas, and produce meaningful diagnostics. None of this is possible with text substitution.
+**Compiler integration.** Because the compiler understands the op's parameter types and body structure, it can validate substitutions, check stack deltas, and produce meaningful diagnostics. None of this is possible with text substitution.
 
 ### 9.2 What v0.1 Intentionally Omits
 
 Several features that would be natural extensions of the op system are intentionally omitted from v0.1 to keep the initial implementation tractable:
 
-**Condition-code matchers.** A `cc` matcher type that binds to `Z`, `NZ`, `C`, `NC`, etc. would enable ops that abstract over conditional behavior. This is deferred because it interacts with flag preservation in complex ways.
+**Condition-code matchers.** A `cc` matcher type that binds to `Z`, `NZ`, `C`, `NC`, etc. would enable ops that abstract over conditional behavior. This is deferred because it complicates overload resolution and condition handling.
 
 **IX/IY matchers.** Extending `reg16` (or adding `idx16`) to cover `IX` and `IY` would be useful but requires rethinking displacement handling in the matcher system.
 
@@ -841,7 +835,7 @@ Parameters use matcher types: `reg8`, `reg16`, fixed-register matchers (`A`, `HL
 
 Overload resolution filters candidates by matcher compatibility, then ranks by specificity. Fixed beats class, `imm8` beats `imm16` for small values, `mem8`/`mem16` beat `ea`. No match is an error. Ambiguous match is an error.
 
-Autosave preserves all registers and flags except destinations. Destination parameters are identified by `dst`/`out` name prefix, or the first parameter by default. Net stack delta of an expansion must be zero. Cyclic expansion is a compile error.
+Op expansions are inline; register/flag effects are the effects of the emitted instructions. Net stack delta of an expansion must be zero. Cyclic expansion is a compile error.
 
 ---
 
