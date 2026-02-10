@@ -1288,14 +1288,17 @@ export function encodeInstruction(
   if (head === 'bit') {
     const encoded = encodeBitLike(0x40, 'bit');
     if (encoded) return encoded;
+    if (ops.length === 2) return undefined;
   }
   if (head === 'res') {
     const encoded = encodeBitLike(0x80, 'res', true);
     if (encoded) return encoded;
+    if (ops.length === 2 || ops.length === 3) return undefined;
   }
   if (head === 'set') {
     const encoded = encodeBitLike(0xc0, 'set', true);
     if (encoded) return encoded;
+    if (ops.length === 2 || ops.length === 3) return undefined;
   }
 
   const encodeCbRotateShift = (base: number, mnemonic: string): Uint8Array | undefined => {
@@ -1338,34 +1341,42 @@ export function encodeInstruction(
   if (head === 'rl') {
     const encoded = encodeCbRotateShift(0x10, 'rl');
     if (encoded) return encoded;
+    if (ops.length === 1 || ops.length === 2) return undefined;
   }
   if (head === 'rr') {
     const encoded = encodeCbRotateShift(0x18, 'rr');
     if (encoded) return encoded;
+    if (ops.length === 1 || ops.length === 2) return undefined;
   }
   if (head === 'sla') {
     const encoded = encodeCbRotateShift(0x20, 'sla');
     if (encoded) return encoded;
+    if (ops.length === 1 || ops.length === 2) return undefined;
   }
   if (head === 'sra') {
     const encoded = encodeCbRotateShift(0x28, 'sra');
     if (encoded) return encoded;
+    if (ops.length === 1 || ops.length === 2) return undefined;
   }
   if (head === 'srl') {
     const encoded = encodeCbRotateShift(0x38, 'srl');
     if (encoded) return encoded;
+    if (ops.length === 1 || ops.length === 2) return undefined;
   }
   if (head === 'sll') {
     const encoded = encodeCbRotateShift(0x30, 'sll');
     if (encoded) return encoded;
+    if (ops.length === 1 || ops.length === 2) return undefined;
   }
   if (head === 'rlc') {
     const encoded = encodeCbRotateShift(0x00, 'rlc');
     if (encoded) return encoded;
+    if (ops.length === 1 || ops.length === 2) return undefined;
   }
   if (head === 'rrc') {
     const encoded = encodeCbRotateShift(0x08, 'rrc');
     if (encoded) return encoded;
+    if (ops.length === 1 || ops.length === 2) return undefined;
   }
 
   const arityMessage = arityDiagnostic(head, ops.length);
