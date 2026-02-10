@@ -316,29 +316,36 @@ function zeroOperandOpcode(head: string): Uint8Array | undefined {
   }
 }
 
-function arityDiagnostic(head: string): string | undefined {
+function arityDiagnostic(head: string, operandCount: number): string | undefined {
   switch (head) {
     case 'add':
     case 'ld':
     case 'ex':
+      if (operandCount === 2) return undefined;
       return `${head} expects two operands`;
     case 'sub':
     case 'cp':
     case 'and':
     case 'or':
     case 'xor':
+      if (operandCount === 1 || operandCount === 2) return undefined;
       return `${head} expects one operand, or two with destination A`;
     case 'adc':
     case 'sbc':
+      if (operandCount === 1 || operandCount === 2) return undefined;
       return `${head} expects one operand, two with destination A, or HL,rr form`;
     case 'inc':
     case 'dec':
     case 'push':
     case 'pop':
+      if (operandCount === 1) return undefined;
       return `${head} expects one operand`;
     case 'bit':
+      if (operandCount === 2) return undefined;
+      return `${head} expects two operands`;
     case 'res':
     case 'set':
+      if (operandCount === 2 || operandCount === 3) return undefined;
       return `${head} expects two operands, or three with indexed source + reg8 destination`;
     case 'rl':
     case 'rr':
@@ -348,6 +355,7 @@ function arityDiagnostic(head: string): string | undefined {
     case 'sll':
     case 'rlc':
     case 'rrc':
+      if (operandCount === 1 || operandCount === 2) return undefined;
       return `${head} expects one operand, or two with indexed source + reg8 destination`;
     default:
       return undefined;
@@ -1121,7 +1129,15 @@ export function encodeInstruction(
   ): Uint8Array | undefined => {
     let src: AsmOperandNode | undefined;
     if (ops.length === 1) src = ops[0]!;
-    else if (allowExplicitA && ops.length === 2 && regName(ops[0]!) === 'A') src = ops[1]!;
+    else if (ops.length === 2) {
+      if (allowExplicitA) {
+        if (regName(ops[0]!) === 'A') src = ops[1]!;
+        else {
+          diag(diagnostics, node, `${mnemonic} two-operand form requires destination A`);
+          return undefined;
+        }
+      }
+    }
     if (!src) return undefined;
 
     const reg = regName(src);
@@ -1352,7 +1368,7 @@ export function encodeInstruction(
     if (encoded) return encoded;
   }
 
-  const arityMessage = arityDiagnostic(head);
+  const arityMessage = arityDiagnostic(head, ops.length);
   if (arityMessage !== undefined) {
     diag(diagnostics, node, arityMessage);
     return undefined;

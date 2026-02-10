@@ -16,10 +16,10 @@ describe('PR134: ALU operand-count diagnostics parity', () => {
     const messages = res.diagnostics.map((d) => d.message);
     expect(messages).toContain('sub expects one operand, or two with destination A');
     expect(messages).toContain('cp expects one operand, or two with destination A');
-    expect(messages).toContain('and expects one operand, or two with destination A');
-    expect(messages).toContain('or expects one operand, or two with destination A');
-    expect(messages).toContain('xor expects one operand, or two with destination A');
-    expect(messages).toContain('adc expects one operand, two with destination A, or HL,rr form');
-    expect(messages).toContain('sbc expects one operand, two with destination A, or HL,rr form');
+    expect(messages).toContain('and two-operand form requires destination A');
+    expect(messages).toContain('or two-operand form requires destination A');
+    expect(messages).toContain('xor two-operand form requires destination A');
+    expect(messages).toContain('adc two-operand form requires destination A');
+    expect(messages).toContain('sbc two-operand form requires destination A');
   });
 });
