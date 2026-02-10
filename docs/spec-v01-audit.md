@@ -179,3 +179,38 @@ The following tests assert line/column-bearing diagnostics to ensure span stabil
 2. Add explicit test cases that assert line/column for additional parser failures (not just selected call/type cases).
 3. Reconcile uncovered ISA families against spec text and add either tests or explicit rejection diagnostics.
 4. Optionally codify this audit as a CI checklist artifact.
+
+## 13) Tranche 4 Appendix Mapping (Source Mapping / D8M)
+
+This tranche maps Appendix B statements to current implementation evidence and known gaps.
+
+| Appendix area                                    | Status               | Evidence / Note                                                                                         |
+| ------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------------------------------- |
+| `B.1` D8M artifact emitted alongside primary out | Implemented          | `test/cli_artifacts.test.ts` validates `.d8dbg.json` sibling artifact behavior                          |
+| `B.2` path materialization policy                | Implemented (subset) | paths are emitted; normalization policy is still implementation-defined and not yet contract-tested     |
+| `B.3` segments map addresses to source           | Open                 | D8M segment schema exists, but no dedicated schema/assertion test currently validates segment semantics |
+| `B.4` symbol mapping in D8M                      | Open                 | symbols are emitted in artifacts; no dedicated contract test for symbol payload stability yet           |
+| `B.5` mapping policy for lowered constructs      | Open                 | policy text exists in spec; explicit lowering-to-map tests are not yet present                          |
+| `B.6` minimal example parity                     | Open                 | appendix example is illustrative only; no pinned golden-file test currently checks this exact shape     |
+
+## 14) CI Checklist Draft (Spec Audit Gate)
+
+This is a draft checklist to make the spec-audit gate explicit in CI.
+
+| Checkpoint                    | Command / artifact                               | Pass condition                                                                |
+| ----------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Formatting                    | `yarn -s format:check`                           | exits `0`                                                                     |
+| Type safety                   | `yarn -s typecheck`                              | exits `0`                                                                     |
+| Full test suite               | `yarn -s test`                                   | exits `0`                                                                     |
+| Artifact determinism          | `test/determinism_artifacts.test.ts`             | test green on all CI OS targets                                               |
+| Example compilation           | `test/examples_compile.test.ts`                  | examples compile on CI matrix                                                 |
+| CLI artifact contract         | `test/cli_artifacts.test.ts`                     | sibling outputs + suppression + stdout contract stable                        |
+| Structured/lowering safety    | `test/pr23_lowering_safety.test.ts`, `pr92` test | stack/control invariants remain enforced                                      |
+| Forward references and fixups | `test/pr37_forward_label_fixups.test.ts`         | forward label and conditional fixups resolve deterministically                |
+| Appendix mapping follow-up    | `docs/spec-v01-audit.md` Section 13              | all `Open` rows moved to `Implemented` or `Intentionally rejected` + evidence |
+
+Checklist usage guidance:
+
+1. A PR that touches parser/lowering/encoder/CLI must run all checklist commands locally before opening review.
+2. A PR that modifies mapping output (`.d8dbg.json`/`.lst`) must include at least one contract test update.
+3. The roadmap may only mark the spec gate green when Section 13 has no `Open` rows.
