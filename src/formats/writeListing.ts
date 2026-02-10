@@ -9,6 +9,11 @@ function toHexWord(n: number): string {
   return (n & 0xffff).toString(16).toUpperCase().padStart(4, '0');
 }
 
+function toAsciiByte(n: number): string {
+  const v = n & 0xff;
+  return v >= 0x20 && v <= 0x7e ? String.fromCharCode(v) : '.';
+}
+
 function formatSymbol(s: SymbolEntry): string {
   if (s.kind === 'constant') {
     const value = s.value & 0xffff;
@@ -51,11 +56,20 @@ export function writeListing(
 
   for (let addr = start; addr < end; addr += bytesPerLine) {
     const count = Math.min(bytesPerLine, end - addr);
-    const bytes: string[] = [];
+    const hexBytes: string[] = [];
+    const asciiBytes: string[] = [];
     for (let i = 0; i < count; i++) {
-      bytes.push(toHexByte(map.bytes.get(addr + i) ?? 0));
+      const byte = map.bytes.get(addr + i);
+      if (byte === undefined) {
+        hexBytes.push('..');
+        asciiBytes.push(' ');
+        continue;
+      }
+      hexBytes.push(toHexByte(byte));
+      asciiBytes.push(toAsciiByte(byte));
     }
-    lines.push(`${toHexWord(addr)}: ${bytes.join(' ')}`);
+    const paddedHex = hexBytes.join(' ').padEnd(bytesPerLine * 3 - 1, ' ');
+    lines.push(`${toHexWord(addr)}: ${paddedHex}  |${asciiBytes.join('')}|`);
   }
 
   lines.push('');

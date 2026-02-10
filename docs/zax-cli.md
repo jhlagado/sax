@@ -40,7 +40,8 @@ ZAX uses a single “primary output path” to derive sibling artifacts.
 
 Listing note:
 
-- In v0.1, `.lst` is a deterministic byte dump plus a symbol table (not a full source listing).
+- In v0.1, `.lst` is a deterministic byte dump with an ASCII gutter plus a symbol table (not a full source listing).
+- Sparse/unwritten bytes inside the written range are rendered as `..` in the hex column.
 - Use `.d8dbg.json` (D8M) for debugger-grade source mapping.
 
 Directory creation:
