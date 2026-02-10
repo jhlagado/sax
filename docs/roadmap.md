@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #132: ISA coverage tranche 26 (rel8 branch matrix hardening for jr/jr cc/djnz).
+- #133: CLI/output gate tranche 1 (`--nohex` support + contract tests).
 
-Next after #132 merges (anchored as soon as opened):
+Next after #133 merges (anchored as soon as opened):
 
 1. Next PR: ISA coverage tranche 27 (remaining ED/CB edge-form diagnostics parity + additional negative fixture hardening).
 
 Completed (anchored, most recent first):
 
+1. #132: ISA coverage tranche 26 (rel8 branch matrix hardening for jr/jr cc/djnz).
 1. #131: ISA coverage tranche 25 (bit/res/set diagnostics parity edge-case hardening).
 1. #130: ISA coverage tranche 24 (ALU-family malformed-form diagnostics parity).
 1. #129: ISA coverage tranche 23 (core zero-operand diagnostics parity + explicit malformed-form coverage).

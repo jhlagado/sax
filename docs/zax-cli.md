@@ -62,6 +62,7 @@ Keep switches intentionally small:
   - supported: `hex`, `bin`
 - `-n, --nolist` Suppress `.lst`
 - `--nobin` Suppress `.bin`
+- `--nohex` Suppress `.hex`
 - `--nod8m` Suppress `.d8dbg.json`
 - `-I, --include <dir>` Add import search path (repeatable)
 - `-V, --version`
