@@ -266,6 +266,70 @@ function zeroOperandEdOpcode(head: string): number | undefined {
   }
 }
 
+function zeroOperandOpcode(head: string): Uint8Array | undefined {
+  switch (head) {
+    case 'nop':
+      return Uint8Array.of(0x00);
+    case 'halt':
+      return Uint8Array.of(0x76);
+    case 'di':
+      return Uint8Array.of(0xf3);
+    case 'ei':
+      return Uint8Array.of(0xfb);
+    case 'scf':
+      return Uint8Array.of(0x37);
+    case 'ccf':
+      return Uint8Array.of(0x3f);
+    case 'cpl':
+      return Uint8Array.of(0x2f);
+    case 'daa':
+      return Uint8Array.of(0x27);
+    case 'rlca':
+      return Uint8Array.of(0x07);
+    case 'rrca':
+      return Uint8Array.of(0x0f);
+    case 'rla':
+      return Uint8Array.of(0x17);
+    case 'rra':
+      return Uint8Array.of(0x1f);
+    case 'exx':
+      return Uint8Array.of(0xd9);
+    default: {
+      const edOpcode = zeroOperandEdOpcode(head);
+      return edOpcode === undefined ? undefined : Uint8Array.of(0xed, edOpcode);
+    }
+  }
+}
+
+function arityDiagnostic(head: string): string | undefined {
+  switch (head) {
+    case 'add':
+    case 'ld':
+    case 'ex':
+      return `${head} expects two operands`;
+    case 'inc':
+    case 'dec':
+    case 'push':
+    case 'pop':
+      return `${head} expects one operand`;
+    case 'bit':
+    case 'res':
+    case 'set':
+      return `${head} expects two operands, or three with indexed source + reg8 destination`;
+    case 'rl':
+    case 'rr':
+    case 'sla':
+    case 'sra':
+    case 'srl':
+    case 'sll':
+    case 'rlc':
+    case 'rrc':
+      return `${head} expects one operand, or two with indexed source + reg8 destination`;
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Encode a single `asm` instruction node into Z80 machine-code bytes.
  *
@@ -282,14 +346,6 @@ export function encodeInstruction(
   const head = node.head.toLowerCase();
   const ops = node.operands;
 
-  if (head === 'nop' && ops.length === 0) return Uint8Array.of(0x00);
-  if (head === 'halt' && ops.length === 0) return Uint8Array.of(0x76);
-  if (head === 'di' && ops.length === 0) return Uint8Array.of(0xf3);
-  if (head === 'ei' && ops.length === 0) return Uint8Array.of(0xfb);
-  if (head === 'scf' && ops.length === 0) return Uint8Array.of(0x37);
-  if (head === 'ccf' && ops.length === 0) return Uint8Array.of(0x3f);
-  if (head === 'cpl' && ops.length === 0) return Uint8Array.of(0x2f);
-  if (head === 'daa' && ops.length === 0) return Uint8Array.of(0x27);
   if (head === 'ret' && ops.length === 0) return Uint8Array.of(0xc9);
   if (head === 'ret' && ops.length === 1) {
     const cc = conditionName(ops[0]!);
@@ -300,10 +356,16 @@ export function encodeInstruction(
     }
     return Uint8Array.of(opcode);
   }
-  if (head === 'rlca' && ops.length === 0) return Uint8Array.of(0x07);
-  if (head === 'rrca' && ops.length === 0) return Uint8Array.of(0x0f);
-  if (head === 'rla' && ops.length === 0) return Uint8Array.of(0x17);
-  if (head === 'rra' && ops.length === 0) return Uint8Array.of(0x1f);
+  if (head === 'ret') {
+    diag(diagnostics, node, `ret expects no operands or one condition code`);
+    return undefined;
+  }
+  const zeroOpcode = zeroOperandOpcode(head);
+  if (zeroOpcode) {
+    if (ops.length === 0) return zeroOpcode;
+    diag(diagnostics, node, `${head} expects no operands`);
+    return undefined;
+  }
 
   if (head === 'add' && ops.length === 2) {
     const dst = regName(ops[0]!);
@@ -392,6 +454,10 @@ export function encodeInstruction(
     }
     return Uint8Array.of(opcode, n & 0xff, (n >> 8) & 0xff);
   }
+  if (head === 'call') {
+    diag(diagnostics, node, `call expects one operand (nn) or two operands (cc, nn)`);
+    return undefined;
+  }
 
   if (head === 'rst' && ops.length === 1) {
     const n = immValue(ops[0]!, env);
@@ -416,13 +482,6 @@ export function encodeInstruction(
   }
   if (head === 'im') {
     diag(diagnostics, node, `im expects one operand`);
-    return undefined;
-  }
-
-  const zeroOperandOpcode = zeroOperandEdOpcode(head);
-  if (zeroOperandOpcode !== undefined) {
-    if (ops.length === 0) return Uint8Array.of(0xed, zeroOperandOpcode);
-    diag(diagnostics, node, `${head} expects no operands`);
     return undefined;
   }
 
@@ -550,6 +609,10 @@ export function encodeInstruction(
       return undefined;
     }
     return Uint8Array.of(opcode, n & 0xff, (n >> 8) & 0xff);
+  }
+  if (head === 'jp') {
+    diag(diagnostics, node, `jp expects one operand (nn/(hl)/(ix)/(iy)) or two operands (cc, nn)`);
+    return undefined;
   }
 
   if (head === 'ld' && ops.length === 2) {
@@ -989,8 +1052,6 @@ export function encodeInstruction(
     return undefined;
   }
 
-  if (head === 'exx' && ops.length === 0) return Uint8Array.of(0xd9);
-
   const encodeAluAOrImm8OrMemHL = (
     rBase: number,
     immOpcode: number,
@@ -1229,6 +1290,12 @@ export function encodeInstruction(
   if (head === 'rrc') {
     const encoded = encodeCbRotateShift(0x08, 'rrc');
     if (encoded) return encoded;
+  }
+
+  const arityMessage = arityDiagnostic(head);
+  if (arityMessage !== undefined) {
+    diag(diagnostics, node, arityMessage);
+    return undefined;
   }
 
   diag(diagnostics, node, `Unsupported instruction: ${node.head}`);
