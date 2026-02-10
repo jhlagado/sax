@@ -1485,6 +1485,16 @@ export function parseModuleFile(
         }
 
         const name = m[1]!;
+        if (TOP_LEVEL_KEYWORDS.has(name.toLowerCase())) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid var declaration name "${name}": collides with a top-level keyword.`,
+            { line: i + 1, column: 1 },
+          );
+          i++;
+          continue;
+        }
         const typeText = m[2]!.trim();
         const declSpan = span(file, so, eo);
         const typeExpr = parseTypeExprFromText(typeText, declSpan, {
@@ -1625,6 +1635,16 @@ export function parseModuleFile(
             }
 
             const localName = m[1]!;
+            if (TOP_LEVEL_KEYWORDS.has(localName.toLowerCase())) {
+              diag(
+                diagnostics,
+                modulePath,
+                `Invalid var declaration name "${localName}": collides with a top-level keyword.`,
+                { line: i + 1, column: 1 },
+              );
+              i++;
+              continue;
+            }
             const typeText = m[2]!.trim();
             const declSpan = span(file, soDecl, eoDecl);
             const typeExpr = parseTypeExprFromText(typeText, declSpan, {
@@ -2229,6 +2249,16 @@ export function parseModuleFile(
         }
 
         const name = m[1]!;
+        if (TOP_LEVEL_KEYWORDS.has(name.toLowerCase())) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid data declaration name "${name}": collides with a top-level keyword.`,
+            { line: i + 1, column: 1 },
+          );
+          i++;
+          continue;
+        }
         const typeText = m[2]!.trim();
         const initText = m[3]!.trim();
 

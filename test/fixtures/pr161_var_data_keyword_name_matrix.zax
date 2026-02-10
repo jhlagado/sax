@@ -1,0 +1,14 @@
+var
+  func: byte
+  data: byte
+
+data
+  op: byte = 1
+  import: byte = 2
+
+func main(): void
+  var
+    func: byte
+  asm
+    ret
+end
