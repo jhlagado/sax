@@ -54,6 +54,10 @@ function reg8Code(name: string): number | undefined {
   }
 }
 
+function isLegacyHLReg8(name: string | undefined): boolean {
+  return name === 'H' || name === 'L';
+}
+
 function indexedReg8(
   op: AsmOperandNode,
 ): { prefix: number; code: number; display: 'IXH' | 'IXL' | 'IYH' | 'IYL' } | undefined {
@@ -558,6 +562,13 @@ export function encodeInstruction(
         diag(diagnostics, node, `ld between IX* and IY* byte registers is not supported`);
         return undefined;
       }
+      if (
+        (indexedDst && !indexedSrc && isLegacyHLReg8(src)) ||
+        (indexedSrc && !indexedDst && isLegacyHLReg8(dst))
+      ) {
+        diag(diagnostics, node, `ld with IX*/IY* does not support legacy H/L counterpart operands`);
+        return undefined;
+      }
       const d = indexedDst ? indexedDst.code : dst ? reg8Code(dst) : undefined;
       const s = indexedSrc ? indexedSrc.code : src ? reg8Code(src) : undefined;
       if (prefix === undefined || d === undefined || s === undefined) {
@@ -929,17 +940,17 @@ export function encodeInstruction(
   }
 
   if (head === 'and') {
-    const encoded = encodeAluAOrImm8OrMemHL(0xa0, 0xe6, 0xa6, 'and');
+    const encoded = encodeAluAOrImm8OrMemHL(0xa0, 0xe6, 0xa6, 'and', true);
     if (encoded) return encoded;
   }
 
   if (head === 'or') {
-    const encoded = encodeAluAOrImm8OrMemHL(0xb0, 0xf6, 0xb6, 'or');
+    const encoded = encodeAluAOrImm8OrMemHL(0xb0, 0xf6, 0xb6, 'or', true);
     if (encoded) return encoded;
   }
 
   if (head === 'xor') {
-    const encoded = encodeAluAOrImm8OrMemHL(0xa8, 0xee, 0xae, 'xor');
+    const encoded = encodeAluAOrImm8OrMemHL(0xa8, 0xee, 0xae, 'xor', true);
     if (encoded) return encoded;
   }
 
