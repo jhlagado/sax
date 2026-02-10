@@ -505,7 +505,7 @@ function parseAsmOperand(
   const t = operandText.trim();
   if (t.length === 0) return undefined;
 
-  if (/^(A|B|C|D|E|H|L|HL|DE|BC|SP|IX|IY|AF|I|R)$/i.test(t)) {
+  if (/^(A|B|C|D|E|H|L|HL|DE|BC|SP|IX|IY|AF|AF'|I|R)$/i.test(t)) {
     return { kind: 'Reg', span: operandSpan, name: t };
   }
 

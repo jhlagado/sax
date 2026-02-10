@@ -184,6 +184,7 @@ export function encodeInstruction(
   if (head === 'scf' && ops.length === 0) return Uint8Array.of(0x37);
   if (head === 'ccf' && ops.length === 0) return Uint8Array.of(0x3f);
   if (head === 'cpl' && ops.length === 0) return Uint8Array.of(0x2f);
+  if (head === 'daa' && ops.length === 0) return Uint8Array.of(0x27);
   if (head === 'ret' && ops.length === 0) return Uint8Array.of(0xc9);
   if (head === 'ret' && ops.length === 1) {
     const cc = conditionName(ops[0]!);
@@ -610,6 +611,7 @@ export function encodeInstruction(
   if (head === 'ex' && ops.length === 2) {
     const a = regName(ops[0]!);
     const b = regName(ops[1]!);
+    if ((a === "AF'" && b === 'AF') || (a === 'AF' && b === "AF'")) return Uint8Array.of(0x08); // ex af,af'
     if ((a === 'DE' && b === 'HL') || (a === 'HL' && b === 'DE')) return Uint8Array.of(0xeb); // ex de,hl
     if (
       (ops[0]!.kind === 'Mem' &&
@@ -647,7 +649,11 @@ export function encodeInstruction(
     ) {
       return Uint8Array.of(0xfd, 0xe3); // ex (sp),iy
     }
-    diag(diagnostics, node, `ex supports "DE, HL", "(SP), HL", "(SP), IX", and "(SP), IY" only`);
+    diag(
+      diagnostics,
+      node,
+      `ex supports "AF, AF'", "DE, HL", "(SP), HL", "(SP), IX", and "(SP), IY" only`,
+    );
     return undefined;
   }
 
