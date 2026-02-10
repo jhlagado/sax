@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #124: ISA coverage tranche 18 (control-flow cc matrix + diagnostics parity).
+- #125: ISA coverage tranche 19 (CB rotate/shift matrix + RST coverage).
 
-Next after #124 merges (anchored as soon as opened):
+Next after #125 merges (anchored as soon as opened):
 
-1. Next PR: ISA coverage tranche 19 (remaining core instruction families + diagnostics parity).
+1. Next PR: ISA coverage tranche 20 (remaining core instruction families + diagnostics parity).
 
 Completed (anchored, most recent first):
 
+1. #124: ISA coverage tranche 18 (control-flow cc matrix + diagnostics parity).
 1. #123: ISA coverage tranche 17 (core ALU-A matrix + imm8 diagnostics).
 1. #122: ISA coverage tranche 16 (CB bit/res/set core coverage + diagnostics parity).
 1. #121: ISA coverage tranche 15 (16-bit core ALU + stack/exchange coverage).
