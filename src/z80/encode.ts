@@ -302,6 +302,15 @@ export function encodeInstruction(
     if (dst === 'A' && src === 'R') return Uint8Array.of(0xed, 0x5f);
   }
 
+  if (head === 'in' && ops.length === 1) {
+    if (ops[0]!.kind === 'PortC') {
+      // in (c) => ED 70
+      return Uint8Array.of(0xed, 0x70);
+    }
+    diag(diagnostics, node, `in (c) is the only one-operand in form`);
+    return undefined;
+  }
+
   if (head === 'in' && ops.length === 2) {
     const dst = regName(ops[0]!);
     const dst8 = dst ? reg8Code(dst) : undefined;
@@ -339,17 +348,29 @@ export function encodeInstruction(
     const src = regName(ops[1]!);
     const src8 = src ? reg8Code(src) : undefined;
 
-    if (src8 === undefined) {
-      diag(diagnostics, node, `out expects a reg8 source`);
-      return undefined;
-    }
-
     if (port.kind === 'PortC') {
+      if (ops[1]!.kind === 'Imm') {
+        const n = evalImmExpr(ops[1]!.expr, env);
+        if (n === 0) {
+          // out (c),0 => ED 71
+          return Uint8Array.of(0xed, 0x71);
+        }
+        diag(diagnostics, node, `out (c), n immediate form supports n=0 only`);
+        return undefined;
+      }
+      if (src8 === undefined) {
+        diag(diagnostics, node, `out expects a reg8 source`);
+        return undefined;
+      }
       // out (c),r => ED 41 + r*8
       return Uint8Array.of(0xed, 0x41 + (src8 << 3));
     }
     if (port.kind === 'PortImm8') {
       // out (n),a => D3 n
+      if (src8 === undefined) {
+        diag(diagnostics, node, `out expects a reg8 source`);
+        return undefined;
+      }
       if (src !== 'A') {
         diag(diagnostics, node, `out (n),a immediate port form requires source A`);
         return undefined;
