@@ -1523,6 +1523,11 @@ export function parseModuleFile(
         }
 
         const fullSpan = span(file, lineOffset, endOffset);
+        const contentStart = withoutComment.indexOf(content);
+        const contentSpan =
+          contentStart >= 0
+            ? span(file, lineOffset + contentStart, lineOffset + withoutComment.length)
+            : fullSpan;
 
         /* label: */
         const labelMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/.exec(content);
@@ -1535,7 +1540,7 @@ export function parseModuleFile(
             const stmtNode = parseAsmStatement(
               modulePath,
               remainder,
-              fullSpan,
+              contentSpan,
               diagnostics,
               asmControlStack,
             );
@@ -1548,7 +1553,7 @@ export function parseModuleFile(
         const stmtNode = parseAsmStatement(
           modulePath,
           content,
-          fullSpan,
+          contentSpan,
           diagnostics,
           asmControlStack,
         );
@@ -1632,6 +1637,11 @@ export function parseModuleFile(
         }
 
         const fullSpan = span(file, so, eo);
+        const contentStart = stripComment(rawLine).indexOf(content);
+        const contentSpan =
+          contentStart >= 0
+            ? span(file, so + contentStart, so + stripComment(rawLine).length)
+            : fullSpan;
         const labelMatch = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$/.exec(content);
         if (labelMatch) {
           const label = labelMatch[1]!;
@@ -1641,7 +1651,7 @@ export function parseModuleFile(
             const stmt = parseAsmStatement(
               modulePath,
               remainder,
-              fullSpan,
+              contentSpan,
               diagnostics,
               controlStack,
             );
@@ -1651,7 +1661,7 @@ export function parseModuleFile(
           continue;
         }
 
-        const stmt = parseAsmStatement(modulePath, content, fullSpan, diagnostics, controlStack);
+        const stmt = parseAsmStatement(modulePath, content, contentSpan, diagnostics, controlStack);
         if (stmt) bodyItems.push(stmt);
         i++;
       }
