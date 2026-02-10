@@ -1,14 +1,14 @@
-func	main(): void
-op	foo(a: reg8)
-extern	func ext(a: byte): void at 0
-import	"mod"
-type	T byte
-union	U x: byte
-var extra
-data extra
-const	A
-enum	E A, B
-section	code
-align	16
-bin	B in data from "blob.bin"
-hex	H from "blob.hex"
+func	
+op	
+extern	
+import	
+type	
+union	
+var	x: byte
+data	x: byte = 1
+const	
+enum	
+section	bad
+align	
+bin	
+hex	

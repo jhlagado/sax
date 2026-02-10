@@ -1084,6 +1084,14 @@ export function parseModuleFile(
     return TOP_LEVEL_KEYWORDS.has(keyword);
   }
 
+  function consumeTopKeyword(input: string, keyword: string): string | undefined {
+    if (!input.startsWith(keyword)) return undefined;
+    const after = input.slice(keyword.length);
+    if (after.length === 0) return '';
+    if (!/^\s/.test(after)) return undefined;
+    return after.trimStart();
+  }
+
   let i = 0;
   while (i < lineCount) {
     const { raw, startOffset: lineStartOffset, endOffset: lineEndOffset } = getRawLine(i);
@@ -1112,8 +1120,9 @@ export function parseModuleFile(
       }
     }
 
-    if (rest.startsWith('import ')) {
-      const spec = rest.slice('import '.length).trim();
+    const importTail = consumeTopKeyword(rest, 'import');
+    if (importTail !== undefined) {
+      const spec = importTail.trim();
       const stmtSpan = span(file, lineStartOffset, lineEndOffset);
       if (spec.startsWith('"') && spec.endsWith('"') && spec.length >= 2) {
         const importNode: ImportNode = {
@@ -1142,8 +1151,9 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('type ')) {
-      const afterType = rest.slice('type '.length).trim();
+    const typeTail = consumeTopKeyword(rest, 'type');
+    if (typeTail !== undefined) {
+      const afterType = typeTail.trim();
       const parts = afterType.split(/\s+/, 2);
       const name = parts[0] ?? '';
       const tail = afterType.slice(name.length).trimStart();
@@ -1265,8 +1275,9 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('union ')) {
-      const name = rest.slice('union '.length).trim();
+    const unionTail = consumeTopKeyword(rest, 'union');
+    if (unionTail !== undefined) {
+      const name = unionTail.trim();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
         diag(diagnostics, modulePath, `Invalid union name`, { line: lineNo, column: 1 });
         i++;
@@ -1422,9 +1433,10 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('func ')) {
+    const funcTail = consumeTopKeyword(rest, 'func');
+    if (funcTail !== undefined) {
       const exported = exportPrefix.length > 0;
-      const header = rest.slice('func '.length).trimStart();
+      const header = funcTail;
       const openParen = header.indexOf('(');
       const closeParen = header.lastIndexOf(')');
       if (openParen < 0 || closeParen < openParen) {
@@ -1666,9 +1678,10 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('op ')) {
+    const opTail = consumeTopKeyword(rest, 'op');
+    if (opTail !== undefined) {
       const exported = exportPrefix.length > 0;
-      const header = rest.slice('op '.length).trimStart();
+      const header = opTail;
       const openParen = header.indexOf('(');
       const closeParen = header.lastIndexOf(')');
       if (openParen < 0 || closeParen < openParen) {
@@ -1779,7 +1792,8 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('extern ')) {
+    const externTail = consumeTopKeyword(rest, 'extern');
+    if (externTail !== undefined) {
       if (exportPrefix.length > 0) {
         diag(diagnostics, modulePath, `export not supported on extern declarations`, {
           line: lineNo,
@@ -1789,7 +1803,7 @@ export function parseModuleFile(
         continue;
       }
 
-      const decl = rest.slice('extern '.length).trimStart();
+      const decl = externTail;
       if (!decl.startsWith('func ')) {
         diag(
           diagnostics,
@@ -1888,8 +1902,9 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('enum ')) {
-      const decl = rest.slice('enum '.length).trimStart();
+    const enumTail = consumeTopKeyword(rest, 'enum');
+    if (enumTail !== undefined) {
+      const decl = enumTail;
       const nameMatch = /^([A-Za-z_][A-Za-z0-9_]*)(?:\s+(.*))?$/.exec(decl);
       if (!nameMatch) {
         diag(diagnostics, modulePath, `Invalid enum declaration`, { line: lineNo, column: 1 });
@@ -1934,7 +1949,8 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest === 'section' || rest.startsWith('section ')) {
+    const sectionTail = consumeTopKeyword(rest, 'section');
+    if (rest === 'section' || sectionTail !== undefined) {
       if (exportPrefix.length > 0) {
         diag(diagnostics, modulePath, `export not supported on section directives`, {
           line: lineNo,
@@ -1944,7 +1960,7 @@ export function parseModuleFile(
         continue;
       }
 
-      const decl = rest === 'section' ? '' : rest.slice('section '.length).trimStart();
+      const decl = rest === 'section' ? '' : (sectionTail ?? '');
       const m = /^(code|data|var)(?:\s+at\s+(.+))?$/.exec(decl);
       if (!m) {
         diag(diagnostics, modulePath, `Invalid section directive`, { line: lineNo, column: 1 });
@@ -1970,7 +1986,8 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest === 'align' || rest.startsWith('align ')) {
+    const alignTail = consumeTopKeyword(rest, 'align');
+    if (rest === 'align' || alignTail !== undefined) {
       if (exportPrefix.length > 0) {
         diag(diagnostics, modulePath, `export not supported on align directives`, {
           line: lineNo,
@@ -1980,7 +1997,7 @@ export function parseModuleFile(
         continue;
       }
 
-      const exprText = rest === 'align' ? '' : rest.slice('align '.length).trimStart();
+      const exprText = rest === 'align' ? '' : (alignTail ?? '');
       if (exprText.length === 0) {
         diag(diagnostics, modulePath, `Invalid align directive`, { line: lineNo, column: 1 });
         i++;
@@ -1998,8 +2015,9 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('const ')) {
-      const decl = rest.slice('const '.length).trimStart();
+    const constTail = consumeTopKeyword(rest, 'const');
+    if (constTail !== undefined) {
+      const decl = constTail;
       const eq = decl.indexOf('=');
       if (eq < 0) {
         diag(diagnostics, modulePath, `Invalid const declaration`, { line: lineNo, column: 1 });
@@ -2034,7 +2052,8 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('bin ')) {
+    const binTail = consumeTopKeyword(rest, 'bin');
+    if (binTail !== undefined) {
       const varTarget = /^bin\s+[A-Za-z_][A-Za-z0-9_]*\s+in\s+var\s+from\s+"[^"]+"$/i.test(rest);
       if (varTarget) {
         diag(diagnostics, modulePath, `bin declarations cannot target section "var"`, {
@@ -2064,8 +2083,9 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.startsWith('hex ')) {
-      const m = /^hex\s+([A-Za-z_][A-Za-z0-9_]*)\s+from\s+"([^"]+)"$/i.exec(rest);
+    const hexTail = consumeTopKeyword(rest, 'hex');
+    if (hexTail !== undefined) {
+      const m = /^([A-Za-z_][A-Za-z0-9_]*)\s+from\s+"([^"]+)"$/i.exec(hexTail);
       if (!m) {
         diag(diagnostics, modulePath, `Invalid hex declaration`, { line: lineNo, column: 1 });
         i++;
