@@ -84,11 +84,57 @@ Legend:
 | `.hex/.bin/.d8dbg.json/.lst` artifact outputs | Implemented          | `test/cli_artifacts.test.ts`, `test/pr39_listing.test.ts`                                                                                                          |
 | determinism                                   | Implemented          | `test/determinism_artifacts.test.ts`                                                                                                                               |
 
-## 8) Known Open Items (next audit tranche)
+## 8) Tranche 2 Normative Mapping (high-risk sections)
 
-1. Full line-by-line mapping of every normative sentence in `docs/zax-spec.md` to:
-   - test evidence, or
-   - explicit rejection diagnostic text.
-2. Parser recovery and diagnostic span consistency audit for malformed nested constructs.
-3. Remaining ISA surface reconciliation against spec examples and Appendix requirements.
-4. Explicit gap list for unsupported `ea` lowering forms and non-encodable operand rewrites.
+This section maps specific normative statements to implementation evidence or explicit diagnostics.
+
+### 8.1 `7.2 ea` forms and lowering constraints
+
+| Normative intent                                                      | Status                 | Evidence / Diagnostic                                                                                                                   |
+| --------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Absolute `ea` symbols lower to abs16 forms where encodable            | Implemented (subset)   | `test/pr43_ld_mem_imm8.test.ts`, `test/pr48_ld_mem_imm16.test.ts`, `test/pr49_ld_mem_imm16_abs_fastpath.test.ts`                        |
+| Indexed forms `(ix+disp)/(iy+disp)` accepted for covered instructions | Implemented (subset)   | `test/isa_indexed_ld.test.ts`, `test/isa_indexed_incdec.test.ts`, `test/isa_indexed_bitops.test.ts`, `test/isa_indexed_rotates.test.ts` |
+| Nested indexed `ea` forms are not currently lowered                   | Intentionally rejected | diagnostic: `Nested indexed addresses are not supported yet.` (see `test/pr12_calls.test.ts`)                                           |
+| Non-constant index components are rejected                            | Intentionally rejected | diagnostic: `Non-constant array indices are not supported yet.`                                                                         |
+
+### 8.2 `8.4/8.5` stack frame and SP safety rules
+
+| Normative intent                                               | Status                 | Evidence / Diagnostic                                                                                                       |
+| -------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Locals use SP-relative slots and synthetic epilogue cleanup    | Implemented            | `test/pr14_frame_epilogue.test.ts`, `test/pr23_lowering_safety.test.ts`                                                     |
+| Terminal `ret` paths avoid dead epilogue jumps                 | Implemented            | `test/pr14_frame_epilogue.test.ts` (`pr14_terminal_ret_no_dead_jump`)                                                       |
+| Fallthrough with locals flows into cleanup epilogue            | Implemented            | `test/pr23_lowering_safety.test.ts` (`pr23_implicit_ret_with_locals`)                                                       |
+| `ret` / `ret cc` with non-zero tracked stack delta is rejected | Intentionally rejected | diagnostic: `ret with non-zero tracked stack delta` (`test/pr23_lowering_safety.test.ts`)                                   |
+| Function fallthrough with non-zero stack delta is rejected     | Intentionally rejected | diagnostic: `Function \"...\" has non-zero stack delta at fallthrough` (`test/pr92_lowering_interactions.test.ts`)          |
+| Untracked SP mutation in op expansion is rejected              | Intentionally rejected | diagnostic: `expansion performs untracked SP mutation; cannot verify net stack delta` (`test/pr23_lowering_safety.test.ts`) |
+
+### 8.3 `10.x` structured control invariants
+
+| Normative intent                                                  | Status                 | Evidence / Diagnostic                                                                                     |
+| ----------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| `if/else`, `while`, `repeat/until`, `select/case` parse and lower | Implemented            | `test/pr15_structured_control.test.ts`                                                                    |
+| Stack depth must match at control-flow joins/back-edges           | Implemented            | diagnostics asserted in `test/pr15_structured_control.test.ts`, `test/pr92_lowering_interactions.test.ts` |
+| Duplicate `case` values are rejected                              | Intentionally rejected | diagnostic includes `Duplicate case value` (`test/pr15_structured_control.test.ts`)                       |
+| `case`/`else`/`until` without matching construct are rejected     | Intentionally rejected | parser diagnostics asserted in `test/pr15_structured_control.test.ts`                                     |
+
+## 9) Rejection Diagnostic Catalog (current stable subset)
+
+These are intentionally unsupported or guarded forms with expected diagnostics:
+
+| Area                     | Form                        | Diagnostic (contains)                               | Evidence                                                                          |
+| ------------------------ | --------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Lowering / EA            | nested indexed EA           | `Nested indexed addresses are not supported yet.`   | `test/pr12_calls.test.ts`                                                         |
+| Lowering / EA            | non-constant array index    | `Non-constant array indices are not supported yet.` | parser/lowering negative coverage                                                 |
+| Lowering / control       | select join mismatch        | `Stack depth mismatch at select join`               | `test/pr15_structured_control.test.ts`, `test/pr92_lowering_interactions.test.ts` |
+| Lowering / control       | while back-edge mismatch    | `Stack depth mismatch at while back-edge`           | `test/pr15_structured_control.test.ts`                                            |
+| Lowering / control       | repeat/until mismatch       | `Stack depth mismatch at repeat/until`              | `test/pr15_structured_control.test.ts`                                            |
+| Lowering / returns       | ret with stack imbalance    | `ret with non-zero tracked stack delta`             | `test/pr23_lowering_safety.test.ts`                                               |
+| Lowering / function exit | fallthrough stack imbalance | `has non-zero stack delta at fallthrough`           | `test/pr92_lowering_interactions.test.ts`                                         |
+| Ops / SP safety          | untracked SP mutation       | `untracked SP mutation`                             | `test/pr23_lowering_safety.test.ts`                                               |
+
+## 10) Remaining Open Items
+
+1. Complete line-by-line mapping for all remaining normative paragraphs outside sections `7.2`, `8.x`, and `10.x`.
+2. Add explicit evidence links for parser span consistency (line/column expectations).
+3. Reconcile remaining ISA paragraphs against tests for uncovered instruction families.
+4. Fold this matrix into CI linting/checklist so roadmap progress is mechanically trackable.

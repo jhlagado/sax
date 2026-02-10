@@ -236,24 +236,24 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #93: Spec audit pass (v0.1 implementation matrix, tranche 1).
+- #94: Spec audit pass tranche 2 (normative mapping + rejection catalog).
 
-Next after #93 merges (anchored as soon as opened):
+Next after #94 merges (anchored as soon as opened):
 
-1. Next PR: Spec audit pass tranche 2 (line-by-line normative mapping + explicit rejection catalog).
+1. Next PR: Spec audit tranche 3 (remaining normative sections + parser span evidence).
 
 Completed (anchored, most recent first):
 
-1. #92: Lowering interaction torture suite (nested control + locals + stack-flow checks).
-2. #91: ISA tranche: encode `adc/sbc HL,rr` (ED forms) + tests.
-3. #90: Listing tranche: ascii gutter and sparse-byte markers.
-4. #89: CLI parity sweep (entry-last enforcement + contract tests).
-5. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
-6. #87: Test: determinism for emitted artifacts.
-7. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
-8. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
-9. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
-10. #83: Docs: assembler pipeline mapping + roadmap anchor sync.
+1. #93: Spec audit pass (v0.1 implementation matrix, tranche 1).
+2. #92: Lowering interaction torture suite (nested control + locals + stack-flow checks).
+3. #91: ISA tranche: encode `adc/sbc HL,rr` (ED forms) + tests.
+4. #90: Listing tranche: ascii gutter and sparse-byte markers.
+5. #89: CLI parity sweep (entry-last enforcement + contract tests).
+6. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
+7. #87: Test: determinism for emitted artifacts.
+8. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
+9. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
+10. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
 11. #77: Parser: diagnose `case` without a value (fixtures + tests).
 12. #76: Parser: diagnose missing control operands (fixtures + tests).
 13. #75: Docs: clarify shared-case `select` syntax.
