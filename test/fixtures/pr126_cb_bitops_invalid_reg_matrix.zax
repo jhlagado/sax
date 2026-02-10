@@ -1,0 +1,6 @@
+export func main(): void
+  asm
+    bit 8, b
+    res -1, c
+    set 9, a
+  end
