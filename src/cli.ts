@@ -269,8 +269,19 @@ function samePath(a: string, b: string): boolean {
   return normalizePathForCompare(a) === normalizePathForCompare(b);
 }
 
-const invokedAs = process.argv[1];
-if (invokedAs && samePath(invokedAs, fileURLToPath(import.meta.url))) {
+function isDirectCliInvocation(invokedAs: string | undefined): boolean {
+  if (!invokedAs) return false;
+  const self = fileURLToPath(import.meta.url);
+  if (samePath(invokedAs, self)) return true;
+
+  const invoked = normalizePathForCompare(invokedAs);
+  const normalizedSelf = normalizePathForCompare(self);
+  // Windows CI can surface different canonical path spellings for the same file.
+  // Fall back to stable suffix matching for the built CLI entry path.
+  return invoked.endsWith('/dist/src/cli.js') && normalizedSelf.endsWith('/dist/src/cli.js');
+}
+
+if (isDirectCliInvocation(process.argv[1])) {
   // eslint-disable-next-line no-void
   void runCli(process.argv.slice(2)).then((code) => process.exit(code));
 }
