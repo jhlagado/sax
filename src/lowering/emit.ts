@@ -1286,6 +1286,14 @@ export function emitProgram(
         else opsByName.set(key, [op]);
       } else if (item.kind === 'ExternDecl') {
         const ex = item as ExternDeclNode;
+        if (ex.base) {
+          diag(
+            diagnostics,
+            ex.span.file,
+            `extern <binName> blocks are not supported in current subset (got "${ex.base}").`,
+          );
+          continue;
+        }
         for (const fn of ex.funcs) {
           const addr = evalImmExpr(fn.at, env, diagnostics);
           if (addr === undefined) continue;
@@ -1420,6 +1428,7 @@ export function emitProgram(
 
       if (item.kind === 'ExternDecl') {
         const ex = item as ExternDeclNode;
+        if (ex.base) continue;
         for (const fn of ex.funcs) {
           if (taken.has(fn.name)) {
             diag(diagnostics, fn.span.file, `Duplicate symbol name "${fn.name}".`);

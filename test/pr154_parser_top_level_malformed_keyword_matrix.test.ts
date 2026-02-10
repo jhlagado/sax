@@ -21,9 +21,7 @@ describe('PR154 parser: top-level malformed keyword matrix', () => {
     const messages = res.diagnostics.map((d) => d.message);
     expect(messages).toContain('Invalid func header');
     expect(messages).toContain('Invalid op header');
-    expect(messages).toContain(
-      'Unsupported extern declaration in current subset (expected "extern func ...")',
-    );
+    expect(messages).toContain('Invalid extern declaration');
     expect(messages).toContain('Invalid import statement');
     expect(messages).toContain('Invalid type name');
     expect(messages).toContain('Invalid union name');

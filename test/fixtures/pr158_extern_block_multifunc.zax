@@ -1,0 +1,11 @@
+extern
+  func puts(ch: byte): void at $1234
+  func puts2(ch: byte): void at $1240
+end
+
+func main(): void
+  asm
+    puts 7
+    puts2 8
+    ret
+end

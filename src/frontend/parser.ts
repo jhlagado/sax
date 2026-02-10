@@ -1095,6 +1095,78 @@ export function parseModuleFile(
     return consumeKeywordPrefix(input, keyword);
   }
 
+  function parseExternFuncFromTail(
+    tail: string,
+    stmtSpan: SourceSpan,
+    lineNo: number,
+  ): ExternFuncNode | undefined {
+    const header = tail;
+    const openParen = header.indexOf('(');
+    const closeParen = header.lastIndexOf(')');
+    if (openParen < 0 || closeParen < openParen) {
+      diag(diagnostics, modulePath, `Invalid extern func declaration`, {
+        line: lineNo,
+        column: 1,
+      });
+      return undefined;
+    }
+
+    const name = header.slice(0, openParen).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+      diag(diagnostics, modulePath, `Invalid extern func name`, { line: lineNo, column: 1 });
+      return undefined;
+    }
+
+    const afterClose = header.slice(closeParen + 1).trimStart();
+    const m = /^:\s*(.+?)\s+at\s+(.+)$/.exec(afterClose);
+    if (!m) {
+      diag(
+        diagnostics,
+        modulePath,
+        `Invalid extern func declaration: expected ": <retType> at <imm16>"`,
+        { line: lineNo, column: 1 },
+      );
+      return undefined;
+    }
+
+    const paramsText = header.slice(openParen + 1, closeParen);
+    const params = parseParamsFromText(modulePath, paramsText, stmtSpan, diagnostics);
+    if (!params) return undefined;
+
+    const retTypeText = m[1]!.trim();
+    const returnType = parseTypeExprFromText(retTypeText, stmtSpan, {
+      allowInferredArrayLength: false,
+    });
+    if (!returnType) {
+      if (
+        diagIfInferredArrayLengthNotAllowed(diagnostics, modulePath, retTypeText, {
+          line: lineNo,
+          column: 1,
+        })
+      ) {
+        return undefined;
+      }
+      diag(diagnostics, modulePath, `Unsupported extern func return type`, {
+        line: lineNo,
+        column: 1,
+      });
+      return undefined;
+    }
+
+    const atText = m[2]!.trim();
+    const at = parseImmExprFromText(modulePath, atText, stmtSpan, diagnostics);
+    if (!at) return undefined;
+
+    return {
+      kind: 'ExternFunc',
+      span: stmtSpan,
+      name,
+      params,
+      returnType,
+      at,
+    };
+  }
+
   let i = 0;
   while (i < lineCount) {
     const { raw, startOffset: lineStartOffset, endOffset: lineEndOffset } = getRawLine(i);
@@ -1821,103 +1893,115 @@ export function parseModuleFile(
         continue;
       }
 
-      const decl = externTail;
-      const externFuncTail = consumeKeywordPrefix(decl, 'func');
-      if (externFuncTail === undefined) {
-        diag(
-          diagnostics,
-          modulePath,
-          `Unsupported extern declaration in current subset (expected "extern func ...")`,
-          { line: lineNo, column: 1 },
-        );
-        i++;
-        continue;
-      }
-
-      const header = externFuncTail;
-      const openParen = header.indexOf('(');
-      const closeParen = header.lastIndexOf(')');
-      if (openParen < 0 || closeParen < openParen) {
-        diag(diagnostics, modulePath, `Invalid extern func declaration`, {
-          line: lineNo,
-          column: 1,
-        });
-        i++;
-        continue;
-      }
-
-      const name = header.slice(0, openParen).trim();
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diag(diagnostics, modulePath, `Invalid extern func name`, { line: lineNo, column: 1 });
-        i++;
-        continue;
-      }
-
-      const afterClose = header.slice(closeParen + 1).trimStart();
-      const m = /^:\s*(.+?)\s+at\s+(.+)$/.exec(afterClose);
-      if (!m) {
-        diag(
-          diagnostics,
-          modulePath,
-          `Invalid extern func declaration: expected ": <retType> at <imm16>"`,
-          { line: lineNo, column: 1 },
-        );
-        i++;
-        continue;
-      }
-
+      const decl = externTail.trim();
       const stmtSpan = span(file, lineStartOffset, lineEndOffset);
-      const paramsText = header.slice(openParen + 1, closeParen);
-      const params = parseParamsFromText(modulePath, paramsText, stmtSpan, diagnostics);
-      if (!params) {
+      const externFuncTail = consumeKeywordPrefix(decl, 'func');
+      if (externFuncTail !== undefined) {
+        const externFunc = parseExternFuncFromTail(externFuncTail, stmtSpan, lineNo);
+        if (externFunc) {
+          const externDecl: ExternDeclNode = {
+            kind: 'ExternDecl',
+            span: stmtSpan,
+            funcs: [externFunc],
+          };
+          items.push(externDecl);
+        }
         i++;
         continue;
       }
 
-      const retTypeText = m[1]!.trim();
-      const returnType = parseTypeExprFromText(retTypeText, stmtSpan, {
-        allowInferredArrayLength: false,
-      });
-      if (!returnType) {
-        if (
-          diagIfInferredArrayLengthNotAllowed(diagnostics, modulePath, retTypeText, {
-            line: lineNo,
-            column: 1,
-          })
-        ) {
+      if (decl.length > 0 && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(decl)) {
+        diag(diagnostics, modulePath, `Invalid extern declaration`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+
+      // Block form:
+      // extern [baseName]
+      //   func ...
+      // end
+      //
+      // To avoid swallowing unrelated malformed top-level declarations, require that
+      // the first non-empty line after `extern` looks like `func ...` or `end`.
+      let preview = i + 1;
+      let previewText: string | undefined;
+      while (preview < lineCount) {
+        const { raw: rawPreview } = getRawLine(preview);
+        const t = stripComment(rawPreview).trim();
+        if (t.length === 0) {
+          preview++;
+          continue;
+        }
+        previewText = t;
+        break;
+      }
+      if (
+        previewText === undefined ||
+        (previewText.toLowerCase() !== 'end' &&
+          consumeKeywordPrefix(previewText, 'func') === undefined)
+      ) {
+        diag(diagnostics, modulePath, `Invalid extern declaration`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+
+      const blockStart = lineStartOffset;
+      const funcs: ExternFuncNode[] = [];
+      const base = decl.length > 0 ? decl : undefined;
+      let terminated = false;
+      let blockEndOffset = file.text.length;
+      i++;
+
+      while (i < lineCount) {
+        const { raw: rawDecl, startOffset: so, endOffset: eo } = getRawLine(i);
+        const t = stripComment(rawDecl).trim();
+        const tLower = t.toLowerCase();
+        if (t.length === 0) {
           i++;
           continue;
         }
-        diag(diagnostics, modulePath, `Unsupported extern func return type`, {
+        if (tLower === 'end') {
+          terminated = true;
+          blockEndOffset = eo;
+          i++;
+          break;
+        }
+
+        const funcTail = consumeKeywordPrefix(t, 'func');
+        if (funcTail === undefined) {
+          diag(diagnostics, modulePath, `Invalid extern func declaration`, {
+            line: i + 1,
+            column: 1,
+          });
+          i++;
+          continue;
+        }
+
+        const fn = parseExternFuncFromTail(funcTail, span(file, so, eo), i + 1);
+        if (fn) funcs.push(fn);
+        i++;
+      }
+
+      if (!terminated) {
+        const namePart = base ? ` "${base}"` : '';
+        diag(diagnostics, modulePath, `Unterminated extern${namePart}: missing "end"`, {
           line: lineNo,
           column: 1,
         });
-        i++;
-        continue;
+      }
+      if (funcs.length === 0) {
+        diag(diagnostics, modulePath, `extern block must contain at least one func declaration`, {
+          line: lineNo,
+          column: 1,
+        });
       }
 
-      const atText = m[2]!.trim();
-      const at = parseImmExprFromText(modulePath, atText, stmtSpan, diagnostics);
-      if (!at) {
-        i++;
-        continue;
-      }
-
-      const externFunc: ExternFuncNode = {
-        kind: 'ExternFunc',
-        span: stmtSpan,
-        name,
-        params,
-        returnType,
-        at,
-      };
-      const externDecl: ExternDeclNode = {
+      items.push({
         kind: 'ExternDecl',
-        span: stmtSpan,
-        funcs: [externFunc],
-      };
-      items.push(externDecl);
-      i++;
+        span: span(file, blockStart, terminated ? blockEndOffset : file.text.length),
+        ...(base ? { base } : {}),
+        funcs,
+      });
       continue;
     }
 
@@ -2234,12 +2318,7 @@ export function parseModuleFile(
       continue;
     }
     if (hasTopKeyword('extern')) {
-      diag(
-        diagnostics,
-        modulePath,
-        `Unsupported extern declaration in current subset (expected "extern func ...")`,
-        { line: lineNo, column: 1 },
-      );
+      diag(diagnostics, modulePath, `Invalid extern declaration`, { line: lineNo, column: 1 });
       i++;
       continue;
     }

@@ -1,0 +1,8 @@
+extern legacy
+  func legacy_putc(ch: byte): void at $0030
+end
+
+func main(): void
+  asm
+    ret
+end
