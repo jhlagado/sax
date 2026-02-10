@@ -236,24 +236,24 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #94: Spec audit pass tranche 2 (normative mapping + rejection catalog).
+- #95: Spec audit tranche 3 (expanded mappings + parser span evidence).
 
-Next after #94 merges (anchored as soon as opened):
+Next after #95 merges (anchored as soon as opened):
 
-1. Next PR: Spec audit tranche 3 (remaining normative sections + parser span evidence).
+1. Next PR: Spec audit tranche 4 (appendix mapping + CI checklist draft).
 
 Completed (anchored, most recent first):
 
-1. #93: Spec audit pass (v0.1 implementation matrix, tranche 1).
-2. #92: Lowering interaction torture suite (nested control + locals + stack-flow checks).
-3. #91: ISA tranche: encode `adc/sbc HL,rr` (ED forms) + tests.
-4. #90: Listing tranche: ascii gutter and sparse-byte markers.
-5. #89: CLI parity sweep (entry-last enforcement + contract tests).
-6. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
-7. #87: Test: determinism for emitted artifacts.
-8. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
-9. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
-10. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
+1. #94: Spec audit tranche 2 (normative mapping + rejection catalog).
+2. #93: Spec audit pass (v0.1 implementation matrix, tranche 1).
+3. #92: Lowering interaction torture suite (nested control + locals + stack-flow checks).
+4. #91: ISA tranche: encode `adc/sbc HL,rr` (ED forms) + tests.
+5. #90: Listing tranche: ascii gutter and sparse-byte markers.
+6. #89: CLI parity sweep (entry-last enforcement + contract tests).
+7. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
+8. #87: Test: determinism for emitted artifacts.
+9. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
+10. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
 11. #77: Parser: diagnose `case` without a value (fixtures + tests).
 12. #76: Parser: diagnose missing control operands (fixtures + tests).
 13. #75: Docs: clarify shared-case `select` syntax.

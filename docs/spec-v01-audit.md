@@ -132,9 +132,50 @@ These are intentionally unsupported or guarded forms with expected diagnostics:
 | Lowering / function exit | fallthrough stack imbalance | `has non-zero stack delta at fallthrough`           | `test/pr92_lowering_interactions.test.ts`                                         |
 | Ops / SP safety          | untracked SP mutation       | `untracked SP mutation`                             | `test/pr23_lowering_safety.test.ts`                                               |
 
-## 10) Remaining Open Items
+## 10) Tranche 3 Mapping Expansion
 
-1. Complete line-by-line mapping for all remaining normative paragraphs outside sections `7.2`, `8.x`, and `10.x`.
-2. Add explicit evidence links for parser span consistency (line/column expectations).
-3. Reconcile remaining ISA paragraphs against tests for uncovered instruction families.
-4. Fold this matrix into CI linting/checklist so roadmap progress is mechanically trackable.
+This tranche extends explicit mapping for additional normative areas and parser span evidence.
+
+### 10.1 Imports, cycles, and search paths (`3.x`)
+
+| Normative intent                                                    | Status                 | Evidence / Diagnostic                                                     |
+| ------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------- |
+| Import graph is resolved deterministically with dependency ordering | Implemented            | `test/pr10_imports.test.ts`                                               |
+| Import cycles are rejected with stable diagnostics                  | Intentionally rejected | diagnostic contains `Import cycle detected` (`test/pr10_imports.test.ts`) |
+| Include search paths are honored in order                           | Implemented            | `test/pr11_include_dirs.test.ts`                                          |
+| Missing import diagnostics include attempted paths                  | Implemented            | `test/pr11_include_dirs.test.ts`                                          |
+
+### 10.2 Data/layout contracts (`2.2`, `5.x`, `6.x`)
+
+| Normative intent                                                | Status                 | Evidence / Diagnostic                                                                       |
+| --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------- |
+| Section/address overlaps are diagnosed without noisy cascades   | Implemented            | `test/pr9_sections_align.test.ts`                                                           |
+| String/data length mismatches are rejected                      | Intentionally rejected | diagnostic: `String length mismatch` (`test/pr4_negative.test.ts`)                          |
+| Unsupported data storage types are rejected with stable message | Intentionally rejected | diagnostic: `Unsupported data type ...` (`test/pr4_negative.test.ts`)                       |
+| Inferred array lengths limited to valid declaration context     | Implemented (subset)   | `test/pr51_data_inferred_array_len.test.ts`, `test/pr54_inferred_array_len_invalid.test.ts` |
+
+### 10.3 ISA/encoding diagnostics (`7.x`, ISA appendices)
+
+| Normative intent                                                  | Status               | Evidence / Diagnostic                                                            |
+| ----------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------- |
+| rel8 range failures produce deterministic diagnostics             | Implemented          | `test/pr24_isa_core.test.ts`, `test/pr37_fixup_negative.test.ts`                 |
+| Unsupported condition or operand forms produce stable diagnostics | Implemented (subset) | `test/pr26_rotate_retcc.test.ts`, `test/pr27_cb_rotates_shifts.test.ts`          |
+| Forward fixups resolve abs16/rel8 conditionals and calls          | Implemented          | `test/pr37_forward_label_fixups.test.ts`, `test/pr86`/`pr85` anchored in roadmap |
+
+## 11) Parser Span Evidence (line/column)
+
+The following tests assert line/column-bearing diagnostics to ensure span stability:
+
+| Evidence                               | What is asserted                                                                      |
+| -------------------------------------- | ------------------------------------------------------------------------------------- |
+| `test/pr12_calls.test.ts`              | Wrong-arity call diagnostics include stable `file`, `line`, `column`                  |
+| `test/semantics_layout.test.ts`        | Type diagnostics are generated from source spans in semantic evaluation               |
+| `test/pr15_structured_control.test.ts` | Parser/lowering diagnostics remain single and stable for malformed control constructs |
+| `test/parser_nested_index.test.ts`     | Invalid nested expression path reports deterministic parse failure without cascades   |
+
+## 12) Remaining Open Items
+
+1. Complete paragraph-level mapping for every remaining normative statement in `docs/zax-spec.md` (including appendices).
+2. Add explicit test cases that assert line/column for additional parser failures (not just selected call/type cases).
+3. Reconcile uncovered ISA families against spec text and add either tests or explicit rejection diagnostics.
+4. Optionally codify this audit as a CI checklist artifact.
