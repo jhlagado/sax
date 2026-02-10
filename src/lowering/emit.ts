@@ -2197,7 +2197,7 @@ export function emitProgram(
             if (asmItem.operands.length === 1) {
               const op = conditionOpcode(asmItem.operands[0]!);
               if (op === undefined) {
-                diagAt(diagnostics, asmItem.span, `Unsupported ret condition.`);
+                diagAt(diagnostics, asmItem.span, `ret cc expects a valid condition code`);
                 return;
               }
               diagIfRetStackImbalanced();

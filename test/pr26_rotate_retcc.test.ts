@@ -26,7 +26,9 @@ describe('PR26 rotate and ret cc tranche', () => {
     const entry = join(__dirname, 'fixtures', 'pr26_retcc_invalid.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
-    expect(res.diagnostics.some((d) => d.message.includes('Unsupported ret condition'))).toBe(true);
+    expect(
+      res.diagnostics.some((d) => d.message.includes('ret cc expects a valid condition code')),
+    ).toBe(true);
   });
 
   it('rewrites ret z/c/m to conditional jumps to epilogue', async () => {
