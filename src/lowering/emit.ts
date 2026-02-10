@@ -968,6 +968,7 @@ export function emitProgram(
 
     // LD (ea), imm (imm8 for byte, imm16 for word/addr)
     if (dst.kind === 'Mem' && src.kind === 'Imm') {
+      if (isIxIyDispMem(dst)) return false; // let the encoder handle (ix/iy+disp), imm8
       if (isEaNameHL(dst.expr)) return false; // let the encoder handle (hl)
       const resolved = resolveEa(dst.expr, inst.span);
       const scalar =
