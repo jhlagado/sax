@@ -2075,6 +2075,35 @@ export function emitProgram(
           }
 
           const head = asmItem.head.toLowerCase();
+          const rel8TargetFromExpr = (
+            expr: ImmExprNode,
+          ): { baseLower: string; addend: number } | undefined => {
+            if (expr.kind === 'ImmName') return { baseLower: expr.name.toLowerCase(), addend: 0 };
+
+            if (expr.kind !== 'ImmBinary') return undefined;
+            if (expr.op !== '+' && expr.op !== '-') return undefined;
+
+            const leftName =
+              expr.left.kind === 'ImmName' ? expr.left.name.toLowerCase() : undefined;
+            const rightName =
+              expr.right.kind === 'ImmName' ? expr.right.name.toLowerCase() : undefined;
+
+            if (leftName) {
+              const right = evalImmExpr(expr.right, env, diagnostics);
+              if (right === undefined) return undefined;
+              const addend = expr.op === '+' ? right : -right;
+              return { baseLower: leftName, addend };
+            }
+
+            if (expr.op === '+' && rightName) {
+              const left = evalImmExpr(expr.left, env, diagnostics);
+              if (left === undefined) return undefined;
+              return { baseLower: rightName, addend: left };
+            }
+
+            return undefined;
+          };
+
           const emitRel8FromOperand = (
             operand: AsmOperandNode,
             opcode: number,
@@ -2084,8 +2113,15 @@ export function emitProgram(
               diagAt(diagnostics, asmItem.span, `${mnemonic} expects an immediate target.`);
               return false;
             }
-            if (operand.expr.kind === 'ImmName') {
-              emitRel8Fixup(opcode, operand.expr.name.toLowerCase(), 0, asmItem.span, mnemonic);
+            const symbolicTarget = rel8TargetFromExpr(operand.expr);
+            if (symbolicTarget) {
+              emitRel8Fixup(
+                opcode,
+                symbolicTarget.baseLower,
+                symbolicTarget.addend,
+                asmItem.span,
+                mnemonic,
+              );
               return true;
             }
             const value = evalImmExpr(operand.expr, env, diagnostics);
