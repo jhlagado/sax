@@ -401,6 +401,10 @@ export function encodeInstruction(
     }
     return Uint8Array.of(0xc7 + n);
   }
+  if (head === 'rst') {
+    diag(diagnostics, node, `rst expects one operand`);
+    return undefined;
+  }
 
   if (head === 'im' && ops.length === 1) {
     const n = immValue(ops[0]!, env);
@@ -408,6 +412,10 @@ export function encodeInstruction(
     if (n === 1) return Uint8Array.of(0xed, 0x56);
     if (n === 2) return Uint8Array.of(0xed, 0x5e);
     diag(diagnostics, node, `im expects 0, 1, or 2`);
+    return undefined;
+  }
+  if (head === 'im') {
+    diag(diagnostics, node, `im expects one operand`);
     return undefined;
   }
 
@@ -467,6 +475,10 @@ export function encodeInstruction(
     diag(diagnostics, node, `in expects a port operand (c) or (imm8)`);
     return undefined;
   }
+  if (head === 'in') {
+    diag(diagnostics, node, `in expects one or two operands`);
+    return undefined;
+  }
 
   if (head === 'out' && ops.length === 2) {
     const port = ops[0]!;
@@ -509,6 +521,10 @@ export function encodeInstruction(
     }
 
     diag(diagnostics, node, `out expects a port operand (c) or (imm8)`);
+    return undefined;
+  }
+  if (head === 'out') {
+    diag(diagnostics, node, `out expects two operands`);
     return undefined;
   }
 
