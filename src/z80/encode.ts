@@ -1,6 +1,6 @@
 import type { Diagnostic } from '../diagnostics/types.js';
 import { DiagnosticIds } from '../diagnostics/types.js';
-import type { AsmInstructionNode, AsmOperandNode } from '../frontend/ast.js';
+import type { AsmInstructionNode, AsmOperandNode, EaExprNode } from '../frontend/ast.js';
 import type { CompileEnv } from '../semantics/env.js';
 import { evalImmExpr } from '../semantics/env.js';
 
@@ -84,6 +84,40 @@ function memIndexed(
   const disp = evalImmExpr(ea.index.value, env);
   if (disp === undefined) return undefined;
   return { prefix, disp };
+}
+
+function memAbs16(op: AsmOperandNode, env: CompileEnv): number | undefined {
+  if (op.kind !== 'Mem') return undefined;
+
+  const evalEaAbs16 = (ea: EaExprNode): number | undefined => {
+    switch (ea.kind) {
+      case 'EaName':
+        return evalImmExpr(
+          {
+            kind: 'ImmName',
+            span: ea.span,
+            name: ea.name,
+          },
+          env,
+        );
+      case 'EaAdd': {
+        const base = evalEaAbs16(ea.base);
+        const delta = evalImmExpr(ea.offset, env);
+        if (base === undefined || delta === undefined) return undefined;
+        return base + delta;
+      }
+      case 'EaSub': {
+        const base = evalEaAbs16(ea.base);
+        const delta = evalImmExpr(ea.offset, env);
+        if (base === undefined || delta === undefined) return undefined;
+        return base - delta;
+      }
+      default:
+        return undefined;
+    }
+  };
+
+  return evalEaAbs16(op.expr);
 }
 
 function conditionName(op: AsmOperandNode): string | undefined {
@@ -485,6 +519,37 @@ export function encodeInstruction(
     // ld r8, r8
     const dst = regName(ops[0]!);
     const src = regName(ops[1]!);
+
+    const srcAbs16 = memAbs16(ops[1]!, env);
+    if (srcAbs16 !== undefined) {
+      if (srcAbs16 < 0 || srcAbs16 > 0xffff) {
+        diag(diagnostics, node, `ld rr, (nn) expects abs16 address`);
+        return undefined;
+      }
+      if (dst === 'A') return Uint8Array.of(0x3a, srcAbs16 & 0xff, (srcAbs16 >> 8) & 0xff);
+      if (dst === 'HL') return Uint8Array.of(0x2a, srcAbs16 & 0xff, (srcAbs16 >> 8) & 0xff);
+      if (dst === 'BC') return Uint8Array.of(0xed, 0x4b, srcAbs16 & 0xff, (srcAbs16 >> 8) & 0xff);
+      if (dst === 'DE') return Uint8Array.of(0xed, 0x5b, srcAbs16 & 0xff, (srcAbs16 >> 8) & 0xff);
+      if (dst === 'SP') return Uint8Array.of(0xed, 0x7b, srcAbs16 & 0xff, (srcAbs16 >> 8) & 0xff);
+      if (dst === 'IX') return Uint8Array.of(0xdd, 0x2a, srcAbs16 & 0xff, (srcAbs16 >> 8) & 0xff);
+      if (dst === 'IY') return Uint8Array.of(0xfd, 0x2a, srcAbs16 & 0xff, (srcAbs16 >> 8) & 0xff);
+    }
+
+    const dstAbs16 = memAbs16(ops[0]!, env);
+    if (dstAbs16 !== undefined) {
+      if (dstAbs16 < 0 || dstAbs16 > 0xffff) {
+        diag(diagnostics, node, `ld (nn), rr expects abs16 address`);
+        return undefined;
+      }
+      if (src === 'A') return Uint8Array.of(0x32, dstAbs16 & 0xff, (dstAbs16 >> 8) & 0xff);
+      if (src === 'HL') return Uint8Array.of(0x22, dstAbs16 & 0xff, (dstAbs16 >> 8) & 0xff);
+      if (src === 'BC') return Uint8Array.of(0xed, 0x43, dstAbs16 & 0xff, (dstAbs16 >> 8) & 0xff);
+      if (src === 'DE') return Uint8Array.of(0xed, 0x53, dstAbs16 & 0xff, (dstAbs16 >> 8) & 0xff);
+      if (src === 'SP') return Uint8Array.of(0xed, 0x73, dstAbs16 & 0xff, (dstAbs16 >> 8) & 0xff);
+      if (src === 'IX') return Uint8Array.of(0xdd, 0x22, dstAbs16 & 0xff, (dstAbs16 >> 8) & 0xff);
+      if (src === 'IY') return Uint8Array.of(0xfd, 0x22, dstAbs16 & 0xff, (dstAbs16 >> 8) & 0xff);
+    }
+
     if (dst && src) {
       const d = reg8Code(dst);
       const s = reg8Code(src);
