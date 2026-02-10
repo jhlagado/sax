@@ -25,12 +25,12 @@ describe('PR144: ED/CB diagnostics parity matrix', () => {
     expect(messages).toContain('sbc HL, rr expects BC/DE/HL/SP');
     expect(messages).toContain('bit expects bit index 0..7');
     expect(messages).toContain('res b,(ix/iy+disp),r requires an indexed memory source');
-    expect(messages).toContain('set b,(ix/iy+disp),r requires an indexed memory source');
+    expect(messages).toContain('set (ix/iy+disp) expects disp8');
     expect(messages).toContain('rl two-operand form requires (ix/iy+disp) source');
-    expect(messages).toContain('rr two-operand form requires (ix/iy+disp) source');
-    expect(messages).toContain('sla two-operand form requires (ix/iy+disp) source');
-    expect(messages).toContain('sra two-operand form requires (ix/iy+disp) source');
-    expect(messages).toContain('rrc two-operand form requires (ix/iy+disp) source');
+    expect(messages).toContain('rr (ix/iy+disp) expects disp8');
+    expect(messages).toContain('sla (ix/iy+disp),r expects reg8 destination');
+    expect(messages).toContain('sra (ix/iy+disp),r expects reg8 destination');
+    expect(messages).toContain('rrc (ix/iy+disp) expects disp8');
     expect(messages.some((m) => m.startsWith('Unsupported instruction:'))).toBe(false);
   });
 });

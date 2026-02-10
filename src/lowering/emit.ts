@@ -877,12 +877,14 @@ export function emitProgram(
       ea.kind === 'EaName' && ea.name.toUpperCase() === 'HL';
     const isEaNameBCorDE = (ea: EaExprNode): boolean =>
       ea.kind === 'EaName' && (ea.name.toUpperCase() === 'BC' || ea.name.toUpperCase() === 'DE');
+    const isIxIyBaseEa = (ea: EaExprNode): boolean =>
+      ea.kind === 'EaName' && (ea.name.toUpperCase() === 'IX' || ea.name.toUpperCase() === 'IY');
     const isIxIyDispMem = (op: AsmOperandNode): boolean =>
       op.kind === 'Mem' &&
-      op.expr.kind === 'EaIndex' &&
-      op.expr.base.kind === 'EaName' &&
-      (op.expr.base.name.toUpperCase() === 'IX' || op.expr.base.name.toUpperCase() === 'IY') &&
-      op.expr.index.kind === 'IndexImm';
+      ((op.expr.kind === 'EaIndex' &&
+        isIxIyBaseEa(op.expr.base) &&
+        op.expr.index.kind === 'IndexImm') ||
+        ((op.expr.kind === 'EaAdd' || op.expr.kind === 'EaSub') && isIxIyBaseEa(op.expr.base)));
 
     // LD r8, (ea)
     if (dst.kind === 'Reg' && src.kind === 'Mem') {

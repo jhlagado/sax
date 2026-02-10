@@ -29,23 +29,28 @@ describe('PR150: ED/CB diagnostics hardening matrix', () => {
     expect(messages).toContain('sbc HL, rr expects BC/DE/HL/SP');
     expect(messages).toContain('bit expects two operands');
     expect(messages).toContain('bit expects bit index 0..7');
+    expect(messages).toContain('bit (ix/iy+disp) expects disp8');
     expect(messages).toContain(
       'res expects two operands, or three with indexed source + reg8 destination',
     );
     expect(messages).toContain('res b,(ix/iy+disp),r requires an indexed memory source');
+    expect(messages).toContain('res (ix/iy+disp) expects disp8');
     expect(messages).toContain(
       'set expects two operands, or three with indexed source + reg8 destination',
     );
     expect(messages).toContain('set b,(ix/iy+disp),r requires an indexed memory source');
+    expect(messages).toContain('set (ix/iy+disp) expects disp8');
     expect(messages).toContain(
       'rl expects one operand, or two with indexed source + reg8 destination',
     );
     expect(messages).toContain('rl two-operand form requires (ix/iy+disp) source');
     expect(messages).toContain('rr two-operand form requires (ix/iy+disp) source');
+    expect(messages).toContain('rlc (ix/iy+disp) expects disp8');
     expect(messages).toContain(
       'sll expects one operand, or two with indexed source + reg8 destination',
     );
     expect(messages).toContain('sll two-operand form requires (ix/iy+disp) source');
+    expect(messages).toContain('sra (ix/iy+disp) expects disp8');
     expect(messages.some((m) => m.startsWith('Unsupported instruction:'))).toBe(false);
   });
 });
