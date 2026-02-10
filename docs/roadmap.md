@@ -236,27 +236,26 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #89: CLI parity sweep (entry-last enforcement + contract tests).
+- #90: `.lst` improvement tranche (ascii gutter + sparse-byte markers).
 
-Next after #89 merges (anchored as soon as opened):
+Next after #90 merges (anchored as soon as opened):
 
-1. Next PR: `.lst` improvement tranche (still deterministic, but closer to assembler listings; keep scope tight).
-2. Next PR: ISA coverage tranche driven by examples (add missing encodings + negative tests).
-3. Next PR: Lowering interaction torture suite (nested control + calls + locals + ops + SP tracking).
-4. Next PR: Spec audit pass (map each v0.1 rule to a test or a stable rejection diagnostic).
+1. Next PR: ISA coverage tranche driven by examples (add missing encodings + negative tests).
+2. Next PR: Lowering interaction torture suite (nested control + calls + locals + ops + SP tracking).
+3. Next PR: Spec audit pass (map each v0.1 rule to a test or a stable rejection diagnostic).
 
 Completed (anchored, most recent first):
 
-1. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
-2. #87: Test: determinism for emitted artifacts.
-3. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
-4. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
-5. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
-6. #83: Docs: assembler pipeline mapping + roadmap anchor sync.
-7. #82: Lowering: avoid dead epilogue jump; docs: terminal `ret` optional (tests).
-8. #81: Parser: avoid cascades for invalid `case` values (fixtures + tests).
-9. #80: Parser: avoid cascades for invalid `select` selector (fixtures + tests).
-10. #79: Parser: avoid cascades for invalid control syntax (fixtures + tests).
+1. #89: CLI parity sweep (entry-last enforcement + contract tests).
+2. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
+3. #87: Test: determinism for emitted artifacts.
+4. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
+5. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
+6. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
+7. #83: Docs: assembler pipeline mapping + roadmap anchor sync.
+8. #82: Lowering: avoid dead epilogue jump; docs: terminal `ret` optional (tests).
+9. #81: Parser: avoid cascades for invalid `case` values (fixtures + tests).
+10. #80: Parser: avoid cascades for invalid `select` selector (fixtures + tests).
 11. #77: Parser: diagnose `case` without a value (fixtures + tests).
 12. #76: Parser: diagnose missing control operands (fixtures + tests).
 13. #75: Docs: clarify shared-case `select` syntax.

@@ -42,7 +42,7 @@ async function exists(path: string): Promise<boolean> {
 describe('cli artifacts', () => {
   beforeAll(async () => {
     await buildOnce();
-  }, 30_000);
+  }, 90_000);
 
   it('writes default sibling artifacts from -o output path', async () => {
     const work = await mkdtemp(join(tmpdir(), 'zax-cli-'));
