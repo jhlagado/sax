@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #122: ISA coverage tranche 16 (CB bit/res/set core coverage + diagnostics parity).
+- #123: ISA coverage tranche 17 (core ALU-A matrix + imm8 diagnostics).
 
-Next after #122 merges (anchored as soon as opened):
+Next after #123 merges (anchored as soon as opened):
 
-1. Next PR: ISA coverage tranche 17 (remaining core instruction families + diagnostics parity).
+1. Next PR: ISA coverage tranche 18 (remaining core instruction families + diagnostics parity).
 
 Completed (anchored, most recent first):
 
+1. #122: ISA coverage tranche 16 (CB bit/res/set core coverage + diagnostics parity).
 1. #121: ISA coverage tranche 15 (16-bit core ALU + stack/exchange coverage).
 1. #120: ISA coverage tranche 14 (core r8/abs16 load matrix + stack/misc op coverage).
 1. #119: D8M path normalization + symbol file list (project-relative, forward-slash, stable ordering).
