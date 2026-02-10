@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #133: CLI/output gate tranche 1 (`--nohex` support + contract tests).
+- #134: ISA coverage tranche 27 (abs16 symbolic addend lowering + matrix hardening).
 
-Next after #133 merges (anchored as soon as opened):
+Next after #134 merges (anchored as soon as opened):
 
-1. Next PR: ISA coverage tranche 27 (remaining ED/CB edge-form diagnostics parity + additional negative fixture hardening).
+1. Next PR: ISA coverage tranche 28 (remaining ED/CB edge-form diagnostics parity + additional negative fixture hardening).
 
 Completed (anchored, most recent first):
 
