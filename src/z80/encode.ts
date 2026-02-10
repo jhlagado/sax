@@ -171,6 +171,21 @@ function jpConditionOpcode(name: string): number | undefined {
   }
 }
 
+function jrConditionOpcode(name: string): number | undefined {
+  switch (name) {
+    case 'NZ':
+      return 0x20;
+    case 'Z':
+      return 0x28;
+    case 'NC':
+      return 0x30;
+    case 'C':
+      return 0x38;
+    default:
+      return undefined;
+  }
+}
+
 function callConditionOpcode(name: string): number | undefined {
   switch (name) {
     case 'NZ':
@@ -307,6 +322,15 @@ function arityDiagnostic(head: string): string | undefined {
     case 'ld':
     case 'ex':
       return `${head} expects two operands`;
+    case 'sub':
+    case 'cp':
+    case 'and':
+    case 'or':
+    case 'xor':
+      return `${head} expects one operand, or two with destination A`;
+    case 'adc':
+    case 'sbc':
+      return `${head} expects one operand, two with destination A, or HL,rr form`;
     case 'inc':
     case 'dec':
     case 'push':
@@ -456,6 +480,19 @@ export function encodeInstruction(
   }
   if (head === 'call') {
     diag(diagnostics, node, `call expects one operand (nn) or two operands (cc, nn)`);
+    return undefined;
+  }
+
+  if (head === 'djnz' && ops.length === 1) {
+    const n = immValue(ops[0]!, env);
+    if (n === undefined || n < -128 || n > 127) {
+      diag(diagnostics, node, `djnz expects disp8`);
+      return undefined;
+    }
+    return Uint8Array.of(0x10, n & 0xff);
+  }
+  if (head === 'djnz') {
+    diag(diagnostics, node, `djnz expects one operand (disp8)`);
     return undefined;
   }
 
@@ -612,6 +649,29 @@ export function encodeInstruction(
   }
   if (head === 'jp') {
     diag(diagnostics, node, `jp expects one operand (nn/(hl)/(ix)/(iy)) or two operands (cc, nn)`);
+    return undefined;
+  }
+
+  if (head === 'jr' && ops.length === 1) {
+    const n = immValue(ops[0]!, env);
+    if (n === undefined || n < -128 || n > 127) {
+      diag(diagnostics, node, `jr expects disp8`);
+      return undefined;
+    }
+    return Uint8Array.of(0x18, n & 0xff);
+  }
+  if (head === 'jr' && ops.length === 2) {
+    const cc = conditionName(ops[0]!);
+    const opcode = cc ? jrConditionOpcode(cc) : undefined;
+    const n = immValue(ops[1]!, env);
+    if (opcode === undefined || n === undefined || n < -128 || n > 127) {
+      diag(diagnostics, node, `jr cc, disp expects NZ/Z/NC/C + disp8`);
+      return undefined;
+    }
+    return Uint8Array.of(opcode, n & 0xff);
+  }
+  if (head === 'jr') {
+    diag(diagnostics, node, `jr expects one operand (disp8) or two operands (cc, disp8)`);
     return undefined;
   }
 
