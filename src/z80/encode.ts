@@ -454,6 +454,14 @@ export function encodeInstruction(
         const op = r === 'BC' ? 0x01 : r === 'DE' ? 0x11 : r === 'HL' ? 0x21 : 0x31;
         return Uint8Array.of(op, n & 0xff, (n >> 8) & 0xff);
       }
+      if (r === 'IX' || r === 'IY') {
+        if (n < 0 || n > 0xffff) {
+          diag(diagnostics, node, `ld ${r}, nn expects imm16`);
+          return undefined;
+        }
+        const prefix = r === 'IX' ? 0xdd : 0xfd;
+        return Uint8Array.of(prefix, 0x21, n & 0xff, (n >> 8) & 0xff);
+      }
     }
 
     // ld r8, r8
@@ -528,7 +536,6 @@ export function encodeInstruction(
       }
       return Uint8Array.of(0x36, n & 0xff);
     }
-
     // ld sp, hl/ix/iy
     if (r === 'SP' && src) {
       if (src === 'HL') return Uint8Array.of(0xf9);
