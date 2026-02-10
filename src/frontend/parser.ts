@@ -1061,6 +1061,14 @@ export function parseModuleFile(
 
   const items: ModuleItemNode[] = [];
 
+  function consumeKeywordPrefix(input: string, keyword: string): string | undefined {
+    if (!input.startsWith(keyword)) return undefined;
+    const after = input.slice(keyword.length);
+    if (after.length === 0) return '';
+    if (!/^\s/.test(after)) return undefined;
+    return after.trimStart();
+  }
+
   const TOP_LEVEL_KEYWORDS = new Set([
     'func',
     'const',
@@ -1079,7 +1087,8 @@ export function parseModuleFile(
   ]);
 
   function isTopLevelStart(t: string): boolean {
-    const w = t.startsWith('export ') ? t.slice('export '.length).trimStart() : t;
+    const exportTail = consumeKeywordPrefix(t, 'export');
+    const w = exportTail !== undefined ? exportTail : t;
     const keyword = w.split(/\s/, 1)[0] ?? '';
     return TOP_LEVEL_KEYWORDS.has(keyword);
   }
@@ -1102,16 +1111,25 @@ export function parseModuleFile(
       continue;
     }
 
-    const exportPrefix = text.startsWith('export ') ? 'export ' : '';
-    const rest = exportPrefix ? text.slice('export '.length).trimStart() : text;
+    const exportTail = consumeKeywordPrefix(text, 'export');
+    const hasExportPrefix = exportTail !== undefined;
+    const rest = hasExportPrefix ? exportTail : text;
+
+    if (hasExportPrefix && rest.length === 0) {
+      diag(diagnostics, modulePath, `Invalid export statement`, { line: lineNo, column: 1 });
+      i++;
+      continue;
+    }
     const hasTopKeyword = (kw: string): boolean => new RegExp(`^${kw}\\b`, 'i').test(rest);
 
     // In v0.1, `export` is accepted only on `const`, `func`, and `op` declarations.
     // It has no semantic effect today, but we still reject it on all other constructs
     // to keep the surface area explicit and future-proof.
-    if (exportPrefix.length > 0) {
+    if (hasExportPrefix) {
       const allowed =
-        rest.startsWith('const ') || rest.startsWith('func ') || rest.startsWith('op ');
+        consumeKeywordPrefix(rest, 'const') !== undefined ||
+        consumeKeywordPrefix(rest, 'func') !== undefined ||
+        consumeKeywordPrefix(rest, 'op') !== undefined;
       if (!allowed) {
         diag(diagnostics, modulePath, `export is only permitted on const/func/op declarations`, {
           line: lineNo,
@@ -1435,7 +1453,7 @@ export function parseModuleFile(
 
     const funcTail = consumeTopKeyword(rest, 'func');
     if (funcTail !== undefined) {
-      const exported = exportPrefix.length > 0;
+      const exported = hasExportPrefix;
       const header = funcTail;
       const openParen = header.indexOf('(');
       const closeParen = header.lastIndexOf(')');
@@ -1680,7 +1698,7 @@ export function parseModuleFile(
 
     const opTail = consumeTopKeyword(rest, 'op');
     if (opTail !== undefined) {
-      const exported = exportPrefix.length > 0;
+      const exported = hasExportPrefix;
       const header = opTail;
       const openParen = header.indexOf('(');
       const closeParen = header.lastIndexOf(')');
@@ -1794,7 +1812,7 @@ export function parseModuleFile(
 
     const externTail = consumeTopKeyword(rest, 'extern');
     if (externTail !== undefined) {
-      if (exportPrefix.length > 0) {
+      if (hasExportPrefix) {
         diag(diagnostics, modulePath, `export not supported on extern declarations`, {
           line: lineNo,
           column: 1,
@@ -1951,7 +1969,7 @@ export function parseModuleFile(
 
     const sectionTail = consumeTopKeyword(rest, 'section');
     if (rest === 'section' || sectionTail !== undefined) {
-      if (exportPrefix.length > 0) {
+      if (hasExportPrefix) {
         diag(diagnostics, modulePath, `export not supported on section directives`, {
           line: lineNo,
           column: 1,
@@ -1988,7 +2006,7 @@ export function parseModuleFile(
 
     const alignTail = consumeTopKeyword(rest, 'align');
     if (rest === 'align' || alignTail !== undefined) {
-      if (exportPrefix.length > 0) {
+      if (hasExportPrefix) {
         diag(diagnostics, modulePath, `export not supported on align directives`, {
           line: lineNo,
           column: 1,
@@ -2044,7 +2062,7 @@ export function parseModuleFile(
         kind: 'ConstDecl',
         span: exprSpan,
         name,
-        exported: exportPrefix.length > 0,
+        exported: hasExportPrefix,
         value: expr,
       };
       items.push(constNode);
