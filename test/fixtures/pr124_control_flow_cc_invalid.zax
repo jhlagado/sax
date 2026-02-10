@@ -1,0 +1,5 @@
+export func main(): void
+  asm
+    jp xx, $1234
+    call yy, $2345
+  end
