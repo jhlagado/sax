@@ -90,4 +90,34 @@ describe('PR97 parser spans for structured-control diagnostics', () => {
     expect(res.diagnostics[0]?.line).toBe(3);
     expect(res.diagnostics[0]?.column).toBe(5);
   });
+
+  it('reports line/column for case without value', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_case_missing_value.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('"case" expects a value');
+    expect(res.diagnostics[0]?.line).toBe(4);
+    expect(res.diagnostics[0]?.column).toBe(7);
+  });
+
+  it('reports line/column for invalid case value (comma)', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_case_invalid_value_comma.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('Invalid case value');
+    expect(res.diagnostics[0]?.line).toBe(4);
+    expect(res.diagnostics[0]?.column).toBe(7);
+  });
+
+  it('reports line/column for invalid case value list', async () => {
+    const entry = join(__dirname, 'fixtures', 'parser_case_invalid_value_list.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics).toHaveLength(1);
+    expect(res.diagnostics[0]?.message).toBe('Invalid case value');
+    expect(res.diagnostics[0]?.line).toBe(4);
+    expect(res.diagnostics[0]?.column).toBe(7);
+  });
 });
