@@ -337,6 +337,7 @@ function arityDiagnostic(head: string): string | undefined {
     case 'pop':
       return `${head} expects one operand`;
     case 'bit':
+      return `${head} expects two operands`;
     case 'res':
     case 'set':
       return `${head} expects two operands, or three with indexed source + reg8 destination`;

@@ -21,9 +21,7 @@ describe('PR133: broad arity diagnostics matrix', () => {
     expect(messages).toContain('push expects one operand');
     expect(messages).toContain('pop expects one operand');
     expect(messages).toContain('ex expects two operands');
-    expect(messages).toContain(
-      'bit expects two operands, or three with indexed source + reg8 destination',
-    );
+    expect(messages).toContain('bit expects two operands');
     expect(messages).toContain(
       'res expects two operands, or three with indexed source + reg8 destination',
     );
