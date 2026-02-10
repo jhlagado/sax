@@ -236,26 +236,25 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #90: `.lst` improvement tranche (ascii gutter + sparse-byte markers).
+- #91: ISA coverage tranche (`adc/sbc HL,rr` ED forms + tests).
 
-Next after #90 merges (anchored as soon as opened):
+Next after #91 merges (anchored as soon as opened):
 
-1. Next PR: ISA coverage tranche driven by examples (add missing encodings + negative tests).
-2. Next PR: Lowering interaction torture suite (nested control + calls + locals + ops + SP tracking).
-3. Next PR: Spec audit pass (map each v0.1 rule to a test or a stable rejection diagnostic).
+1. Next PR: Lowering interaction torture suite (nested control + calls + locals + ops + SP tracking).
+2. Next PR: Spec audit pass (map each v0.1 rule to a test or a stable rejection diagnostic).
 
 Completed (anchored, most recent first):
 
-1. #89: CLI parity sweep (entry-last enforcement + contract tests).
-2. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
-3. #87: Test: determinism for emitted artifacts.
-4. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
-5. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
-6. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
-7. #83: Docs: assembler pipeline mapping + roadmap anchor sync.
-8. #82: Lowering: avoid dead epilogue jump; docs: terminal `ret` optional (tests).
-9. #81: Parser: avoid cascades for invalid `case` values (fixtures + tests).
-10. #80: Parser: avoid cascades for invalid `select` selector (fixtures + tests).
+1. #90: Listing tranche: ascii gutter and sparse-byte markers.
+2. #89: CLI parity sweep (entry-last enforcement + contract tests).
+3. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
+4. #87: Test: determinism for emitted artifacts.
+5. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
+6. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
+7. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
+8. #83: Docs: assembler pipeline mapping + roadmap anchor sync.
+9. #82: Lowering: avoid dead epilogue jump; docs: terminal `ret` optional (tests).
+10. #81: Parser: avoid cascades for invalid `case` values (fixtures + tests).
 11. #77: Parser: diagnose `case` without a value (fixtures + tests).
 12. #76: Parser: diagnose missing control operands (fixtures + tests).
 13. #75: Docs: clarify shared-case `select` syntax.
