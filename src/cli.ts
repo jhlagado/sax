@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import { mkdir, writeFile } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, extname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { compile } from './compile.js';
 import { defaultFormatWriters } from './formats/index.js';
@@ -244,8 +245,20 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 }
 
+function normalizePath(path: string): string {
+  const resolved = resolve(path);
+  const real = (() => {
+    try {
+      return realpathSync.native(resolved);
+    } catch {
+      return resolved;
+    }
+  })();
+  return process.platform === 'win32' ? real.toLowerCase() : real;
+}
+
 const invokedAs = process.argv[1];
-if (invokedAs && import.meta.url === pathToFileURL(invokedAs).href) {
+if (invokedAs && normalizePath(invokedAs) === normalizePath(fileURLToPath(import.meta.url))) {
   // eslint-disable-next-line no-void
   void runCli(process.argv.slice(2)).then((code) => process.exit(code));
 }
