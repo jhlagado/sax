@@ -867,8 +867,12 @@ export function encodeInstruction(
     if (encoded) return encoded;
   }
 
-  const encodeBitLike = (base: number, mnemonic: string): Uint8Array | undefined => {
-    if (ops.length !== 2) return undefined;
+  const encodeBitLike = (
+    base: number,
+    mnemonic: string,
+    allowIndexedDestination = false,
+  ): Uint8Array | undefined => {
+    if (ops.length !== 2 && !(allowIndexedDestination && ops.length === 3)) return undefined;
     const bit = immValue(ops[0]!, env);
     if (bit === undefined || bit < 0 || bit > 7) {
       diag(diagnostics, node, `${mnemonic} expects bit index 0..7`);
@@ -882,8 +886,21 @@ export function encodeInstruction(
         diag(diagnostics, node, `${mnemonic} (ix/iy+disp) expects disp8`);
         return undefined;
       }
+      if (ops.length === 3) {
+        const dstReg = regName(ops[2]!);
+        const dstCode = dstReg ? reg8Code(dstReg) : undefined;
+        if (dstCode === undefined) {
+          diag(diagnostics, node, `${mnemonic} b,(ix/iy+disp),r expects reg8 destination`);
+          return undefined;
+        }
+        return Uint8Array.of(idx.prefix, 0xcb, disp & 0xff, base + (bit << 3) + dstCode);
+      }
       // DD/FD CB disp <op> (where <op> matches the (HL) encoding)
       return Uint8Array.of(idx.prefix, 0xcb, disp & 0xff, base + (bit << 3) + 0x06);
+    }
+    if (ops.length === 3) {
+      diag(diagnostics, node, `${mnemonic} b,(ix/iy+disp),r requires an indexed memory source`);
+      return undefined;
     }
     if (isMemHL(src)) {
       return Uint8Array.of(0xcb, base + (bit << 3) + 0x06);
@@ -902,16 +919,16 @@ export function encodeInstruction(
     if (encoded) return encoded;
   }
   if (head === 'res') {
-    const encoded = encodeBitLike(0x80, 'res');
+    const encoded = encodeBitLike(0x80, 'res', true);
     if (encoded) return encoded;
   }
   if (head === 'set') {
-    const encoded = encodeBitLike(0xc0, 'set');
+    const encoded = encodeBitLike(0xc0, 'set', true);
     if (encoded) return encoded;
   }
 
   const encodeCbRotateShift = (base: number, mnemonic: string): Uint8Array | undefined => {
-    if (ops.length !== 1) return undefined;
+    if (ops.length !== 1 && ops.length !== 2) return undefined;
     const operand = ops[0]!;
     const idx = memIndexed(operand, env);
     if (idx) {
@@ -920,8 +937,22 @@ export function encodeInstruction(
         diag(diagnostics, node, `${mnemonic} (ix/iy+disp) expects disp8`);
         return undefined;
       }
-      // DD/FD CB disp <op> (where <op> matches the (HL) encoding)
-      return Uint8Array.of(idx.prefix, 0xcb, disp & 0xff, base + 0x06);
+      if (ops.length === 1) {
+        // DD/FD CB disp <op> (where <op> matches the (HL) encoding)
+        return Uint8Array.of(idx.prefix, 0xcb, disp & 0xff, base + 0x06);
+      }
+      const dstReg = regName(ops[1]!);
+      const dstCode = dstReg ? reg8Code(dstReg) : undefined;
+      if (dstCode === undefined) {
+        diag(diagnostics, node, `${mnemonic} (ix/iy+disp),r expects reg8 destination`);
+        return undefined;
+      }
+      // DD/FD CB disp <op+r>
+      return Uint8Array.of(idx.prefix, 0xcb, disp & 0xff, base + dstCode);
+    }
+    if (ops.length === 2) {
+      diag(diagnostics, node, `${mnemonic} two-operand form requires (ix/iy+disp) source`);
+      return undefined;
     }
     if (isMemHL(operand)) return Uint8Array.of(0xcb, base + 0x06);
     const reg = regName(operand);
