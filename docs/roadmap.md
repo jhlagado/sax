@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- (none)
+- #96: Spec audit tranche 4 (appendix mapping + CI checklist draft).
 
-Next after #95 merges (anchored as soon as opened):
+Next after #96 merges (anchored as soon as opened):
 
-1. Next PR: Spec audit tranche 4 (appendix mapping + CI checklist draft).
+1. Next PR: Parser/AST closure pass (tighten edge cases, remove core TODOs, expand negative fixtures).
 
 Completed (anchored, most recent first):
 
