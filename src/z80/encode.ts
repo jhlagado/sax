@@ -227,6 +227,26 @@ export function encodeInstruction(
       diag(diagnostics, node, `add HL, rr expects BC/DE/HL/SP`);
       return undefined;
     }
+
+    if ((dst === 'IX' || dst === 'IY') && src) {
+      const prefix = dst === 'IX' ? 0xdd : 0xfd;
+      switch (src) {
+        case 'BC':
+          return Uint8Array.of(prefix, 0x09);
+        case 'DE':
+          return Uint8Array.of(prefix, 0x19);
+        case 'SP':
+          return Uint8Array.of(prefix, 0x39);
+        case 'IX':
+          if (dst === 'IX') return Uint8Array.of(0xdd, 0x29);
+          break;
+        case 'IY':
+          if (dst === 'IY') return Uint8Array.of(0xfd, 0x29);
+          break;
+      }
+      diag(diagnostics, node, `add ${dst}, rr supports BC/DE/SP and same-index pair only`);
+      return undefined;
+    }
   }
 
   if (head === 'call' && ops.length === 1) {
@@ -509,9 +529,11 @@ export function encodeInstruction(
       return Uint8Array.of(0x36, n & 0xff);
     }
 
-    // ld sp, hl
-    if (r === 'SP' && src === 'HL') {
-      return Uint8Array.of(0xf9);
+    // ld sp, hl/ix/iy
+    if (r === 'SP' && src) {
+      if (src === 'HL') return Uint8Array.of(0xf9);
+      if (src === 'IX') return Uint8Array.of(0xdd, 0xf9);
+      if (src === 'IY') return Uint8Array.of(0xfd, 0xf9);
     }
   }
 
@@ -533,6 +555,10 @@ export function encodeInstruction(
           return Uint8Array.of(0x23);
         case 'SP':
           return Uint8Array.of(0x33);
+        case 'IX':
+          return Uint8Array.of(0xdd, 0x23);
+        case 'IY':
+          return Uint8Array.of(0xfd, 0x23);
       }
     }
     // inc (hl)
@@ -569,6 +595,10 @@ export function encodeInstruction(
           return Uint8Array.of(0x2b);
         case 'SP':
           return Uint8Array.of(0x3b);
+        case 'IX':
+          return Uint8Array.of(0xdd, 0x2b);
+        case 'IY':
+          return Uint8Array.of(0xfd, 0x2b);
       }
     }
     // dec (hl)
@@ -588,7 +618,7 @@ export function encodeInstruction(
   }
 
   if (head === 'push' && ops.length === 1) {
-    const r16 = reg16Name(ops[0]!);
+    const r16 = regName(ops[0]!);
     if (!r16) {
       diag(diagnostics, node, `push expects reg16`);
       return undefined;
@@ -602,14 +632,18 @@ export function encodeInstruction(
         return Uint8Array.of(0xe5);
       case 'AF':
         return Uint8Array.of(0xf5);
+      case 'IX':
+        return Uint8Array.of(0xdd, 0xe5);
+      case 'IY':
+        return Uint8Array.of(0xfd, 0xe5);
       default:
-        diag(diagnostics, node, `push supports BC/DE/HL/AF only`);
+        diag(diagnostics, node, `push supports BC/DE/HL/AF/IX/IY only`);
         return undefined;
     }
   }
 
   if (head === 'pop' && ops.length === 1) {
-    const r16 = reg16Name(ops[0]!);
+    const r16 = regName(ops[0]!);
     if (!r16) {
       diag(diagnostics, node, `pop expects reg16`);
       return undefined;
@@ -623,8 +657,12 @@ export function encodeInstruction(
         return Uint8Array.of(0xe1);
       case 'AF':
         return Uint8Array.of(0xf1);
+      case 'IX':
+        return Uint8Array.of(0xdd, 0xe1);
+      case 'IY':
+        return Uint8Array.of(0xfd, 0xe1);
       default:
-        diag(diagnostics, node, `pop supports BC/DE/HL/AF only`);
+        diag(diagnostics, node, `pop supports BC/DE/HL/AF/IX/IY only`);
         return undefined;
     }
   }
