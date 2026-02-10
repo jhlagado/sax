@@ -236,14 +236,17 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #134: ISA coverage tranche 27 (abs16 symbolic addend lowering + matrix hardening).
+- #136: ISA coverage tranche 29 (known-head no-cascade diagnostic safeguard + regression matrix).
 
-Next after #134 merges (anchored as soon as opened):
+Next after #136 merges (anchored as soon as opened):
 
-1. Next PR: ISA coverage tranche 28 (remaining ED/CB edge-form diagnostics parity + additional negative fixture hardening).
+1. Next PR: ISA coverage tranche 30 (remaining ED/CB edge-form diagnostics parity + additional negative fixture hardening).
 
 Completed (anchored, most recent first):
 
+1. #135: ISA coverage tranche 28 (ED/CB diagnostics parity hardening + ALU no-cascade parity matrix).
+1. #134: ISA coverage tranche 27 (abs16 symbolic addend lowering + matrix hardening).
+1. #133: CLI/output gate tranche 1 (`--nohex` support + contract tests).
 1. #132: ISA coverage tranche 26 (rel8 branch matrix hardening for jr/jr cc/djnz).
 1. #131: ISA coverage tranche 25 (bit/res/set diagnostics parity edge-case hardening).
 1. #130: ISA coverage tranche 24 (ALU-family malformed-form diagnostics parity).
