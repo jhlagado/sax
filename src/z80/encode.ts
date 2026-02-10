@@ -536,6 +536,22 @@ export function encodeInstruction(
       }
       return Uint8Array.of(0x36, n & 0xff);
     }
+    // ld (ix/iy+disp), n
+    if (n !== undefined) {
+      const idx = memIndexed(ops[0]!, env);
+      if (idx) {
+        if (n < 0 || n > 0xff) {
+          diag(diagnostics, node, `ld (ix/iy+disp), n expects imm8`);
+          return undefined;
+        }
+        const disp = idx.disp;
+        if (disp < -128 || disp > 127) {
+          diag(diagnostics, node, `ld (ix/iy+disp), n expects disp8`);
+          return undefined;
+        }
+        return Uint8Array.of(idx.prefix, 0x36, disp & 0xff, n & 0xff);
+      }
+    }
     // ld sp, hl/ix/iy
     if (r === 'SP' && src) {
       if (src === 'HL') return Uint8Array.of(0xf9);
