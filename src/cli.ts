@@ -54,8 +54,8 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
   let emitD8m = true;
   let emitListing = true;
   const includeDirs: string[] = [];
+  let entryFile: string | undefined;
 
-  const positional: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === '-h' || a === '--help') {
@@ -104,13 +104,18 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
     if (a.startsWith('-')) {
       fail(`Unknown option "${a}"`);
     }
-    positional.push(a);
+    if (entryFile !== undefined) {
+      fail(`Expected exactly one <entry.zax> argument (and it must be last)`);
+    }
+    if (i !== argv.length - 1) {
+      fail(`Expected exactly one <entry.zax> argument (and it must be last)`);
+    }
+    entryFile = a;
   }
 
-  if (positional.length !== 1) {
+  if (!entryFile) {
     fail(`Expected exactly one <entry.zax> argument (and it must be last)`);
   }
-  const entryFile = positional[0]!;
 
   if (outputType === 'hex' && !emitHex) fail(`--type hex requires HEX output to be enabled`);
   if (outputType === 'bin' && !emitBin) fail(`--type bin requires BIN output to be enabled`);

@@ -236,28 +236,27 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
+- #89: CLI parity sweep (entry-last enforcement + contract tests).
 
-Next after #88 merges (anchored as soon as opened):
+Next after #89 merges (anchored as soon as opened):
 
-1. Next PR: CLI parity sweep (remaining `docs/zax-cli.md` flags + contract tests).
-2. Next PR: `.lst` improvement tranche (still deterministic, but closer to assembler listings; keep scope tight).
-3. Next PR: ISA coverage tranche driven by examples (add missing encodings + negative tests).
-4. Next PR: Lowering interaction torture suite (nested control + calls + locals + ops + SP tracking).
-5. Next PR: Spec audit pass (map each v0.1 rule to a test or a stable rejection diagnostic).
+1. Next PR: `.lst` improvement tranche (still deterministic, but closer to assembler listings; keep scope tight).
+2. Next PR: ISA coverage tranche driven by examples (add missing encodings + negative tests).
+3. Next PR: Lowering interaction torture suite (nested control + calls + locals + ops + SP tracking).
+4. Next PR: Spec audit pass (map each v0.1 rule to a test or a stable rejection diagnostic).
 
 Completed (anchored, most recent first):
 
-1. #87: Test: determinism for emitted artifacts.
-2. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
-3. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
-4. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
-5. #83: Docs: assembler pipeline mapping + roadmap anchor sync.
-6. #82: Lowering: avoid dead epilogue jump; docs: terminal `ret` optional (tests).
-7. #81: Parser: avoid cascades for invalid `case` values (fixtures + tests).
-8. #80: Parser: avoid cascades for invalid `select` selector (fixtures + tests).
-9. #79: Parser: avoid cascades for invalid control syntax (fixtures + tests).
-10. #78: Parser: report unclosed asm control at EOF (fixtures + tests).
+1. #88: CLI: v0.1 artifact-writing command (bin/hex/d8m/lst).
+2. #87: Test: determinism for emitted artifacts.
+3. #86: Test: conditional abs16 fixups (`jp cc`, `call cc`) + roadmap sync.
+4. #85: Test: extend rel8 range checks (`jr cc`, `djnz`) + roadmap sync.
+5. #84: Test: expand fixup coverage for `call`/`jr`/`djnz` (fixtures + tests).
+6. #83: Docs: assembler pipeline mapping + roadmap anchor sync.
+7. #82: Lowering: avoid dead epilogue jump; docs: terminal `ret` optional (tests).
+8. #81: Parser: avoid cascades for invalid `case` values (fixtures + tests).
+9. #80: Parser: avoid cascades for invalid `select` selector (fixtures + tests).
+10. #79: Parser: avoid cascades for invalid control syntax (fixtures + tests).
 11. #77: Parser: diagnose `case` without a value (fixtures + tests).
 12. #76: Parser: diagnose missing control operands (fixtures + tests).
 13. #75: Docs: clarify shared-case `select` syntax.
