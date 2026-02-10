@@ -1049,6 +1049,10 @@ export function encodeInstruction(
     const encoded = encodeCbRotateShift(0x38, 'srl');
     if (encoded) return encoded;
   }
+  if (head === 'sll') {
+    const encoded = encodeCbRotateShift(0x30, 'sll');
+    if (encoded) return encoded;
+  }
   if (head === 'rlc') {
     const encoded = encodeCbRotateShift(0x00, 'rlc');
     if (encoded) return encoded;
