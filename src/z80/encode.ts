@@ -553,7 +553,7 @@ export function encodeInstruction(
     const src = regName(ops[1]!);
     const indexedDst = indexedReg8(ops[0]!);
     const indexedSrc = indexedReg8(ops[1]!);
-    if (indexedDst || indexedSrc) {
+    if ((indexedDst || indexedSrc) && ops[0]!.kind !== 'Mem' && ops[1]!.kind !== 'Mem') {
       const prefix = indexedDst?.prefix ?? indexedSrc?.prefix;
       if (
         (indexedDst && indexedDst.prefix !== prefix) ||
@@ -617,6 +617,36 @@ export function encodeInstruction(
     }
 
     // ld r8, (hl)
+    const indexedDstMem = indexedReg8(ops[0]!);
+    if (indexedDstMem && ops[1]!.kind === 'Mem') {
+      const idx = memIndexed(ops[1]!, env);
+      if (!idx) {
+        diag(
+          diagnostics,
+          node,
+          `ld ${indexedDstMem.display}, source expects (${indexedDstMem.display.startsWith('IX') ? 'ix' : 'iy'}+disp)`,
+        );
+        return undefined;
+      }
+      if (idx.prefix !== indexedDstMem.prefix) {
+        diag(
+          diagnostics,
+          node,
+          `ld ${indexedDstMem.display}, source index base must match destination family`,
+        );
+        return undefined;
+      }
+      const disp = idx.disp;
+      if (disp < -128 || disp > 127) {
+        diag(
+          diagnostics,
+          node,
+          `ld ${indexedDstMem.display}, (${indexedDstMem.display.startsWith('IX') ? 'ix' : 'iy'}+disp) expects disp8`,
+        );
+        return undefined;
+      }
+      return Uint8Array.of(indexedDstMem.prefix, 0x46 + (indexedDstMem.code << 3), disp & 0xff);
+    }
     if (dst) {
       const d = reg8Code(dst);
       if (d !== undefined && ops[1]!.kind === 'Mem') {
@@ -644,6 +674,36 @@ export function encodeInstruction(
     // ld (hl), r8
     if (ops[0]!.kind === 'Mem') {
       const mem = ops[0]!;
+      const indexedSrcMem = indexedReg8(ops[1]!);
+      if (indexedSrcMem) {
+        const idx = memIndexed(mem, env);
+        if (!idx) {
+          diag(
+            diagnostics,
+            node,
+            `ld destination expects (${indexedSrcMem.display.startsWith('IX') ? 'ix' : 'iy'}+disp) for source ${indexedSrcMem.display}`,
+          );
+          return undefined;
+        }
+        if (idx.prefix !== indexedSrcMem.prefix) {
+          diag(
+            diagnostics,
+            node,
+            `ld destination index base must match source ${indexedSrcMem.display} family`,
+          );
+          return undefined;
+        }
+        const disp = idx.disp;
+        if (disp < -128 || disp > 127) {
+          diag(
+            diagnostics,
+            node,
+            `ld (${indexedSrcMem.display.startsWith('IX') ? 'ix' : 'iy'}+disp), ${indexedSrcMem.display} expects disp8`,
+          );
+          return undefined;
+        }
+        return Uint8Array.of(idx.prefix, 0x70 + indexedSrcMem.code, disp & 0xff);
+      }
       if (mem.expr.kind === 'EaName' && mem.expr.name.toUpperCase() === 'HL' && src) {
         const s = reg8Code(src);
         if (s !== undefined) {
