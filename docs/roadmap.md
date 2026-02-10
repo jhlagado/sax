@@ -18,17 +18,17 @@ Progress snapshot (rough, assembler-first):
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~45% complete (range 40-50%).
-- Why this is not higher: the remaining work is wide (ISA coverage, CLI contract, listing fidelity, hardening) and is not represented by a finite checklist of already-numbered items.
+- Working estimate (risk-weighted): ~56% complete (range 52-60%).
+- Why this is not higher: major closure work remains across parser coverage depth, ISA edge forms, CLI contract hardening, and deterministic acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
-- Spec gate: ~60%
-- Parser/AST gate: ~55%
-- Codegen gate: ~50%
-- ISA gate: ~35%
-- CLI/output gate: ~55-60% (improving; see PR #88)
-- Hardening gate: ~30%
+- Spec gate: ~66%
+- Parser/AST gate: ~58%
+- Codegen gate: ~59%
+- ISA gate: ~48%
+- CLI/output gate: ~64%
+- Hardening gate: ~41%
 
 What moves the needle fastest:
 
@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #133: CLI/output gate tranche 1 (`--nohex` support + contract tests).
+- #134: ISA coverage tranche 27 (abs16 symbolic addend lowering + matrix hardening).
 
-Next after #133 merges (anchored as soon as opened):
+Next after #134 merges (anchored as soon as opened):
 
-1. Next PR: ISA coverage tranche 27 (remaining ED/CB edge-form diagnostics parity + additional negative fixture hardening).
+1. Next PR: ISA coverage tranche 28 (remaining ED/CB edge-form diagnostics parity + additional negative fixture hardening).
 
 Completed (anchored, most recent first):
 

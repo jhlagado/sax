@@ -348,6 +348,33 @@ export function emitProgram(
         return undefined;
     }
   };
+
+  const symbolicTargetFromExpr = (
+    expr: ImmExprNode,
+  ): { baseLower: string; addend: number } | undefined => {
+    if (expr.kind === 'ImmName') return { baseLower: expr.name.toLowerCase(), addend: 0 };
+
+    if (expr.kind !== 'ImmBinary') return undefined;
+    if (expr.op !== '+' && expr.op !== '-') return undefined;
+
+    const leftName = expr.left.kind === 'ImmName' ? expr.left.name.toLowerCase() : undefined;
+    const rightName = expr.right.kind === 'ImmName' ? expr.right.name.toLowerCase() : undefined;
+
+    if (leftName) {
+      const right = evalImmExpr(expr.right, env, diagnostics);
+      if (right === undefined) return undefined;
+      const addend = expr.op === '+' ? right : -right;
+      return { baseLower: leftName, addend };
+    }
+
+    if (expr.op === '+' && rightName) {
+      const left = evalImmExpr(expr.left, env, diagnostics);
+      if (left === undefined) return undefined;
+      return { baseLower: rightName, addend: left };
+    }
+
+    return undefined;
+  };
   const jrConditionOpcodeFromName = (nameRaw: string): number | undefined => {
     switch (nameRaw.toUpperCase()) {
       case 'NZ':
@@ -2075,35 +2102,6 @@ export function emitProgram(
           }
 
           const head = asmItem.head.toLowerCase();
-          const rel8TargetFromExpr = (
-            expr: ImmExprNode,
-          ): { baseLower: string; addend: number } | undefined => {
-            if (expr.kind === 'ImmName') return { baseLower: expr.name.toLowerCase(), addend: 0 };
-
-            if (expr.kind !== 'ImmBinary') return undefined;
-            if (expr.op !== '+' && expr.op !== '-') return undefined;
-
-            const leftName =
-              expr.left.kind === 'ImmName' ? expr.left.name.toLowerCase() : undefined;
-            const rightName =
-              expr.right.kind === 'ImmName' ? expr.right.name.toLowerCase() : undefined;
-
-            if (leftName) {
-              const right = evalImmExpr(expr.right, env, diagnostics);
-              if (right === undefined) return undefined;
-              const addend = expr.op === '+' ? right : -right;
-              return { baseLower: leftName, addend };
-            }
-
-            if (expr.op === '+' && rightName) {
-              const left = evalImmExpr(expr.left, env, diagnostics);
-              if (left === undefined) return undefined;
-              return { baseLower: rightName, addend: left };
-            }
-
-            return undefined;
-          };
-
           const emitRel8FromOperand = (
             operand: AsmOperandNode,
             opcode: number,
@@ -2113,7 +2111,7 @@ export function emitProgram(
               diagAt(diagnostics, asmItem.span, `${mnemonic} expects an immediate target.`);
               return false;
             }
-            const symbolicTarget = rel8TargetFromExpr(operand.expr);
+            const symbolicTarget = symbolicTargetFromExpr(operand.expr);
             if (symbolicTarget) {
               emitRel8Fixup(
                 opcode,
@@ -2208,11 +2206,14 @@ export function emitProgram(
 
           if (head === 'jp' && asmItem.operands.length === 1) {
             const target = asmItem.operands[0]!;
-            if (target.kind === 'Imm' && target.expr.kind === 'ImmName') {
-              emitAbs16Fixup(0xc3, target.expr.name.toLowerCase(), 0, asmItem.span);
-              flow.reachable = false;
-              syncToFlow();
-              return;
+            if (target.kind === 'Imm') {
+              const symbolicTarget = symbolicTargetFromExpr(target.expr);
+              if (symbolicTarget) {
+                emitAbs16Fixup(0xc3, symbolicTarget.baseLower, symbolicTarget.addend, asmItem.span);
+                flow.reachable = false;
+                syncToFlow();
+                return;
+              }
             }
           }
           if (head === 'jp' && asmItem.operands.length === 2) {
@@ -2225,18 +2226,29 @@ export function emitProgram(
                   : undefined;
             const opcode = ccName ? conditionOpcodeFromName(ccName) : undefined;
             const target = asmItem.operands[1]!;
-            if (opcode !== undefined && target.kind === 'Imm' && target.expr.kind === 'ImmName') {
-              emitAbs16Fixup(opcode, target.expr.name.toLowerCase(), 0, asmItem.span);
-              syncToFlow();
-              return;
+            if (opcode !== undefined && target.kind === 'Imm') {
+              const symbolicTarget = symbolicTargetFromExpr(target.expr);
+              if (symbolicTarget) {
+                emitAbs16Fixup(
+                  opcode,
+                  symbolicTarget.baseLower,
+                  symbolicTarget.addend,
+                  asmItem.span,
+                );
+                syncToFlow();
+                return;
+              }
             }
           }
           if (head === 'call' && asmItem.operands.length === 1) {
             const target = asmItem.operands[0]!;
-            if (target.kind === 'Imm' && target.expr.kind === 'ImmName') {
-              emitAbs16Fixup(0xcd, target.expr.name.toLowerCase(), 0, asmItem.span);
-              syncToFlow();
-              return;
+            if (target.kind === 'Imm') {
+              const symbolicTarget = symbolicTargetFromExpr(target.expr);
+              if (symbolicTarget) {
+                emitAbs16Fixup(0xcd, symbolicTarget.baseLower, symbolicTarget.addend, asmItem.span);
+                syncToFlow();
+                return;
+              }
             }
           }
           if (head === 'call' && asmItem.operands.length === 2) {
@@ -2249,10 +2261,18 @@ export function emitProgram(
                   : undefined;
             const opcode = ccName ? callConditionOpcodeFromName(ccName) : undefined;
             const target = asmItem.operands[1]!;
-            if (opcode !== undefined && target.kind === 'Imm' && target.expr.kind === 'ImmName') {
-              emitAbs16Fixup(opcode, target.expr.name.toLowerCase(), 0, asmItem.span);
-              syncToFlow();
-              return;
+            if (opcode !== undefined && target.kind === 'Imm') {
+              const symbolicTarget = symbolicTargetFromExpr(target.expr);
+              if (symbolicTarget) {
+                emitAbs16Fixup(
+                  opcode,
+                  symbolicTarget.baseLower,
+                  symbolicTarget.addend,
+                  asmItem.span,
+                );
+                syncToFlow();
+                return;
+              }
             }
           }
 
