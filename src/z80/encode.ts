@@ -307,6 +307,15 @@ function arityDiagnostic(head: string): string | undefined {
     case 'ld':
     case 'ex':
       return `${head} expects two operands`;
+    case 'sub':
+    case 'cp':
+    case 'and':
+    case 'or':
+    case 'xor':
+      return `${head} expects one operand, or two with destination A`;
+    case 'adc':
+    case 'sbc':
+      return `${head} expects one operand, two with destination A, or HL,rr form`;
     case 'inc':
     case 'dec':
     case 'push':
