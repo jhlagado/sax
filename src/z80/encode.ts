@@ -54,6 +54,24 @@ function reg8Code(name: string): number | undefined {
   }
 }
 
+function indexedReg8(
+  op: AsmOperandNode,
+): { prefix: number; code: number; display: 'IXH' | 'IXL' | 'IYH' | 'IYL' } | undefined {
+  const n = regName(op);
+  switch (n) {
+    case 'IXH':
+      return { prefix: 0xdd, code: 4, display: 'IXH' };
+    case 'IXL':
+      return { prefix: 0xdd, code: 5, display: 'IXL' };
+    case 'IYH':
+      return { prefix: 0xfd, code: 4, display: 'IYH' };
+    case 'IYL':
+      return { prefix: 0xfd, code: 5, display: 'IYL' };
+    default:
+      return undefined;
+  }
+}
+
 function reg16Name(op: AsmOperandNode): string | undefined {
   if (op.kind !== 'Reg') return undefined;
   const n = op.name.toUpperCase();
@@ -239,6 +257,8 @@ export function encodeInstruction(
     const src = regName(ops[1]!);
 
     if (dst === 'A') {
+      const indexedSrc = indexedReg8(ops[1]!);
+      if (indexedSrc) return Uint8Array.of(indexedSrc.prefix, 0x80 + indexedSrc.code);
       if (src) {
         const s = reg8Code(src);
         if (s !== undefined) return Uint8Array.of(0x80 + s);
@@ -487,6 +507,14 @@ export function encodeInstruction(
     const r = regName(ops[0]!);
     const n = immValue(ops[1]!, env);
     if (n !== undefined && r) {
+      const indexedDst = indexedReg8(ops[0]!);
+      if (indexedDst) {
+        if (n < 0 || n > 0xff) {
+          diag(diagnostics, node, `ld ${indexedDst.display}, n expects imm8`);
+          return undefined;
+        }
+        return Uint8Array.of(indexedDst.prefix, 0x06 + (indexedDst.code << 3), n & 0xff);
+      }
       // ld r8, n
       const r8 = reg8Code(r);
       if (r8 !== undefined) {
@@ -519,6 +547,25 @@ export function encodeInstruction(
     // ld r8, r8
     const dst = regName(ops[0]!);
     const src = regName(ops[1]!);
+    const indexedDst = indexedReg8(ops[0]!);
+    const indexedSrc = indexedReg8(ops[1]!);
+    if (indexedDst || indexedSrc) {
+      const prefix = indexedDst?.prefix ?? indexedSrc?.prefix;
+      if (
+        (indexedDst && indexedDst.prefix !== prefix) ||
+        (indexedSrc && indexedSrc.prefix !== prefix)
+      ) {
+        diag(diagnostics, node, `ld between IX* and IY* byte registers is not supported`);
+        return undefined;
+      }
+      const d = indexedDst ? indexedDst.code : dst ? reg8Code(dst) : undefined;
+      const s = indexedSrc ? indexedSrc.code : src ? reg8Code(src) : undefined;
+      if (prefix === undefined || d === undefined || s === undefined) {
+        diag(diagnostics, node, `ld with IX*/IY* byte registers expects reg8 operands`);
+        return undefined;
+      }
+      return Uint8Array.of(prefix, 0x40 + (d << 3) + s);
+    }
 
     const srcAbs16 = memAbs16(ops[1]!, env);
     if (srcAbs16 !== undefined) {
@@ -644,6 +691,8 @@ export function encodeInstruction(
   }
 
   if (head === 'inc' && ops.length === 1) {
+    const indexed = indexedReg8(ops[0]!);
+    if (indexed) return Uint8Array.of(indexed.prefix, 0x04 + (indexed.code << 3));
     const r = regName(ops[0]!);
     if (r) {
       const r8 = reg8Code(r);
@@ -684,6 +733,8 @@ export function encodeInstruction(
   }
 
   if (head === 'dec' && ops.length === 1) {
+    const indexed = indexedReg8(ops[0]!);
+    if (indexed) return Uint8Array.of(indexed.prefix, 0x05 + (indexed.code << 3));
     const r = regName(ops[0]!);
     if (r) {
       const r8 = reg8Code(r);
@@ -837,6 +888,8 @@ export function encodeInstruction(
     if (!src) return undefined;
 
     const reg = regName(src);
+    const indexed = indexedReg8(src);
+    if (indexed) return Uint8Array.of(indexed.prefix, rBase + indexed.code);
     if (reg) {
       const code = reg8Code(reg);
       if (code === undefined) {
