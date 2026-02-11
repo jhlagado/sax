@@ -11,14 +11,14 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 86
+- Completed PR anchors listed below: 87
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~83% complete (range 78-89%).
+- Working estimate (risk-weighted): ~84% complete (range 79-89%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
@@ -27,8 +27,8 @@ Working estimate scorecard (risk-weighted, subjective):
 - Parser/AST gate: ~68%
 - Codegen gate: ~66%
 - ISA gate: ~53%
-- CLI/output gate: ~67%
-- Hardening gate: ~73%
+- CLI/output gate: ~70%
+- Hardening gate: ~74%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #180: ISA coverage/parity pass (indexed rotate/shift destination legality diagnostics matrix expansion across DD/FD/CB forms).
+1. #181: CLI/output contract hardening pass (CLI argument/error/output contract matrix coverage and `--version` dist-path fix).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: CLI/output contract hardening pass (tighten artifact contract assertions and cross-platform output behavior).
+1. Next PR: hardening/acceptance pass (expand deterministic end-to-end contract checks and close remaining CLI/output edge behaviors).
 
 Completed (anchored, most recent first):
 
+1. #180: ISA coverage/parity pass (indexed rotate/shift destination legality diagnostics matrix expansion across DD/FD/CB forms).
 1. #179: lowering/frame/op safety pass (expand SP/control/cleanup invariant coverage across deeper caller/callee interaction paths).
 1. #178: parser/AST closure pass (tighten function-local `var` interruption recovery diagnostics ordering and top-level resume matrix coverage).
 1. #177: lowering/codegen stabilization continuation (positive epilogue-rewrite matrix for locals + `ret cc` across multi-path control and stack-neutral op expansions).
