@@ -2,7 +2,7 @@
 ;
 ; Minimal example showing:
 ; - extern absolute binding
-; - calling convention via function-call syntax inside `asm`
+; - calling convention via function-call syntax inside function instruction streams
 ; - simple control flow (loop + conditional jump)
 
 ; BIOS entry point example (address is illustrative)

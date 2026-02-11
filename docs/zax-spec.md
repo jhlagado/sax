@@ -772,6 +772,7 @@ Function-body block termination (v0.1):
 
 - Inside a function body, a `var` block (if present) is terminated by `end`.
 - The `asm` marker keyword is not used in v0.1 function or op bodies.
+- Legacy explicit `asm` body markers are rejected with diagnostics (`Unexpected "asm" in function body ...`).
 - Function instruction streams may be empty (no instructions).
 - If control reaches the end of the function instruction stream (falls off the end), the compiler behaves as if a `ret` instruction were present at that point (i.e., it returns via the normal return/trampoline mechanism described in 8.4).
 
@@ -919,6 +920,7 @@ Rules:
 
 - `op` is module-scope only.
 - `op` bodies are implicit instruction streams.
+- Legacy explicit `asm` body markers are rejected with diagnostics (`Unexpected "asm" in op body ...`).
 - Local label definitions (`<ident>:`) are **not permitted** inside `op` bodies in v0.1.
 - `end` terminates the `op` body.
   - `op` bodies may contain structured control flow that uses `end` internally; the final `end` closes the `op` body.
