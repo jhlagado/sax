@@ -11,7 +11,7 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 94
+- Completed PR anchors listed below: 95
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
@@ -236,7 +236,7 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #188: parser/AST closure pass (top-level malformed-header and export diagnostic ordering + line/column span matrix expansion).
+1. #189: lowering/codegen stabilization pass (call-boundary stack-contract diagnostics for unknown/untracked stack state with locals, plus matrix coverage).
 
 Next PR (anchored as soon as opened):
 
@@ -244,6 +244,7 @@ Next PR (anchored as soon as opened):
 
 Completed (anchored, most recent first):
 
+1. #188: parser/AST closure pass (top-level malformed-header and export diagnostic ordering + line/column span matrix expansion).
 1. #187: parser/AST closure pass (declaration/control diagnostic line+column matrix expansion for remaining malformed/recovery and EOF termination paths).
 1. #186: hardening follow-up (force fresh CLI test builds under cross-process lock and add stale-lock recovery so CLI contract suites cannot run against stale `dist` artifacts).
 1. #185: hardening/acceptance pass (strict CLI acceptance matrix expansion: artifact payload parity across primary-type/suppression combinations, include-path spelling parity, and negative argument-shape contracts, plus shared helper stabilization for CLI contract suites).

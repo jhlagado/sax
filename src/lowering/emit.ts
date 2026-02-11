@@ -1966,6 +1966,23 @@ export function emitProgram(
               );
             }
           };
+          const diagIfCallStackUnverifiable = (): void => {
+            if (hasStackSlots && !spTrackingValid && spTrackingInvalidatedByMutation) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `call reached after untracked SP mutation; cannot verify callee stack contract.`,
+              );
+              return;
+            }
+            if (hasStackSlots && !spTrackingValid) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `call reached with unknown stack depth; cannot verify callee stack contract.`,
+              );
+            }
+          };
           const callable = callables.get(asmItem.head.toLowerCase());
           if (callable) {
             const args = asmItem.operands;
@@ -2101,6 +2118,7 @@ export function emitProgram(
 
             if (!ok) return;
 
+            diagIfCallStackUnverifiable();
             if (callable.kind === 'extern') {
               emitAbs16Fixup(0xcd, callable.targetLower, 0, asmItem.span);
             } else {
@@ -2396,6 +2414,7 @@ export function emitProgram(
           }
 
           const head = asmItem.head.toLowerCase();
+
           const emitRel8FromOperand = (
             operand: AsmOperandNode,
             opcode: number,
@@ -2520,6 +2539,9 @@ export function emitProgram(
             if (!emitRel8FromOperand(target, 0x10, 'djnz')) return;
             syncToFlow();
             return;
+          }
+          if (head === 'call') {
+            diagIfCallStackUnverifiable();
           }
           if (head === 'ret') {
             if (asmItem.operands.length === 0) {
