@@ -1,0 +1,163 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
+
+const execFileAsync = promisify(execFile);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+async function buildOnce(): Promise<void> {
+  await execFileAsync('yarn', ['-s', 'build'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+  });
+}
+
+async function runCli(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  const node = process.execPath;
+  const cliPath = resolve(__dirname, '..', 'dist', 'src', 'cli.js');
+  try {
+    const { stdout, stderr } = await execFileAsync(node, [cliPath, ...args], { encoding: 'utf8' });
+    return { code: 0, stdout, stderr };
+  } catch (err) {
+    const e = err as { code?: number; stdout?: string; stderr?: string };
+    return { code: e.code ?? 1, stdout: e.stdout ?? '', stderr: e.stderr ?? '' };
+  }
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+describe('cli contract matrix', () => {
+  beforeAll(async () => {
+    await buildOnce();
+  }, 90_000);
+
+  it('prints help text and exits 0', async () => {
+    const res = await runCli(['--help']);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain('zax [options] <entry.zax>');
+    expect(res.stdout).toContain('--output <file>');
+    expect(res.stderr).toBe('');
+  });
+
+  it('prints version and exits 0', async () => {
+    const res = await runCli(['--version']);
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
+    expect(res.stderr).toBe('');
+  });
+
+  it('requires exactly one entry and enforces entry-last ordering', async () => {
+    const resNoEntry = await runCli([]);
+    expect(resNoEntry.code).toBe(2);
+    expect(resNoEntry.stderr).toContain('Expected exactly one <entry.zax> argument');
+
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-multi-entry-'));
+    const entryA = join(work, 'a.zax');
+    const entryB = join(work, 'b.zax');
+    await writeFile(entryA, 'export func main(): void\n  nop\nend\n', 'utf8');
+    await writeFile(entryB, 'export func other(): void\n  nop\nend\n', 'utf8');
+
+    const resMultiple = await runCli([entryA, entryB]);
+    expect(resMultiple.code).toBe(2);
+    expect(resMultiple.stderr).toContain('must be last');
+
+    await rm(work, { recursive: true, force: true });
+  });
+
+  it('rejects missing values for --output/--type/--include', async () => {
+    const outMissing = await runCli(['--output']);
+    expect(outMissing.code).toBe(2);
+    expect(outMissing.stderr).toContain('--output expects a value');
+
+    const typeMissing = await runCli(['--type']);
+    expect(typeMissing.code).toBe(2);
+    expect(typeMissing.stderr).toContain('--type expects a value');
+
+    const includeMissing = await runCli(['--include']);
+    expect(includeMissing.code).toBe(2);
+    expect(includeMissing.stderr).toContain('--include expects a value');
+  });
+
+  it('rejects unsupported type tokens and output/type extension mismatches', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-type-'));
+    const entry = join(work, 'main.zax');
+    await writeFile(entry, 'export func main(): void\n  nop\nend\n', 'utf8');
+
+    const unsupported = await runCli(['--type=rom', entry]);
+    expect(unsupported.code).toBe(2);
+    expect(unsupported.stderr).toContain('Unsupported --type "rom"');
+
+    const badHexExt = await runCli(['--type', 'hex', '-o', join(work, 'out.bin'), entry]);
+    expect(badHexExt.code).toBe(2);
+    expect(badHexExt.stderr).toContain('--output must end with ".hex"');
+
+    const badBinExt = await runCli(['--type', 'bin', '-o', join(work, 'out.hex'), entry]);
+    expect(badBinExt.code).toBe(2);
+    expect(badBinExt.stderr).toContain('--output must end with ".bin"');
+
+    await rm(work, { recursive: true, force: true });
+  });
+
+  it('rejects suppression of the selected primary output type', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-primary-suppress-'));
+    const entry = join(work, 'main.zax');
+    await writeFile(entry, 'export func main(): void\n  nop\nend\n', 'utf8');
+
+    const noBin = await runCli(['--type', 'bin', '--nobin', '-o', join(work, 'out.bin'), entry]);
+    expect(noBin.code).toBe(2);
+    expect(noBin.stderr).toContain('--type bin requires BIN output to be enabled');
+
+    const noHex = await runCli(['--type', 'hex', '--nohex', '-o', join(work, 'out.hex'), entry]);
+    expect(noHex.code).toBe(2);
+    expect(noHex.stderr).toContain('--type hex requires HEX output to be enabled');
+
+    await rm(work, { recursive: true, force: true });
+  });
+
+  it('uses entry stem as default primary output for --type bin and writes siblings', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-default-bin-'));
+    const entry = join(work, 'main.zax');
+    await writeFile(entry, 'export func main(): void\n  nop\nend\n', 'utf8');
+
+    const res = await runCli(['--type', 'bin', entry]);
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toBe(join(work, 'main.bin'));
+
+    expect(await exists(join(work, 'main.bin'))).toBe(true);
+    expect(await exists(join(work, 'main.hex'))).toBe(true);
+    expect(await exists(join(work, 'main.d8dbg.json'))).toBe(true);
+    expect(await exists(join(work, 'main.lst'))).toBe(true);
+
+    await rm(work, { recursive: true, force: true });
+  }, 20_000);
+
+  it('returns exit code 1 and no artifacts when diagnostics contain errors', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-error-exit-'));
+    const entry = join(work, 'broken.zax');
+    await writeFile(entry, 'func main(: void\nend\n', 'utf8');
+
+    const outHex = join(work, 'out.hex');
+    const res = await runCli(['-o', outHex, entry]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('error:');
+
+    expect(await exists(join(work, 'out.hex'))).toBe(false);
+    expect(await exists(join(work, 'out.bin'))).toBe(false);
+    expect(await exists(join(work, 'out.d8dbg.json'))).toBe(false);
+    expect(await exists(join(work, 'out.lst'))).toBe(false);
+
+    await rm(work, { recursive: true, force: true });
+  }, 20_000);
+});

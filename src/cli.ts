@@ -65,10 +65,11 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
       return { code: 0 };
     }
     if (a === '-V' || a === '--version') {
-      // Avoid importing package.json via assert/JSON modules; keep it simple.
       const require = createRequire(import.meta.url);
+      const here = dirname(fileURLToPath(import.meta.url));
+      const packageJsonPath = resolve(here, '..', '..', 'package.json');
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const pkg = require('../package.json') as { version?: unknown };
+      const pkg = require(packageJsonPath) as { version?: unknown };
       process.stdout.write(`${String(pkg.version ?? '0.0.0')}\n`);
       return { code: 0 };
     }
@@ -151,12 +152,6 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
     if (ext !== wantExt) {
       fail(`--output must end with "${wantExt}" when --type is "${outputType}"`);
     }
-  }
-
-  // If any primary output type is explicitly suppressed, suppress it here too.
-  // Default behavior is to emit BIN+HEX+D8M+LST unless explicitly suppressed.
-  if (!emitBin || !emitHex || !emitD8m) {
-    // nothing else to do (defaults already set)
   }
 
   return {
@@ -264,7 +259,7 @@ export async function runCli(argv: string[]): Promise<number> {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`zax: ${msg}\n`);
-    process.stderr.write(usage());
+    process.stderr.write(`${usage()}\n`);
     return 2;
   }
 }
