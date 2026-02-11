@@ -738,9 +738,13 @@ export function encodeInstruction(
 
   if (head === 'jp' && ops.length === 1) {
     // jp (hl) / jp (ix) / jp (iy)
-    if (isMemRegName(ops[0]!, 'HL')) return Uint8Array.of(0xe9);
-    if (isMemRegName(ops[0]!, 'IX')) return Uint8Array.of(0xdd, 0xe9);
-    if (isMemRegName(ops[0]!, 'IY')) return Uint8Array.of(0xfd, 0xe9);
+    if (ops[0]!.kind === 'Mem') {
+      if (isMemRegName(ops[0]!, 'HL')) return Uint8Array.of(0xe9);
+      if (isMemRegName(ops[0]!, 'IX')) return Uint8Array.of(0xdd, 0xe9);
+      if (isMemRegName(ops[0]!, 'IY')) return Uint8Array.of(0xfd, 0xe9);
+      diag(diagnostics, node, `jp indirect form supports (hl), (ix), or (iy) only`);
+      return undefined;
+    }
 
     const n = immValue(ops[0]!, env);
     if (n === undefined || n < 0 || n > 0xffff) {

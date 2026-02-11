@@ -11,14 +11,14 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 69
+- Completed PR anchors listed below: 70
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~66% complete (range 61-72%).
+- Working estimate (risk-weighted): ~67% complete (range 62-73%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
@@ -26,9 +26,9 @@ Working estimate scorecard (risk-weighted, subjective):
 - Spec gate: ~70%
 - Parser/AST gate: ~64%
 - Codegen gate: ~60%
-- ISA gate: ~43%
+- ISA gate: ~44%
 - CLI/output gate: ~67%
-- Hardening gate: ~56%
+- Hardening gate: ~57%
 
 What moves the needle fastest:
 
@@ -236,7 +236,7 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #162: ISA diagnostics parity continuation (ED `in/out` indexed-byte-register legality diagnostics parity + matrix hardening).
+- #163: ISA diagnostics parity continuation (`jp` indirect-form legality diagnostics parity + matrix hardening).
 
 Next PR (anchored as soon as opened):
 
@@ -244,6 +244,7 @@ Next PR (anchored as soon as opened):
 
 Completed (anchored, most recent first):
 
+1. #162: ISA diagnostics parity continuation (ED `in/out` indexed-byte-register legality diagnostics parity + matrix hardening).
 1. #161: ISA diagnostics parity continuation (indexed CB/DD/FD destination legality diagnostics parity + matrix hardening).
 1. #160: ISA diagnostics parity continuation (`adc`/`sbc` malformed-form destination diagnostics parity + matrix hardening).
 1. #159: ISA diagnostics parity continuation (`ld` malformed-form diagnostics parity + lowering/abs16-fixup collision guard for register-like EA bases).
