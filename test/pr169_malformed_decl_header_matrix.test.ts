@@ -14,7 +14,7 @@ describe('PR169 parser: malformed declaration header diagnostics matrix', () => 
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
 
     const messages = res.diagnostics.map((d) => d.message);
-    expect(messages).toContain('Invalid enum member name "9bad".');
+    expect(messages).toContain('Invalid enum member name "9bad": expected <identifier>.');
     expect(messages).toContain('Invalid const declaration: missing initializer');
     expect(messages).toContain('Invalid bin name "1asset": expected <identifier>.');
     expect(messages).toContain('Invalid bin section "text": expected "code" or "data".');

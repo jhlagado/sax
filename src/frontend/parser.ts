@@ -1495,14 +1495,24 @@ export function parseModuleFile(
           break;
         }
 
-        const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
+        const m = /^([^:]+)\s*:\s*(.+)$/.exec(t);
         if (!m) {
           diagInvalidBlockLine('record field declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
 
-        const fieldName = m[1]!;
+        const fieldName = m[1]!.trim();
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(fieldName)) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid record field name ${formatIdentifierToken(fieldName)}: expected <identifier>.`,
+            { line: i + 1, column: 1 },
+          );
+          i++;
+          continue;
+        }
         if (isReservedTopLevelName(fieldName)) {
           diag(
             diagnostics,
@@ -1640,14 +1650,24 @@ export function parseModuleFile(
           break;
         }
 
-        const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
+        const m = /^([^:]+)\s*:\s*(.+)$/.exec(t);
         if (!m) {
           diagInvalidBlockLine('union field declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
 
-        const fieldName = m[1]!;
+        const fieldName = m[1]!.trim();
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(fieldName)) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid union field name ${formatIdentifierToken(fieldName)}: expected <identifier>.`,
+            { line: i + 1, column: 1 },
+          );
+          i++;
+          continue;
+        }
         if (isReservedTopLevelName(fieldName)) {
           diag(
             diagnostics,
@@ -1759,14 +1779,24 @@ export function parseModuleFile(
           break;
         }
 
-        const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
+        const m = /^([^:]+)\s*:\s*(.+)$/.exec(t);
         if (!m) {
           diagInvalidBlockLine('var declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
 
-        const name = m[1]!;
+        const name = m[1]!.trim();
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid var declaration name ${formatIdentifierToken(name)}: expected <identifier>.`,
+            { line: i + 1, column: 1 },
+          );
+          i++;
+          continue;
+        }
         if (TOP_LEVEL_KEYWORDS.has(name.toLowerCase())) {
           diag(
             diagnostics,
@@ -1967,14 +1997,24 @@ export function parseModuleFile(
               break;
             }
 
-            const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(tDecl);
+            const m = /^([^:]+)\s*:\s*(.+)$/.exec(tDecl);
             if (!m) {
               diagInvalidBlockLine('var declaration', tDecl, '<name>: <type>', i + 1);
               i++;
               continue;
             }
 
-            const localName = m[1]!;
+            const localName = m[1]!.trim();
+            if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(localName)) {
+              diag(
+                diagnostics,
+                modulePath,
+                `Invalid var declaration name ${formatIdentifierToken(localName)}: expected <identifier>.`,
+                { line: i + 1, column: 1 },
+              );
+              i++;
+              continue;
+            }
             if (TOP_LEVEL_KEYWORDS.has(localName.toLowerCase())) {
               diag(
                 diagnostics,
@@ -2527,10 +2567,15 @@ export function parseModuleFile(
       const membersLower = new Set<string>();
       for (const m of rawParts) {
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(m)) {
-          diag(diagnostics, modulePath, `Invalid enum member name "${m}".`, {
-            line: lineNo,
-            column: 1,
-          });
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid enum member name ${formatIdentifierToken(m)}: expected <identifier>.`,
+            {
+              line: lineNo,
+              column: 1,
+            },
+          );
           continue;
         }
         if (isReservedTopLevelName(m)) {
@@ -2538,7 +2583,10 @@ export function parseModuleFile(
             diagnostics,
             modulePath,
             `Invalid enum member name "${m}": collides with a top-level keyword.`,
-            { line: lineNo, column: 1 },
+            {
+              line: lineNo,
+              column: 1,
+            },
           );
           continue;
         }
@@ -2843,14 +2891,24 @@ export function parseModuleFile(
           break;
         }
 
-        const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]+?)\s*=\s*(.+)$/.exec(t);
+        const m = /^([^:]+)\s*:\s*([^=]+?)\s*=\s*(.+)$/.exec(t);
         if (!m) {
           diagInvalidBlockLine('data declaration', t, '<name>: <type> = <initializer>', i + 1);
           i++;
           continue;
         }
 
-        const name = m[1]!;
+        const name = m[1]!.trim();
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid data declaration name ${formatIdentifierToken(name)}: expected <identifier>.`,
+            { line: i + 1, column: 1 },
+          );
+          i++;
+          continue;
+        }
         if (TOP_LEVEL_KEYWORDS.has(name.toLowerCase())) {
           diag(
             diagnostics,
