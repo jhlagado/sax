@@ -11,24 +11,24 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 61
+- Completed PR anchors listed below: 63
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~59% complete (range 54-66%).
+- Working estimate (risk-weighted): ~60% complete (range 55-67%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
-- Spec gate: ~67%
+- Spec gate: ~69%
 - Parser/AST gate: ~64%
 - Codegen gate: ~60%
 - ISA gate: ~35%
-- CLI/output gate: ~64%
-- Hardening gate: ~48%
+- CLI/output gate: ~66%
+- Hardening gate: ~50%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- none.
+- #156: D8M appendix closure (grouped `files` contract, low16 constant-address policy evidence, and Appendix B.5/B.6 contract coverage).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: Lowering invariants continuation (mismatch-propagation hardening for multi-return and nested control paths across op expansion boundaries).
+1. Next PR: ISA coverage continuation (ED/CB/DD/FD legality matrix expansion + deterministic malformed-form diagnostics parity).
 
 Completed (anchored, most recent first):
 
+1. #155: Lowering invariants continuation (mismatch-propagation hardening so join/back-edge stack mismatches invalidate downstream tracking and are re-guarded at returns/op boundaries with regression matrix coverage).
 1. #154: Lowering invariants continuation (unknown-stack-state diagnostics at joins/back-edges/returns/fallthrough and op-expansion boundary checks + deeper regression matrix coverage).
 1. #153: Lowering invariants tranche 4 (explicit untracked-SP diagnostics at joins/back-edges, stack-slot-scoped return/fallthrough checks, and regression matrix coverage).
 1. #152: Parser/AST closure tranche 33 (deterministic export-target gating diagnostics, control-stack interruption recovery ordering for function/op bodies, and expanded malformed/recovery matrix coverage).

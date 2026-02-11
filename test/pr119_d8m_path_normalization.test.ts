@@ -19,7 +19,8 @@ describe('PR119 D8M path normalization', () => {
     expect(d8m).toBeDefined();
     const d8mJson = d8m!.json as unknown as {
       symbols: Array<{ name: string; file?: string }>;
-      files?: string[];
+      files?: Record<string, unknown>;
+      fileList?: string[];
     };
     const byName = new Map(d8mJson.symbols.map((s) => [s.name, s]));
     const main = byName.get('main_start');
@@ -28,6 +29,10 @@ describe('PR119 D8M path normalization', () => {
     expect(lib?.file).toBe('pr10_import_lib.zax');
     expect(main?.file?.includes('\\')).toBe(false);
     expect(lib?.file?.includes('\\')).toBe(false);
-    expect(d8mJson.files).toEqual(['pr10_import_lib.zax', 'pr10_import_main.zax']);
+    expect(Object.keys(d8mJson.files ?? {})).toEqual([
+      'pr10_import_lib.zax',
+      'pr10_import_main.zax',
+    ]);
+    expect(d8mJson.fileList).toEqual(['pr10_import_lib.zax', 'pr10_import_main.zax']);
   });
 });

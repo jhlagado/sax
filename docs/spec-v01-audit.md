@@ -202,8 +202,8 @@ This tranche maps Appendix B statements to current implementation evidence and k
 | `B.2` path materialization policy                | Implemented (subset) | `test/pr119_d8m_path_normalization.test.ts` validates project-relative, slash-normalized file paths                                                           |
 | `B.3` segments map addresses to source           | Implemented (subset) | `test/pr194_d8m_sparse_segments.test.ts` validates sparse contiguous segment runs + core metadata                                                             |
 | `B.4` symbol mapping in D8M                      | Implemented (subset) | symbol payload expectations are covered in `test/pr2_const_data.test.ts`, `test/pr3_var_layout.test.ts`, `test/pr4_enum.test.ts`, and extern/ingestion suites |
-| `B.5` mapping policy for lowered constructs      | Open                 | policy text exists in spec; explicit lowering-to-map tests are not yet present                                                                                |
-| `B.6` minimal example parity                     | Open                 | appendix example is illustrative only; no pinned golden-file test currently checks this exact shape                                                           |
+| `B.5` mapping policy for lowered constructs      | Implemented (subset) | `test/pr200_d8m_appendix_mapping.test.ts` validates grouped `files` entries, local lowered symbols, and constant low16 `address` carry-through                |
+| `B.6` minimal example parity                     | Implemented (subset) | `test/pr200_d8m_appendix_mapping.test.ts` validates canonical D8M envelope + per-file `segments`/`symbols` structure                                          |
 
 ## 14) CI Checklist Draft (Spec Audit Gate)
 
