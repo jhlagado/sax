@@ -1783,6 +1783,15 @@ export function emitProgram(
           emitCodeBytes(Uint8Array.of(0xfe, (value >> 8) & 0xff), span.file); // cp imm8
           emitJumpCondTo(0xc2, mismatchLabel, span); // jp nz, mismatch
         };
+        const emitSelectCompareReg8ToImm8 = (
+          value: number,
+          mismatchLabel: string,
+          span: SourceSpan,
+        ): void => {
+          emitCodeBytes(Uint8Array.of(0x7d), span.file); // ld a, l
+          emitCodeBytes(Uint8Array.of(0xfe, value & 0xff), span.file); // cp imm8
+          emitJumpCondTo(0xc2, mismatchLabel, span); // jp nz, mismatch
+        };
         const loadSelectorIntoHL = (selector: AsmOperandNode, span: SourceSpan): boolean => {
           // Select dispatch computes selector value once and keeps it in HL for comparisons.
           if (selector.kind === 'Reg') {
@@ -2671,6 +2680,7 @@ export function emitProgram(
                       diagAt(diagnostics, caseItem.span, `Failed to evaluate case value.`);
                     } else {
                       const key = v & 0xffff;
+                      const canMatchSelector = !selectorIsReg8 || key <= 0xff;
                       if (selectorIsReg8 && key > 0xff) {
                         warnAt(
                           diagnostics,
@@ -2682,7 +2692,9 @@ export function emitProgram(
                         diagAt(diagnostics, caseItem.span, `Duplicate case value ${key}.`);
                       } else {
                         caseValues.add(key);
-                        caseArms.push({ value: key, bodyLabel, span: caseItem.span });
+                        if (canMatchSelector) {
+                          caseArms.push({ value: key, bodyLabel, span: caseItem.span });
+                        }
                       }
                     }
                     k++;
@@ -2736,7 +2748,11 @@ export function emitProgram(
                 }
                 for (const arm of caseArms) {
                   const miss = newHiddenLabel('__zax_select_next');
-                  emitSelectCompareToImm16(arm.value, miss, arm.span);
+                  if (selectorIsReg8) {
+                    emitSelectCompareReg8ToImm8(arm.value, miss, arm.span);
+                  } else {
+                    emitSelectCompareToImm16(arm.value, miss, arm.span);
+                  }
                   emitInstr('pop', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span);
                   emitJumpTo(arm.bodyLabel, arm.span);
                   defineCodeLabel(miss, arm.span, 'local');
