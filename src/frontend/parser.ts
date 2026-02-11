@@ -2058,11 +2058,12 @@ export function parseModuleFile(
       }
       i++;
 
-      // Optional function-local `var` block, then required `asm`.
+      // Optional function-local `var` block; function instruction body is parsed
+      // as an asm stream, with optional explicit `asm` keyword.
       let locals: VarBlockNode | undefined;
       let asmStartOffset: number | undefined;
-      let interruptedBeforeAsmKeyword: string | undefined;
-      let interruptedBeforeAsmLine: number | undefined;
+      let interruptedBeforeBodyKeyword: string | undefined;
+      let interruptedBeforeBodyLine: number | undefined;
       while (i < lineCount) {
         const { raw: raw2, startOffset: so2 } = getRawLine(i);
         const t2 = stripComment(raw2).trim();
@@ -2072,9 +2073,9 @@ export function parseModuleFile(
           continue;
         }
         const t2TopKeyword = topLevelStartKeyword(t2);
-        if (t2TopKeyword !== undefined && t2Lower !== 'var') {
-          interruptedBeforeAsmKeyword = t2TopKeyword;
-          interruptedBeforeAsmLine = i + 1;
+        if (t2TopKeyword !== undefined && t2Lower !== 'var' && t2Lower !== 'asm') {
+          interruptedBeforeBodyKeyword = t2TopKeyword;
+          interruptedBeforeBodyLine = i + 1;
           break;
         }
 
@@ -2110,8 +2111,8 @@ export function parseModuleFile(
                 i++;
                 continue;
               }
-              interruptedBeforeAsmKeyword = tDeclTopKeyword;
-              interruptedBeforeAsmLine = i + 1;
+              interruptedBeforeBodyKeyword = tDeclTopKeyword;
+              interruptedBeforeBodyLine = i + 1;
               locals = {
                 kind: 'VarBlock',
                 span: span(file, varStart, soDecl),
@@ -2182,34 +2183,30 @@ export function parseModuleFile(
             decls.push({ kind: 'VarDecl', span: declSpan, name: localName, typeExpr });
             i++;
           }
-          if (interruptedBeforeAsmKeyword !== undefined) break;
+          if (interruptedBeforeBodyKeyword !== undefined) break;
           break;
         }
 
-        if (t2Lower !== 'asm') {
-          diag(diagnostics, modulePath, `Expected "asm" inside func (optionally after "var")`, {
-            line: i + 1,
-            column: 1,
-          });
+        if (t2Lower === 'asm') {
+          asmStartOffset = so2;
           i++;
-          continue;
+          break;
         }
         asmStartOffset = so2;
-        i++;
         break;
       }
 
       if (asmStartOffset === undefined) {
-        if (interruptedBeforeAsmKeyword !== undefined && interruptedBeforeAsmLine !== undefined) {
+        if (interruptedBeforeBodyKeyword !== undefined && interruptedBeforeBodyLine !== undefined) {
           diag(
             diagnostics,
             modulePath,
-            `Unterminated func "${name}": expected "asm" before "${interruptedBeforeAsmKeyword}"`,
-            { line: interruptedBeforeAsmLine, column: 1 },
+            `Unterminated func "${name}": expected function body before "${interruptedBeforeBodyKeyword}"`,
+            { line: interruptedBeforeBodyLine, column: 1 },
           );
           continue;
         }
-        diag(diagnostics, modulePath, `Unterminated func "${name}": expected "asm"`, {
+        diag(diagnostics, modulePath, `Unterminated func "${name}": expected function body`, {
           line: lineNo,
           column: 1,
         });

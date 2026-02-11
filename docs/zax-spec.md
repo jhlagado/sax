@@ -765,15 +765,16 @@ Rules:
 - Function bodies emit instructions into `code`.
 - Inside a function body:
   - at most one optional `var` block (locals, one per line)
-  - exactly one required `asm` block
+  - instruction stream may be introduced by optional `asm`
   - `end` terminates the function body
-- `asm` blocks may contain Z80 mnemonics, `op` invocations, and structured control flow (Section 10).
+- Function instruction streams may contain Z80 mnemonics, `op` invocations, and structured control flow (Section 10).
 
 Function-body block termination (v0.1):
 
 - Inside a function body, a `var` block (if present) continues until the `asm` keyword.
-- `asm` bodies may be empty (no instructions).
-- If control reaches the end of the `asm` block (falls off the end), the compiler behaves as if a `ret` instruction were present at that point (i.e., it returns via the normal return/trampoline mechanism described in 8.4).
+- `asm` is optional. If omitted, the first non-empty non-comment body line starts the function instruction stream.
+- Function instruction streams may be empty (no instructions).
+- If control reaches the end of the function instruction stream (falls off the end), the compiler behaves as if a `ret` instruction were present at that point (i.e., it returns via the normal return/trampoline mechanism described in 8.4).
 
 ### 8.2 Calling Convention
 

@@ -1,0 +1,9 @@
+func main(): void
+  helper
+  ret
+end
+
+func helper(): void
+  ld A, 42
+  ret
+end
