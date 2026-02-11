@@ -11,24 +11,24 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 79
+- Completed PR anchors listed below: 80
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~78% complete (range 73-84%).
+- Working estimate (risk-weighted): ~79% complete (range 74-85%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
 - Spec gate: ~74%
 - Parser/AST gate: ~68%
-- Codegen gate: ~61%
+- Codegen gate: ~62%
 - ISA gate: ~53%
 - CLI/output gate: ~67%
-- Hardening gate: ~68%
+- Hardening gate: ~69%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #173: lowering/codegen stabilization continuation (`ret cc` diagnostics hardening under unknown/untracked stack states, with matrix coverage).
+- #174: lowering/codegen stabilization continuation (`ret cc` stack-state invariants across structured-control joins/back-edges, with exact diagnostic matrix contracts).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: lowering/codegen stabilization continuation (SP/frame invariants across nested control + op expansion + multi-return interactions beyond `ret cc` stack-state guards).
+1. Next PR: lowering/codegen stabilization continuation (SP/frame invariants across nested control + op expansion + multi-return interactions beyond current `ret cc` matrix coverage).
 
 Completed (anchored, most recent first):
 
+1. #173: lowering/codegen stabilization continuation (`ret cc` diagnostics hardening under unknown/untracked stack states, with matrix coverage).
 1. #172: parser/AST closure continuation (remaining malformed declaration/control recovery matrix expansion, declaration minimum-shape coverage, EOF recovery diagnostics, and deterministic diagnostic ordering hardening).
 1. #171: Spec/data closure continuation (Issue #6 const/data follow-up matrix, D8M constant semantics clarification, and audit evidence expansion).
 1. #170: Spec/parser closure continuation (Issue #144 implicit body policy closure for `func`/`op`, docs alignment, and end-to-end diagnostics coverage).
