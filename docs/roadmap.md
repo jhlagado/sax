@@ -18,7 +18,7 @@ Progress snapshot (rough, assembler-first):
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~70% complete (range 65-76%).
+- Working estimate (risk-weighted): ~71% complete (range 66-77%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
@@ -26,9 +26,9 @@ Working estimate scorecard (risk-weighted, subjective):
 - Spec gate: ~70%
 - Parser/AST gate: ~64%
 - Codegen gate: ~60%
-- ISA gate: ~47%
+- ISA gate: ~49%
 - CLI/output gate: ~67%
-- Hardening gate: ~60%
+- Hardening gate: ~61%
 
 What moves the needle fastest:
 
@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #166: ISA diagnostics parity continuation (conditional `jp`/`call` condition-vs-imm diagnostics parity + matrix hardening).
+- #167: ISA diagnostics parity continuation (conditional `jr`/`djnz` malformed-form diagnostics parity + matrix hardening).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: ISA diagnostics parity continuation (remaining conditional control-flow malformed-form diagnostics and legality matrix expansion).
+1. Next PR: ISA diagnostics parity continuation (remaining conditional control-flow legality diagnostics and range/error-surface parity expansion).
 
 Completed (anchored, most recent first):
 
