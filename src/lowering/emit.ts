@@ -1782,6 +1782,7 @@ export function emitProgram(
             };
           if (!left.reachable) return { ...right };
           if (!right.reachable) return { ...left };
+          let mismatch = false;
           if (
             (!left.spValid || !right.spValid) &&
             (left.spInvalidDueToMutation || right.spInvalidDueToMutation)
@@ -1799,6 +1800,7 @@ export function emitProgram(
             );
           }
           if (left.spValid && right.spValid && left.spDelta !== right.spDelta) {
+            mismatch = true;
             diagAt(
               diagnostics,
               span,
@@ -1808,7 +1810,7 @@ export function emitProgram(
           return {
             reachable: true,
             spDelta: left.spDelta,
-            spValid: left.spValid && right.spValid,
+            spValid: left.spValid && right.spValid && !mismatch,
             spInvalidDueToMutation: left.spInvalidDueToMutation || right.spInvalidDueToMutation,
           };
         };
@@ -2658,6 +2660,8 @@ export function emitProgram(
               const entry = snapshotFlow();
               const condLabel = newHiddenLabel('__zax_while_cond');
               const endLabel = newHiddenLabel('__zax_while_end');
+              let backEdgeUnknown = false;
+              let backEdgeMutation = false;
               defineCodeLabel(condLabel, it.span, 'local');
               emitJumpIfFalse(it.cc, endLabel, it.span);
 
@@ -2673,6 +2677,7 @@ export function emitProgram(
                 entry.spValid &&
                 bodyExit.spDelta !== entry.spDelta
               ) {
+                backEdgeUnknown = true;
                 diagAt(
                   diagnostics,
                   asmItems[j]!.span,
@@ -2683,6 +2688,8 @@ export function emitProgram(
                 (!bodyExit.spValid || !entry.spValid) &&
                 (bodyExit.spInvalidDueToMutation || entry.spInvalidDueToMutation)
               ) {
+                backEdgeUnknown = true;
+                backEdgeMutation = true;
                 diagAt(
                   diagnostics,
                   asmItems[j]!.span,
@@ -2693,6 +2700,7 @@ export function emitProgram(
                 (!bodyExit.spValid || !entry.spValid) &&
                 hasStackSlots
               ) {
+                backEdgeUnknown = true;
                 diagAt(
                   diagnostics,
                   asmItems[j]!.span,
@@ -2701,13 +2709,24 @@ export function emitProgram(
               }
               if (bodyExit.reachable) emitJumpTo(condLabel, asmItems[j]!.span);
               defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
-              restoreFlow(entry);
+              if (backEdgeUnknown) {
+                restoreFlow({
+                  reachable: entry.reachable,
+                  spDelta: 0,
+                  spValid: false,
+                  spInvalidDueToMutation: backEdgeMutation,
+                });
+              } else {
+                restoreFlow(entry);
+              }
               i = j + 1;
               continue;
             }
             if (it.kind === 'Repeat') {
               const entry = snapshotFlow();
               const loopLabel = newHiddenLabel('__zax_repeat_body');
+              let backEdgeUnknown = false;
+              let backEdgeMutation = false;
               defineCodeLabel(loopLabel, it.span, 'local');
               const j = lowerAsmRange(asmItems, i + 1, new Set(['Until']));
               if (j >= asmItems.length || asmItems[j]!.kind !== 'Until') {
@@ -2724,6 +2743,7 @@ export function emitProgram(
                 entry.spValid &&
                 bodyExit.spDelta !== entry.spDelta
               ) {
+                backEdgeUnknown = true;
                 diagAt(
                   diagnostics,
                   untilNode.span,
@@ -2734,6 +2754,8 @@ export function emitProgram(
                 (!bodyExit.spValid || !entry.spValid) &&
                 (bodyExit.spInvalidDueToMutation || entry.spInvalidDueToMutation)
               ) {
+                backEdgeUnknown = true;
+                backEdgeMutation = true;
                 diagAt(
                   diagnostics,
                   untilNode.span,
@@ -2744,11 +2766,20 @@ export function emitProgram(
                 (!bodyExit.spValid || !entry.spValid) &&
                 hasStackSlots
               ) {
+                backEdgeUnknown = true;
                 diagAt(
                   diagnostics,
                   untilNode.span,
                   `Cannot verify stack depth at repeat/until due to unknown stack state.`,
                 );
+              }
+              if (backEdgeUnknown) {
+                restoreFlow({
+                  reachable: bodyExit.reachable,
+                  spDelta: 0,
+                  spValid: false,
+                  spInvalidDueToMutation: backEdgeMutation,
+                });
               }
               i = j + 1;
               continue;
@@ -2891,13 +2922,15 @@ export function emitProgram(
               } else {
                 const base = reachable[0]!;
                 const allValid = reachable.every((f) => f.spValid);
+                let hasMismatch = false;
                 if (allValid) {
-                  const mismatch = reachable.find((f) => f.spDelta !== base.spDelta);
-                  if (mismatch) {
+                  const mismatchFlow = reachable.find((f) => f.spDelta !== base.spDelta);
+                  if (mismatchFlow) {
+                    hasMismatch = true;
                     diagAt(
                       diagnostics,
                       asmItems[j]!.span,
-                      `Stack depth mismatch at select join (${base.spDelta} vs ${mismatch.spDelta}).`,
+                      `Stack depth mismatch at select join (${base.spDelta} vs ${mismatchFlow.spDelta}).`,
                     );
                   }
                 } else if (reachable.some((f) => f.spInvalidDueToMutation)) {
@@ -2916,7 +2949,7 @@ export function emitProgram(
                 restoreFlow({
                   reachable: true,
                   spDelta: base.spDelta,
-                  spValid: allValid,
+                  spValid: allValid && !hasMismatch,
                   spInvalidDueToMutation: reachable.some((f) => f.spInvalidDueToMutation),
                 });
               }

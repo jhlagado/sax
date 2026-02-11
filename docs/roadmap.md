@@ -18,17 +18,17 @@ Progress snapshot (rough, assembler-first):
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~58% complete (range 53-65%).
+- Working estimate (risk-weighted): ~59% complete (range 54-66%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
 - Spec gate: ~67%
 - Parser/AST gate: ~64%
-- Codegen gate: ~59%
+- Codegen gate: ~60%
 - ISA gate: ~35%
 - CLI/output gate: ~64%
-- Hardening gate: ~47%
+- Hardening gate: ~48%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #154: Lowering invariants continuation (unknown-stack-state diagnostics at joins/back-edges/returns/fallthrough and op-expansion boundary checks + deeper regression matrix coverage).
+- none.
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: Lowering invariants continuation (multi-return and nested control-path stack-invariant matrices across op expansion boundaries).
+1. Next PR: Lowering invariants continuation (mismatch-propagation hardening for multi-return and nested control paths across op expansion boundaries).
 
 Completed (anchored, most recent first):
 
+1. #154: Lowering invariants continuation (unknown-stack-state diagnostics at joins/back-edges/returns/fallthrough and op-expansion boundary checks + deeper regression matrix coverage).
 1. #153: Lowering invariants tranche 4 (explicit untracked-SP diagnostics at joins/back-edges, stack-slot-scoped return/fallthrough checks, and regression matrix coverage).
 1. #152: Parser/AST closure tranche 33 (deterministic export-target gating diagnostics, control-stack interruption recovery ordering for function/op bodies, and expanded malformed/recovery matrix coverage).
 1. #151: CLI/output hardening tranche (sparse D8M `segments` metadata + listing gap compression + sparse Intel HEX record emission + contract tests and docs sync).

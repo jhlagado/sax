@@ -99,16 +99,16 @@ This section maps specific normative statements to implementation evidence or ex
 
 ### 8.2 `8.4/8.5` stack frame and SP safety rules
 
-| Normative intent                                                         | Status                 | Evidence / Diagnostic                                                                                                                                          |
-| ------------------------------------------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Locals use SP-relative slots and synthetic epilogue cleanup              | Implemented            | `test/pr14_frame_epilogue.test.ts`, `test/pr23_lowering_safety.test.ts`                                                                                        |
-| Terminal `ret` paths avoid dead epilogue jumps                           | Implemented            | `test/pr14_frame_epilogue.test.ts` (`pr14_terminal_ret_no_dead_jump`)                                                                                          |
-| Fallthrough with locals flows into cleanup epilogue                      | Implemented            | `test/pr23_lowering_safety.test.ts` (`pr23_implicit_ret_with_locals`)                                                                                          |
-| `ret` / `ret cc` with non-zero tracked stack delta is rejected           | Intentionally rejected | diagnostic: `ret with non-zero tracked stack delta` (`test/pr23_lowering_safety.test.ts`)                                                                      |
-| Function fallthrough with non-zero stack delta is rejected               | Intentionally rejected | diagnostic: `Function \"...\" has non-zero stack delta at fallthrough` (`test/pr92_lowering_interactions.test.ts`)                                             |
-| Untracked SP mutation in op expansion is rejected                        | Intentionally rejected | diagnostic: `expansion performs untracked SP mutation; cannot verify net stack delta` (`test/pr23_lowering_safety.test.ts`)                                    |
-| Untracked SP mutation at `ret`/fallthrough with stack slots is diagnosed | Intentionally rejected | diagnostics include `ret reached after untracked SP mutation` and `has untracked SP mutation at fallthrough` (`test/pr197_untracked_stack_invariants.test.ts`) |
-| Unknown stack depth at `ret`/fallthrough with stack slots is diagnosed   | Intentionally rejected | diagnostics include `ret reached with unknown stack depth` and `has unknown stack depth at fallthrough` (`test/pr198_lowering_unknown_stack_states.test.ts`)   |
+| Normative intent                                                         | Status                 | Evidence / Diagnostic                                                                                                                                                                                            |
+| ------------------------------------------------------------------------ | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Locals use SP-relative slots and synthetic epilogue cleanup              | Implemented            | `test/pr14_frame_epilogue.test.ts`, `test/pr23_lowering_safety.test.ts`                                                                                                                                          |
+| Terminal `ret` paths avoid dead epilogue jumps                           | Implemented            | `test/pr14_frame_epilogue.test.ts` (`pr14_terminal_ret_no_dead_jump`)                                                                                                                                            |
+| Fallthrough with locals flows into cleanup epilogue                      | Implemented            | `test/pr23_lowering_safety.test.ts` (`pr23_implicit_ret_with_locals`)                                                                                                                                            |
+| `ret` / `ret cc` with non-zero tracked stack delta is rejected           | Intentionally rejected | diagnostic: `ret with non-zero tracked stack delta` (`test/pr23_lowering_safety.test.ts`)                                                                                                                        |
+| Function fallthrough with non-zero stack delta is rejected               | Intentionally rejected | diagnostic: `Function \"...\" has non-zero stack delta at fallthrough` (`test/pr92_lowering_interactions.test.ts`)                                                                                               |
+| Untracked SP mutation in op expansion is rejected                        | Intentionally rejected | diagnostic: `expansion performs untracked SP mutation; cannot verify net stack delta` (`test/pr23_lowering_safety.test.ts`)                                                                                      |
+| Untracked SP mutation at `ret`/fallthrough with stack slots is diagnosed | Intentionally rejected | diagnostics include `ret reached after untracked SP mutation` and `has untracked SP mutation at fallthrough` (`test/pr197_untracked_stack_invariants.test.ts`)                                                   |
+| Unknown stack depth at `ret`/fallthrough with stack slots is diagnosed   | Intentionally rejected | diagnostics include `ret reached with unknown stack depth` and `has unknown stack depth at fallthrough` (`test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts`) |
 
 ### 8.3 `10.x` structured control invariants
 
@@ -116,6 +116,7 @@ This section maps specific normative statements to implementation evidence or ex
 | --------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `if/else`, `while`, `repeat/until`, `select/case` parse and lower     | Implemented            | `test/pr15_structured_control.test.ts`                                                                                                 |
 | Stack depth must match at control-flow joins/back-edges               | Implemented            | diagnostics asserted in `test/pr15_structured_control.test.ts`, `test/pr92_lowering_interactions.test.ts`                              |
+| Join/back-edge mismatches invalidate downstream stack tracking        | Implemented            | mismatch paths now flow into unknown-stack return diagnostics (`test/pr199_lowering_mismatch_propagation.test.ts`)                     |
 | Untracked SP mutation at joins/back-edges is diagnosed explicitly     | Implemented            | diagnostics include `Cannot verify stack depth at ... due to untracked SP mutation` (`test/pr197_untracked_stack_invariants.test.ts`)  |
 | Unknown stack state at joins/back-edges is diagnosed with stack slots | Implemented            | diagnostics include `Cannot verify stack depth at ... due to unknown stack state` (`test/pr198_lowering_unknown_stack_states.test.ts`) |
 | Duplicate `case` values are rejected                                  | Intentionally rejected | diagnostic includes `Duplicate case value` (`test/pr15_structured_control.test.ts`)                                                    |
@@ -125,21 +126,21 @@ This section maps specific normative statements to implementation evidence or ex
 
 These are intentionally unsupported or guarded forms with expected diagnostics:
 
-| Area                     | Form                        | Diagnostic (contains)                                 | Evidence                                                                          |
-| ------------------------ | --------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Lowering / EA            | nested indexed EA           | `Nested indexed addresses are not supported yet.`     | `test/pr12_calls.test.ts`                                                         |
-| Lowering / EA            | non-constant array index    | `Non-constant array indices are not supported yet.`   | parser/lowering negative coverage                                                 |
-| Lowering / control       | select join mismatch        | `Stack depth mismatch at select join`                 | `test/pr15_structured_control.test.ts`, `test/pr92_lowering_interactions.test.ts` |
-| Lowering / control       | while back-edge mismatch    | `Stack depth mismatch at while back-edge`             | `test/pr15_structured_control.test.ts`                                            |
-| Lowering / control       | repeat/until mismatch       | `Stack depth mismatch at repeat/until`                | `test/pr15_structured_control.test.ts`                                            |
-| Lowering / control       | untracked join/back-edge    | `Cannot verify stack depth ... untracked SP mutation` | `test/pr197_untracked_stack_invariants.test.ts`                                   |
-| Lowering / control       | unknown join/back-edge      | `Cannot verify stack depth ... unknown stack state`   | `test/pr198_lowering_unknown_stack_states.test.ts`                                |
-| Lowering / returns       | ret with stack imbalance    | `ret with non-zero tracked stack delta`               | `test/pr23_lowering_safety.test.ts`                                               |
-| Lowering / returns       | ret with unknown stack      | `ret reached with unknown stack depth`                | `test/pr198_lowering_unknown_stack_states.test.ts`                                |
-| Lowering / function exit | fallthrough stack imbalance | `has non-zero stack delta at fallthrough`             | `test/pr92_lowering_interactions.test.ts`                                         |
-| Lowering / function exit | fallthrough unknown stack   | `has unknown stack depth at fallthrough`              | `test/pr198_lowering_unknown_stack_states.test.ts`                                |
-| Ops / SP safety          | untracked SP mutation       | `untracked SP mutation`                               | `test/pr23_lowering_safety.test.ts`                                               |
-| Ops / SP safety          | unknown stack tracking      | `expansion leaves stack depth untrackable`            | `test/pr198_lowering_unknown_stack_states.test.ts`                                |
+| Area                     | Form                        | Diagnostic (contains)                                 | Evidence                                                                                               |
+| ------------------------ | --------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Lowering / EA            | nested indexed EA           | `Nested indexed addresses are not supported yet.`     | `test/pr12_calls.test.ts`                                                                              |
+| Lowering / EA            | non-constant array index    | `Non-constant array indices are not supported yet.`   | parser/lowering negative coverage                                                                      |
+| Lowering / control       | select join mismatch        | `Stack depth mismatch at select join`                 | `test/pr15_structured_control.test.ts`, `test/pr92_lowering_interactions.test.ts`                      |
+| Lowering / control       | while back-edge mismatch    | `Stack depth mismatch at while back-edge`             | `test/pr15_structured_control.test.ts`                                                                 |
+| Lowering / control       | repeat/until mismatch       | `Stack depth mismatch at repeat/until`                | `test/pr15_structured_control.test.ts`                                                                 |
+| Lowering / control       | untracked join/back-edge    | `Cannot verify stack depth ... untracked SP mutation` | `test/pr197_untracked_stack_invariants.test.ts`                                                        |
+| Lowering / control       | unknown join/back-edge      | `Cannot verify stack depth ... unknown stack state`   | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
+| Lowering / returns       | ret with stack imbalance    | `ret with non-zero tracked stack delta`               | `test/pr23_lowering_safety.test.ts`                                                                    |
+| Lowering / returns       | ret with unknown stack      | `ret reached with unknown stack depth`                | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
+| Lowering / function exit | fallthrough stack imbalance | `has non-zero stack delta at fallthrough`             | `test/pr92_lowering_interactions.test.ts`                                                              |
+| Lowering / function exit | fallthrough unknown stack   | `has unknown stack depth at fallthrough`              | `test/pr198_lowering_unknown_stack_states.test.ts`                                                     |
+| Ops / SP safety          | untracked SP mutation       | `untracked SP mutation`                               | `test/pr23_lowering_safety.test.ts`                                                                    |
+| Ops / SP safety          | unknown stack tracking      | `expansion leaves stack depth untrackable`            | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
 
 ## 10) Tranche 3 Mapping Expansion
 
