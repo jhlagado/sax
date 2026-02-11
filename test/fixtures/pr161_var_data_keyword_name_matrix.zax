@@ -1,4 +1,4 @@
-var
+globals
   func: byte
   data: byte
 

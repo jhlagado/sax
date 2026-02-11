@@ -1,6 +1,6 @@
 section var at $1000
 
-var
+globals
   x: byte
 
 export func main(): void

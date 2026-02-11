@@ -10,7 +10,7 @@ end
 
 enum E Red, red, func
 
-var
+globals
   counter: byte
   Counter: byte
 

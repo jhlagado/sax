@@ -26,7 +26,9 @@ describe('PR181 parser: canonical top-level malformed-header matrix', () => {
       'Invalid type declaration line "type": expected <name> [<typeExpr>]',
     );
     expect(messages).toContain('Invalid union declaration line "union": expected <name>');
-    expect(messages).toContain('Invalid var declaration line "var extra": expected var');
+    expect(messages).toContain(
+      'Invalid globals declaration line "globals extra": expected globals',
+    );
     expect(messages).toContain('Invalid func header line "func": expected <name>(...): <retType>');
     expect(messages).toContain('Invalid op header line "op": expected <name>(...)');
     expect(messages).toContain('Invalid extern base name "(": expected <identifier>.');

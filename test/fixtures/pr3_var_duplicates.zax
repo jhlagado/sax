@@ -2,7 +2,7 @@ type Point
   x: byte
 end
 
-var
+globals
   p: Point
   p: byte
 

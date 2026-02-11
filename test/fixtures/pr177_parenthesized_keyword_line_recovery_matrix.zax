@@ -11,7 +11,7 @@ union U
   ok: byte
 end
 
-var
+globals
   op y(a: byte): byte
   data: byte
   ok: byte

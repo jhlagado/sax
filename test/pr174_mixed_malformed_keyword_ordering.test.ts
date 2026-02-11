@@ -22,8 +22,8 @@ describe('PR174 parser: mixed malformed + keyword-collision ordering', () => {
       'Invalid union field declaration line "data x: byte": expected <name>: <type>',
       'Invalid union field name "data": collides with a top-level keyword.',
       'Unterminated union "U": expected "end" before "const"',
-      'Invalid var declaration line "op x: byte": expected <name>: <type>',
-      'Invalid var declaration name "op": collides with a top-level keyword.',
+      'Invalid globals declaration line "op x: byte": expected <name>: <type>',
+      'Invalid globals declaration name "op": collides with a top-level keyword.',
       'Invalid data declaration line "extern x: byte = [1]": expected <name>: <type> = <initializer>',
       'Invalid data declaration name "extern": collides with a top-level keyword.',
     ];

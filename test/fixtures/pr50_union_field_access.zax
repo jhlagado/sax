@@ -3,7 +3,7 @@ union Value
   w: word
 end
 
-var
+globals
   v: Value
 
 export func main(): void

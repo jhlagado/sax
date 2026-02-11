@@ -8,7 +8,7 @@ union U
   data: byte
 const K2 = 2
 
-var
+globals
   op x: byte
   op: byte
 const K3 = 3

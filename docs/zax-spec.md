@@ -464,7 +464,7 @@ Example (informative):
 
 ```
 
-var
+globals
 v: Value
 
 asm

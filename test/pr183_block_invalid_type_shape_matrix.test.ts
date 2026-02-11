@@ -22,7 +22,7 @@ describe('PR183 parser: invalid block type shape diagnostics matrix', () => {
       'Invalid union field declaration line "bad: [word]": expected <name>: <type>',
     );
     expect(messages).toContain(
-      'Invalid var declaration line "bad: [byte]": expected <name>: <type>',
+      'Invalid globals declaration line "bad: [byte]": expected <name>: <type>',
     );
     expect(messages).toContain(
       'Invalid data declaration line "bad: [byte] = 2": expected <name>: <type> = <initializer>',

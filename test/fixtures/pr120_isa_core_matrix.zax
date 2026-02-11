@@ -1,6 +1,6 @@
 section var at $8000
 
-var
+globals
   w: word
   b: byte
   w2: word

@@ -7,7 +7,7 @@ union
 union 9Pair
 union Pair extra
 
-var extra
+globals extra
 data extra
 
 func main(): void

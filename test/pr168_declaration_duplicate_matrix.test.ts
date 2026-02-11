@@ -20,7 +20,7 @@ describe('PR168 parser: declaration duplicate-name matrix', () => {
     expect(messages).toContain(
       'Invalid enum member name "func": collides with a top-level keyword.',
     );
-    expect(messages).toContain('Duplicate var declaration name "Counter".');
+    expect(messages).toContain('Duplicate globals declaration name "Counter".');
     expect(messages).toContain('Duplicate var declaration name "TMP".');
     expect(messages).toContain('Duplicate data declaration name "TABLE".');
     expect(messages.some((m) => m.startsWith('Unsupported top-level construct:'))).toBe(false);

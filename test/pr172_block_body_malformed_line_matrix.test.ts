@@ -20,7 +20,9 @@ describe('PR172 parser: malformed block-body line diagnostics matrix', () => {
     expect(messages).toContain(
       'Invalid union field declaration line "lo byte": expected <name>: <type>',
     );
-    expect(messages).toContain('Invalid var declaration line "g byte": expected <name>: <type>');
+    expect(messages).toContain(
+      'Invalid globals declaration line "g byte": expected <name>: <type>',
+    );
     expect(messages).toContain('Invalid var declaration line "tmp byte": expected <name>: <type>');
     expect(messages.some((m) => m.startsWith('Invalid extern func declaration line'))).toBe(true);
     expect(messages).toContain(

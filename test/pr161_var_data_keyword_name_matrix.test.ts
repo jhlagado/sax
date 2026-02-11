@@ -15,10 +15,10 @@ describe('PR161 parser: var/data keyword-name diagnostics parity', () => {
 
     const messages = res.diagnostics.map((d) => d.message);
     expect(messages).toContain(
-      'Invalid var declaration name "func": collides with a top-level keyword.',
+      'Invalid globals declaration name "func": collides with a top-level keyword.',
     );
     expect(messages).toContain(
-      'Invalid var declaration name "data": collides with a top-level keyword.',
+      'Invalid globals declaration name "data": collides with a top-level keyword.',
     );
     expect(messages).toContain(
       'Invalid data declaration name "op": collides with a top-level keyword.',

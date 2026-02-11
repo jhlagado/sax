@@ -4,7 +4,7 @@ extern
 import	
 type	
 union	
-var	x: byte
+globals	x: byte
 data	x: byte = 1
 const	
 enum	

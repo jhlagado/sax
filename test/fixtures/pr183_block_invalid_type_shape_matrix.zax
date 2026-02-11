@@ -8,7 +8,7 @@ union Uni
   bad: [word]
 end
 
-var
+globals
   ok: byte
   bad: [byte]
 

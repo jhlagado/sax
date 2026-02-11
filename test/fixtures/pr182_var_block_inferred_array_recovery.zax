@@ -1,4 +1,4 @@
-var
+globals
   first: byte
   bad: word[]
   second: word

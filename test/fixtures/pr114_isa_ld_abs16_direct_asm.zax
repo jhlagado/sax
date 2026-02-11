@@ -1,7 +1,7 @@
 section code at $0000
 section var at $1000
 
-var
+globals
   w0: word
   w1: word
   w2: word

@@ -17,7 +17,9 @@ describe('PR185 parser: block invalid identifier diagnostics matrix', () => {
 
     expect(messages).toContain('Invalid record field name "9field": expected <identifier>.');
     expect(messages).toContain('Invalid union field name "9part": expected <identifier>.');
-    expect(messages).toContain('Invalid var declaration name "9global": expected <identifier>.');
+    expect(messages).toContain(
+      'Invalid globals declaration name "9global": expected <identifier>.',
+    );
     expect(messages).toContain('Invalid data declaration name "9blob": expected <identifier>.');
     expect(messages).toContain('Invalid enum member name "9bad": expected <identifier>.');
     expect(messages).toContain('Invalid var declaration name "9local": expected <identifier>.');

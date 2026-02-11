@@ -6,7 +6,7 @@ union Pair
   lo byte
 end
 
-var
+globals
   g byte
 
 extern api

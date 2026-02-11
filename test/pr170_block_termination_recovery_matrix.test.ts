@@ -15,7 +15,7 @@ describe('PR170 parser: block termination recovery matrix', () => {
 
     const messages = res.diagnostics.map((d) => d.message);
     expect(messages).toContain('Unterminated type "Point": expected "end" before "const"');
-    expect(messages).toContain('Unterminated union "Pair": expected "end" before "var"');
+    expect(messages).toContain('Unterminated union "Pair": expected "end" before "globals"');
     expect(messages).toContain('Unterminated extern "legacy": expected "end" before "data"');
     expect(messages.some((m) => m.startsWith('Unsupported top-level construct:'))).toBe(false);
   });

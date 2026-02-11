@@ -31,7 +31,9 @@ describe('PR154 parser: top-level malformed keyword matrix', () => {
       'Invalid type declaration line "type": expected <name> [<typeExpr>]',
     );
     expect(messages).toContain('Invalid union declaration line "union": expected <name>');
-    expect(messages).toContain('Invalid var declaration line "var\tx: byte": expected var');
+    expect(messages).toContain(
+      'Invalid globals declaration line "globals\tx: byte": expected globals',
+    );
     expect(messages).toContain('Invalid data declaration line "data\tx: byte = 1": expected data');
     expect(messages).toContain('Invalid const declaration line "const": expected <name> = <imm>');
     expect(messages).toContain(

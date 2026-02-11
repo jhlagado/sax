@@ -34,7 +34,9 @@ describe('PR179 parser: malformed type/union/var/data headers', () => {
     expect(messages).toContain('Invalid union name "9Pair": expected <identifier>.');
     expect(messages).toContain('Invalid union name "Pair extra": expected <identifier>.');
 
-    expect(messages).toContain('Invalid var declaration line "var extra": expected var');
+    expect(messages).toContain(
+      'Invalid globals declaration line "globals extra": expected globals',
+    );
     expect(messages).toContain('Invalid data declaration line "data extra": expected data');
     expect(messages.some((m) => m.startsWith('Unsupported top-level construct:'))).toBe(false);
   });

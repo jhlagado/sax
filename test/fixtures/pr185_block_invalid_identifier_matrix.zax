@@ -8,7 +8,7 @@ union Uni
   ok: word
 end
 
-var
+globals
   9global: byte
   ok: byte
 

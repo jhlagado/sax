@@ -4,7 +4,7 @@ const K = 1
 
 union Pair
   lo: byte
-var
+globals
   g: byte
 
 extern legacy
