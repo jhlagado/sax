@@ -42,7 +42,9 @@ Listing note:
 
 - In v0.1, `.lst` is a deterministic byte dump with an ASCII gutter plus a symbol table (not a full source listing).
 - Sparse/unwritten bytes inside the written range are rendered as `..` in the hex column.
+- Fully empty line spans are collapsed into deterministic `; ... gap $XXXX..$YYYY` markers.
 - Use `.d8dbg.json` (D8M) for debugger-grade source mapping.
+- D8M emits sparse contiguous `segments` plus `addressWidth: 16` and `endianness: "little"` metadata.
 
 Directory creation:
 

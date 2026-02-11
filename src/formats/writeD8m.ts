@@ -7,7 +7,7 @@ import type {
   SymbolEntry,
   WriteD8mOptions,
 } from './types.js';
-import { getWrittenRange } from './range.js';
+import { getWrittenRange, getWrittenSegments } from './range.js';
 
 function normalizeD8mPath(file: string, rootDir?: string): string {
   const withSlashes = file.replace(/\\/g, '/');
@@ -34,6 +34,13 @@ export function writeD8m(
   opts?: WriteD8mOptions,
 ): D8mArtifact {
   const { start, end } = getWrittenRange(map);
+  const writtenSegments = getWrittenSegments(map);
+  const segments =
+    writtenSegments.length > 0
+      ? writtenSegments
+      : start < end
+        ? [{ start, end }]
+        : [{ start: 0, end: 0 }];
 
   const normalizedSymbols = symbols.map((s) => ({
     ...s,
@@ -50,7 +57,9 @@ export function writeD8m(
     format: 'd8-debug-map',
     version: 1,
     arch: 'z80',
-    segments: [{ start, end }],
+    addressWidth: 16,
+    endianness: 'little',
+    segments,
     ...(files.length > 0 ? { files } : {}),
     symbols: normalizedSymbols.map((s) => ({
       name: s.name,

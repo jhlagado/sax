@@ -45,4 +45,31 @@ describe('PR39 listing (.lst) artifact', () => {
     const out = writeListing(map, [], { bytesPerLine: 4 });
     expect(out.text).toContain('1000: 41 .. 42     |A B|');
   });
+
+  it('compresses full-line sparse gaps with a deterministic marker', () => {
+    const map = {
+      bytes: new Map<number, number>([
+        [0x1000, 0x41],
+        [0x1020, 0x42],
+      ]),
+    };
+    const out = writeListing(map, [], { bytesPerLine: 16 });
+    expect(out.text).toContain('1000: 41');
+    expect(out.text).toContain('; ... gap $1010..$101F (1 lines)');
+    expect(out.text).toContain('1020: 42');
+  });
+
+  it('preserves sparse lines at segment edges and collapses middle full-line gaps', () => {
+    const map = {
+      bytes: new Map<number, number>([
+        [0x100f, 0x41],
+        [0x1020, 0x42],
+      ]),
+    };
+    const out = writeListing(map, [], { bytesPerLine: 16 });
+    expect(out.text).toContain('1000:');
+    expect(out.text).toContain('1000: .. .. .. .. .. .. .. .. .. .. .. .. .. .. .. 41');
+    expect(out.text).toContain('; ... gap $1010..$101F (1 lines)');
+    expect(out.text).toContain('1020: 42');
+  });
 });

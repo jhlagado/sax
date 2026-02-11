@@ -1,5 +1,5 @@
 import type { EmittedByteMap, ListingArtifact, SymbolEntry, WriteListingOptions } from './types.js';
-import { getWrittenRange } from './range.js';
+import { getWrittenRange, getWrittenSegments } from './range.js';
 
 function toHexByte(n: number): string {
   return (n & 0xff).toString(16).toUpperCase().padStart(2, '0');
@@ -48,13 +48,33 @@ export function writeListing(
   const lineEnding = opts?.lineEnding ?? '\n';
   const bytesPerLine = opts?.bytesPerLine ?? 16;
   const { start, end } = getWrittenRange(map);
+  const segments = getWrittenSegments(map);
 
   const lines: string[] = [];
   lines.push('; ZAX listing');
   lines.push(`; range: $${toHexWord(start)}..$${toHexWord(end)} (end exclusive)`);
   lines.push('');
 
-  for (let addr = start; addr < end; addr += bytesPerLine) {
+  const lineBaseSet = new Set<number>();
+  for (const segment of segments) {
+    const first = segment.start - (segment.start % bytesPerLine);
+    const last = segment.end - 1 - ((segment.end - 1) % bytesPerLine);
+    for (let addr = first; addr <= last; addr += bytesPerLine) {
+      lineBaseSet.add(addr);
+    }
+  }
+  const lineBases = [...lineBaseSet].sort((a, b) => a - b);
+  let previousBase: number | undefined;
+
+  for (const addr of lineBases) {
+    if (previousBase !== undefined && addr > previousBase + bytesPerLine) {
+      const gapStart = previousBase + bytesPerLine;
+      const gapEndInclusive = addr - 1;
+      const gapLineCount = Math.ceil((addr - gapStart) / bytesPerLine);
+      lines.push(
+        `; ... gap $${toHexWord(gapStart)}..$${toHexWord(gapEndInclusive)} (${gapLineCount} lines)`,
+      );
+    }
     const count = Math.min(bytesPerLine, end - addr);
     const hexBytes: string[] = [];
     const asciiBytes: string[] = [];
@@ -70,6 +90,7 @@ export function writeListing(
     }
     const paddedHex = hexBytes.join(' ').padEnd(bytesPerLine * 3 - 1, ' ');
     lines.push(`${toHexWord(addr)}: ${paddedHex}  |${asciiBytes.join('')}|`);
+    previousBase = addr;
   }
 
   lines.push('');
