@@ -11,14 +11,14 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 73
+- Completed PR anchors listed below: 74
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~71% complete (range 66-77%).
+- Working estimate (risk-weighted): ~72% complete (range 67-78%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
@@ -26,9 +26,9 @@ Working estimate scorecard (risk-weighted, subjective):
 - Spec gate: ~70%
 - Parser/AST gate: ~64%
 - Codegen gate: ~60%
-- ISA gate: ~49%
+- ISA gate: ~51%
 - CLI/output gate: ~67%
-- Hardening gate: ~61%
+- Hardening gate: ~62%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #167: ISA diagnostics parity continuation (conditional `jr`/`djnz` malformed-form diagnostics parity + matrix hardening).
+- #168: ISA diagnostics parity continuation (conditional control-flow arity diagnostics parity hardening for `jp`/`call`/`jr` + matrix coverage).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: ISA diagnostics parity continuation (remaining conditional control-flow legality diagnostics and range/error-surface parity expansion).
+1. Next PR: ISA diagnostics parity continuation (remaining conditional control-flow legality diagnostics and fixup/error-surface parity expansion).
 
 Completed (anchored, most recent first):
 
+1. #167: ISA diagnostics parity continuation (conditional `jr`/`djnz` malformed-form diagnostics parity + matrix hardening).
 1. #165: ISA diagnostics parity continuation (`jp cc, nn` indirect-target legality diagnostics parity + matrix hardening).
 1. #164: ISA diagnostics parity continuation (`call` indirect-form legality diagnostics parity + matrix hardening + status-report gate plan update).
 1. #163: ISA diagnostics parity continuation (`jp` indirect-form legality diagnostics parity + matrix hardening).
