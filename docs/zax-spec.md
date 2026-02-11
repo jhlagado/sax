@@ -1093,6 +1093,7 @@ Lowering (informative):
   - The compiler may test `case` values in any order.
     - Do not rely on any particular case-test order or intermediate dispatch effects.
   - If the selector is a compile-time `imm` expression, the compiler may resolve the match at compile time and emit only the matching arm (or nothing).
+    - The current compiler implementation folds the dispatch compare chain for compile-time `imm` selectors.
 
 ### 10.3 Examples
 

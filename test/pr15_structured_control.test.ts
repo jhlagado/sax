@@ -230,6 +230,35 @@ describe('PR15 structured asm control flow', () => {
     expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
   });
 
+  it('folds compare-chain dispatch when selector is compile-time immediate', async () => {
+    const constEntry = join(
+      __dirname,
+      'fixtures',
+      'pr147_select_const_selector_dispatch_folded.zax',
+    );
+    const regEntry = join(
+      __dirname,
+      'fixtures',
+      'pr147_select_reg_selector_dispatch_compare_chain.zax',
+    );
+
+    const constRes = await compile(constEntry, {}, { formats: defaultFormatWriters });
+    const regRes = await compile(regEntry, {}, { formats: defaultFormatWriters });
+    expect(constRes.diagnostics).toEqual([]);
+    expect(regRes.diagnostics).toEqual([]);
+
+    const constBin = constRes.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    const regBin = regRes.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(constBin).toBeDefined();
+    expect(regBin).toBeDefined();
+
+    expect([...regBin!.bytes]).toContain(0xfe); // compare chain uses cp imm8
+    expect([...constBin!.bytes]).not.toContain(0xfe);
+    expect(constBin!.bytes.length).toBeLessThan(regBin!.bytes.length);
+    expect(constBin!.bytes[constBin!.bytes.length - 1]).toBe(0xc9);
+    expect(regBin!.bytes[regBin!.bytes.length - 1]).toBe(0xc9);
+  });
+
   it('diagnoses until without matching repeat', async () => {
     const entry = join(__dirname, 'fixtures', 'pr15_until_without_repeat.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

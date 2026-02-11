@@ -2720,31 +2720,41 @@ export function emitProgram(
               }
 
               defineCodeLabel(dispatchLabel, asmItems[j]!.span, 'local');
-              if (!emitInstr('push', [{ kind: 'Reg', span: it.span, name: 'HL' }], it.span)) {
-                return asmItems.length;
+              let selectorConst: number | undefined;
+              if (it.selector.kind === 'Imm') {
+                const v = evalImmExpr(it.selector.expr, env, diagnostics);
+                if (v !== undefined) selectorConst = v & 0xffff;
               }
-              if (!loadSelectorIntoHL(it.selector, it.span)) {
-                return asmItems.length;
-              }
-              for (const arm of caseArms) {
-                const miss = newHiddenLabel('__zax_select_next');
-                emitSelectCompareToImm16(arm.value, miss, arm.span);
-                emitInstr('pop', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span);
-                emitJumpTo(arm.bodyLabel, arm.span);
-                defineCodeLabel(miss, arm.span, 'local');
-                if (!emitInstr('push', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span)) {
+              if (selectorConst !== undefined) {
+                const matched = caseArms.find((arm) => arm.value === selectorConst);
+                emitJumpTo(matched?.bodyLabel ?? elseLabel ?? endLabel, asmItems[j]!.span);
+              } else {
+                if (!emitInstr('push', [{ kind: 'Reg', span: it.span, name: 'HL' }], it.span)) {
                   return asmItems.length;
                 }
-                if (!loadSelectorIntoHL(it.selector, arm.span)) {
+                if (!loadSelectorIntoHL(it.selector, it.span)) {
                   return asmItems.length;
                 }
+                for (const arm of caseArms) {
+                  const miss = newHiddenLabel('__zax_select_next');
+                  emitSelectCompareToImm16(arm.value, miss, arm.span);
+                  emitInstr('pop', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span);
+                  emitJumpTo(arm.bodyLabel, arm.span);
+                  defineCodeLabel(miss, arm.span, 'local');
+                  if (!emitInstr('push', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span)) {
+                    return asmItems.length;
+                  }
+                  if (!loadSelectorIntoHL(it.selector, arm.span)) {
+                    return asmItems.length;
+                  }
+                }
+                emitInstr(
+                  'pop',
+                  [{ kind: 'Reg', span: asmItems[j]!.span, name: 'HL' }],
+                  asmItems[j]!.span,
+                );
+                emitJumpTo(elseLabel ?? endLabel, asmItems[j]!.span);
               }
-              emitInstr(
-                'pop',
-                [{ kind: 'Reg', span: asmItems[j]!.span, name: 'HL' }],
-                asmItems[j]!.span,
-              );
-              emitJumpTo(elseLabel ?? endLabel, asmItems[j]!.span);
 
               defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
               const joinInputs = [...armExits];
