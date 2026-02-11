@@ -1401,6 +1401,21 @@ export function parseModuleFile(
     { keyword: 'data', kind: 'data declaration', expected: 'data' },
   ];
 
+  const unsupportedExportTargetKind: Readonly<Partial<Record<string, string>>> = {
+    import: 'import statements',
+    type: 'type declarations',
+    union: 'union declarations',
+    globals: 'globals declarations',
+    var: 'var declarations',
+    extern: 'extern declarations',
+    enum: 'enum declarations',
+    section: 'section directives',
+    align: 'align directives',
+    bin: 'bin declarations',
+    hex: 'hex declarations',
+    data: 'data declarations',
+  };
+
   function parseExternFuncFromTail(
     tail: string,
     stmtSpan: SourceSpan,
@@ -1524,10 +1539,48 @@ export function parseModuleFile(
         consumeKeywordPrefix(rest, 'func') !== undefined ||
         consumeKeywordPrefix(rest, 'op') !== undefined;
       if (!allowed) {
-        diag(diagnostics, modulePath, `export is only permitted on const/func/op declarations`, {
-          line: lineNo,
-          column: 1,
-        });
+        const exportAsmTail = consumeKeywordPrefix(rest, 'asm');
+        if (exportAsmTail !== undefined) {
+          diag(
+            diagnostics,
+            modulePath,
+            `"asm" is not a top-level construct (function and op bodies are implicit instruction streams)`,
+            {
+              line: lineNo,
+              column: 1,
+            },
+          );
+          i++;
+          continue;
+        }
+
+        const targetKeyword = topLevelStartKeyword(rest);
+        if (targetKeyword !== undefined) {
+          const targetKind = unsupportedExportTargetKind[targetKeyword];
+          if (targetKind !== undefined) {
+            diag(diagnostics, modulePath, `export not supported on ${targetKind}`, {
+              line: lineNo,
+              column: 1,
+            });
+          } else {
+            diag(
+              diagnostics,
+              modulePath,
+              `export is only permitted on const/func/op declarations`,
+              {
+                line: lineNo,
+                column: 1,
+              },
+            );
+          }
+        } else {
+          diag(diagnostics, modulePath, `export is only permitted on const/func/op declarations`, {
+            line: lineNo,
+            column: 1,
+          });
+        }
+        i++;
+        continue;
       }
     }
 
@@ -2368,13 +2421,11 @@ export function parseModuleFile(
           i++;
           break;
         }
-        if (asmControlStack.length === 0) {
-          const topKeyword = topLevelStartKeyword(content);
-          if (topKeyword !== undefined) {
-            interruptedByKeyword = topKeyword;
-            interruptedByLine = i + 1;
-            break;
-          }
+        const topKeyword = topLevelStartKeyword(content);
+        if (topKeyword !== undefined) {
+          interruptedByKeyword = topKeyword;
+          interruptedByLine = i + 1;
+          break;
         }
 
         const fullSpan = span(file, lineOffset, endOffset);
@@ -2418,6 +2469,18 @@ export function parseModuleFile(
 
       if (!terminated) {
         if (interruptedByKeyword !== undefined && interruptedByLine !== undefined) {
+          for (const frame of asmControlStack) {
+            if (isRecoverOnlyControlFrame(frame)) continue;
+            const frameSpan = frame.openSpan;
+            const msg =
+              frame.kind === 'Repeat'
+                ? `"repeat" without matching "until <cc>"`
+                : `"${frame.kind.toLowerCase()}" without matching "end"`;
+            diag(diagnostics, modulePath, msg, {
+              line: frameSpan.start.line,
+              column: frameSpan.start.column,
+            });
+          }
           diag(
             diagnostics,
             modulePath,
@@ -2527,13 +2590,11 @@ export function parseModuleFile(
           i++;
           break;
         }
-        if (controlStack.length === 0) {
-          const topKeyword = topLevelStartKeyword(content);
-          if (topKeyword !== undefined) {
-            interruptedByKeyword = topKeyword;
-            interruptedByLine = i + 1;
-            break;
-          }
+        const topKeyword = topLevelStartKeyword(content);
+        if (topKeyword !== undefined) {
+          interruptedByKeyword = topKeyword;
+          interruptedByLine = i + 1;
+          break;
         }
 
         const fullSpan = span(file, so, eo);
@@ -2568,6 +2629,18 @@ export function parseModuleFile(
 
       if (!terminated) {
         if (interruptedByKeyword !== undefined && interruptedByLine !== undefined) {
+          for (const frame of controlStack) {
+            if (isRecoverOnlyControlFrame(frame)) continue;
+            const frameSpan = frame.openSpan;
+            const msg =
+              frame.kind === 'Repeat'
+                ? `"repeat" without matching "until <cc>"`
+                : `"${frame.kind.toLowerCase()}" without matching "end"`;
+            diag(diagnostics, modulePath, msg, {
+              line: frameSpan.start.line,
+              column: frameSpan.start.column,
+            });
+          }
           diag(
             diagnostics,
             modulePath,
@@ -2604,15 +2677,6 @@ export function parseModuleFile(
 
     const externTail = consumeTopKeyword(rest, 'extern');
     if (externTail !== undefined) {
-      if (hasExportPrefix) {
-        diag(diagnostics, modulePath, `export not supported on extern declarations`, {
-          line: lineNo,
-          column: 1,
-        });
-        i++;
-        continue;
-      }
-
       const decl = externTail.trim();
       const stmtSpan = span(file, lineStartOffset, lineEndOffset);
       const externFuncTail = consumeKeywordPrefix(decl, 'func');
@@ -2881,15 +2945,6 @@ export function parseModuleFile(
 
     const sectionTail = consumeTopKeyword(rest, 'section');
     if (rest.toLowerCase() === 'section' || sectionTail !== undefined) {
-      if (hasExportPrefix) {
-        diag(diagnostics, modulePath, `export not supported on section directives`, {
-          line: lineNo,
-          column: 1,
-        });
-        i++;
-        continue;
-      }
-
       const decl = rest === 'section' ? '' : (sectionTail ?? '');
       const m = /^(code|data|var)(?:\s+at\s+(.+))?$/.exec(decl);
       if (!m) {
@@ -2918,15 +2973,6 @@ export function parseModuleFile(
 
     const alignTail = consumeTopKeyword(rest, 'align');
     if (rest.toLowerCase() === 'align' || alignTail !== undefined) {
-      if (hasExportPrefix) {
-        diag(diagnostics, modulePath, `export not supported on align directives`, {
-          line: lineNo,
-          column: 1,
-        });
-        i++;
-        continue;
-      }
-
       const exprText = rest === 'align' ? '' : (alignTail ?? '');
       if (exprText.length === 0) {
         diagInvalidHeaderLine('align directive', text, '<imm16>', lineNo);
