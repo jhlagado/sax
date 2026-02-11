@@ -11,7 +11,7 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 90
+- Completed PR anchors listed below: 91
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
@@ -236,7 +236,7 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #184: hardening/acceptance pass (CLI path-parity artifact contract for relative/absolute entry/output invocation forms).
+1. #185: hardening/acceptance pass (strict CLI acceptance matrix expansion: artifact payload parity across primary-type/suppression combinations, include-path spelling parity, and negative argument-shape contracts, plus shared helper stabilization for CLI contract suites).
 
 Next PR (anchored as soon as opened):
 
@@ -244,6 +244,7 @@ Next PR (anchored as soon as opened):
 
 Completed (anchored, most recent first):
 
+1. #184: hardening/acceptance pass (CLI path-parity artifact contract for relative/absolute entry/output invocation forms).
 1. #183: hardening/acceptance pass (examples determinism acceptance gate tightening with repeated artifact snapshot equality checks).
 1. #182: hardening/acceptance pass (CLI determinism artifact contract matrix across repeated runs and include-flag parity/order forms).
 1. #181: CLI/output contract hardening pass (CLI argument/error/output contract matrix coverage and `--version` dist-path fix).
