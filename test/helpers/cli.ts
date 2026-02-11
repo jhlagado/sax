@@ -11,6 +11,9 @@ const repoRoot = resolve(__dirname, '..', '..');
 const cliPath = resolve(repoRoot, 'dist', 'src', 'cli.js');
 const buildTmpDir = resolve(repoRoot, '.tmp');
 const buildLockPath = resolve(buildTmpDir, 'cli-build.lock');
+const lockWaitSliceMs = 250;
+const lockWaitMaxMs = 90_000;
+const lockStaleMs = 5 * 60_000;
 
 let buildPromise: Promise<void> | undefined;
 
@@ -27,15 +30,36 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function buildCliWithLock(): Promise<void> {
-  if (await pathExists(cliPath)) return;
+function parseLockTimestamp(raw: string): number | undefined {
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  try {
+    const parsed = JSON.parse(trimmed) as { createdAt?: unknown };
+    const value = parsed.createdAt;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    return undefined;
+  } catch {
+    const numeric = Number(trimmed);
+    return Number.isFinite(numeric) ? numeric : undefined;
+  }
+}
 
+async function clearStaleLockIfNeeded(): Promise<void> {
+  const lockText = await readFile(buildLockPath, 'utf8').catch(() => '');
+  const createdAt = parseLockTimestamp(lockText);
+  if (createdAt === undefined) return;
+  if (Date.now() - createdAt < lockStaleMs) return;
+  await rm(buildLockPath, { force: true });
+}
+
+async function buildCliWithLock(): Promise<void> {
   await mkdir(buildTmpDir, { recursive: true });
 
   while (true) {
-    if (await pathExists(cliPath)) return;
     try {
-      await writeFile(buildLockPath, `${process.pid}\n`, { flag: 'wx' });
+      await writeFile(buildLockPath, JSON.stringify({ pid: process.pid, createdAt: Date.now() }), {
+        flag: 'wx',
+      });
       try {
         await execFileAsync('yarn', ['-s', 'build'], {
           encoding: 'utf8',
@@ -48,9 +72,13 @@ async function buildCliWithLock(): Promise<void> {
     } catch (err) {
       const e = err as NodeJS.ErrnoException;
       if (e.code && e.code !== 'EEXIST') throw err;
-      for (let i = 0; i < 360; i++) {
+      let waitedMs = 0;
+      while (waitedMs < lockWaitMaxMs) {
         if (!(await pathExists(buildLockPath))) break;
-        await sleep(250);
+        await clearStaleLockIfNeeded();
+        if (!(await pathExists(buildLockPath))) break;
+        await sleep(lockWaitSliceMs);
+        waitedMs += lockWaitSliceMs;
       }
     }
   }
