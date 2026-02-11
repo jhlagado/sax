@@ -5,6 +5,7 @@ import { DiagnosticIds } from '../diagnostics/types.js';
 import type { EmittedByteMap, SymbolEntry } from '../formats/types.js';
 import type {
   AlignDirectiveNode,
+  AsmItemNode,
   AsmInstructionNode,
   AsmOperandNode,
   BinDeclNode,
@@ -2084,29 +2085,116 @@ export function emitProgram(
 
             opExpansionStack.push(opKey);
             try {
+              const localLabelMap = new Map<string, string>();
               for (const bodyItem of opDecl.body.items) {
+                if (bodyItem.kind !== 'AsmLabel') continue;
+                const key = bodyItem.name.toLowerCase();
+                if (!localLabelMap.has(key)) {
+                  localLabelMap.set(
+                    key,
+                    newHiddenLabel(`__zax_op_${opDecl.name.toLowerCase()}_lbl`),
+                  );
+                }
+              }
+
+              const substituteImmWithOpLabels = (expr: ImmExprNode): ImmExprNode => {
+                if (expr.kind === 'ImmName') {
+                  const bound = bindings.get(expr.name.toLowerCase());
+                  if (bound && bound.kind === 'Imm') return cloneImmExpr(bound.expr);
+                  const mapped = localLabelMap.get(expr.name.toLowerCase());
+                  if (mapped) return { kind: 'ImmName', span: expr.span, name: mapped };
+                  return { ...expr };
+                }
+                if (expr.kind === 'ImmUnary') {
+                  return { ...expr, expr: substituteImmWithOpLabels(expr.expr) };
+                }
+                if (expr.kind === 'ImmBinary') {
+                  return {
+                    ...expr,
+                    left: substituteImmWithOpLabels(expr.left),
+                    right: substituteImmWithOpLabels(expr.right),
+                  };
+                }
+                return { ...expr };
+              };
+
+              const substituteOperandWithOpLabels = (operand: AsmOperandNode): AsmOperandNode => {
+                if (operand.kind === 'Imm') {
+                  if (operand.expr.kind === 'ImmName') {
+                    const bound = bindings.get(operand.expr.name.toLowerCase());
+                    if (bound) return cloneOperand(bound);
+                  }
+                  return { ...operand, expr: substituteImmWithOpLabels(operand.expr) };
+                }
+                if (
+                  (operand.kind === 'Ea' || operand.kind === 'Mem') &&
+                  operand.expr.kind === 'EaName'
+                ) {
+                  const bound = bindings.get(operand.expr.name.toLowerCase());
+                  if (bound?.kind === 'Ea') return cloneOperand(bound);
+                  if (bound?.kind === 'Reg') {
+                    return {
+                      ...operand,
+                      expr: { kind: 'EaName', span: operand.expr.span, name: bound.name },
+                    };
+                  }
+                  if (bound?.kind === 'Imm' && bound.expr.kind === 'ImmName') {
+                    return {
+                      ...operand,
+                      expr: { kind: 'EaName', span: operand.expr.span, name: bound.expr.name },
+                    };
+                  }
+                  const mapped = localLabelMap.get(operand.expr.name.toLowerCase());
+                  if (mapped) {
+                    return {
+                      ...operand,
+                      expr: { kind: 'EaName', span: operand.expr.span, name: mapped },
+                    };
+                  }
+                  return cloneOperand(operand);
+                }
+                return substituteOperand(operand);
+              };
+
+              const expandedItems: AsmItemNode[] = opDecl.body.items.map((bodyItem) => {
                 if (bodyItem.kind === 'AsmInstruction') {
-                  const expanded: AsmInstructionNode = {
+                  return {
                     kind: 'AsmInstruction',
                     span: bodyItem.span,
                     head: bodyItem.head,
-                    operands: bodyItem.operands.map((o) => substituteOperand(o)),
+                    operands: bodyItem.operands.map((o) => substituteOperandWithOpLabels(o)),
                   };
-                  emitAsmInstruction(expanded);
-                  continue;
                 }
                 if (bodyItem.kind === 'AsmLabel') {
-                  diagAt(
-                    diagnostics,
-                    bodyItem.span,
-                    `Labels inside op bodies are not supported in current subset.`,
-                  );
-                  continue;
+                  return {
+                    kind: 'AsmLabel',
+                    span: bodyItem.span,
+                    name: localLabelMap.get(bodyItem.name.toLowerCase()) ?? bodyItem.name,
+                  };
                 }
+                if (bodyItem.kind === 'Select') {
+                  return {
+                    kind: 'Select',
+                    span: bodyItem.span,
+                    selector: substituteOperandWithOpLabels(bodyItem.selector),
+                  };
+                }
+                if (bodyItem.kind === 'Case') {
+                  return {
+                    kind: 'Case',
+                    span: bodyItem.span,
+                    value: substituteImmWithOpLabels(bodyItem.value),
+                  };
+                }
+                return { ...bodyItem };
+              });
+
+              const consumed = lowerAsmRange(expandedItems, 0, new Set());
+              if (consumed < expandedItems.length) {
                 diagAt(
                   diagnostics,
-                  bodyItem.span,
-                  `Structured control inside op bodies is not supported in current subset.`,
+                  expandedItems[consumed]!.span,
+                  `Internal control-flow lowering error.`,
                 );
               }
             } finally {
@@ -2375,11 +2463,14 @@ export function emitProgram(
           syncToFlow();
         };
 
-        const items = item.asm.items;
-        const lowerRange = (startIndex: number, stopKinds: Set<string>): number => {
+        const lowerAsmRange = (
+          asmItems: readonly AsmItemNode[],
+          startIndex: number,
+          stopKinds: Set<string>,
+        ): number => {
           let i = startIndex;
-          while (i < items.length) {
-            const it = items[i]!;
+          while (i < asmItems.length) {
+            const it = asmItems[i]!;
             if (stopKinds.has(it.kind)) return i;
             if (it.kind === 'AsmLabel') {
               defineCodeLabel(it.name, it.span, 'global');
@@ -2403,31 +2494,31 @@ export function emitProgram(
               const endLabel = newHiddenLabel('__zax_if_end');
               emitJumpIfFalse(it.cc, elseLabel, it.span);
 
-              let j = lowerRange(i + 1, new Set(['Else', 'End']));
+              let j = lowerAsmRange(asmItems, i + 1, new Set(['Else', 'End']));
               const thenExit = snapshotFlow();
-              if (j >= items.length) {
+              if (j >= asmItems.length) {
                 diagAt(diagnostics, it.span, `if without matching end.`);
-                return items.length;
+                return asmItems.length;
               }
-              const term = items[j]!;
+              const term = asmItems[j]!;
               if (term.kind === 'Else') {
                 if (thenExit.reachable) emitJumpTo(endLabel, term.span);
                 defineCodeLabel(elseLabel, term.span, 'local');
                 restoreFlow(entry);
-                j = lowerRange(j + 1, new Set(['End']));
+                j = lowerAsmRange(asmItems, j + 1, new Set(['End']));
                 const elseExit = snapshotFlow();
-                if (j >= items.length || items[j]!.kind !== 'End') {
+                if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
                   diagAt(diagnostics, it.span, `if/else without matching end.`);
-                  return items.length;
+                  return asmItems.length;
                 }
-                defineCodeLabel(endLabel, items[j]!.span, 'local');
-                restoreFlow(joinFlows(thenExit, elseExit, items[j]!.span, 'if/else'));
+                defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
+                restoreFlow(joinFlows(thenExit, elseExit, asmItems[j]!.span, 'if/else'));
                 i = j + 1;
                 continue;
               }
               if (term.kind !== 'End') {
                 diagAt(diagnostics, it.span, `if without matching end.`);
-                return items.length;
+                return asmItems.length;
               }
               defineCodeLabel(elseLabel, term.span, 'local');
               restoreFlow(joinFlows(thenExit, entry, term.span, 'if'));
@@ -2441,11 +2532,11 @@ export function emitProgram(
               defineCodeLabel(condLabel, it.span, 'local');
               emitJumpIfFalse(it.cc, endLabel, it.span);
 
-              const j = lowerRange(i + 1, new Set(['End']));
+              const j = lowerAsmRange(asmItems, i + 1, new Set(['End']));
               const bodyExit = snapshotFlow();
-              if (j >= items.length || items[j]!.kind !== 'End') {
+              if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
                 diagAt(diagnostics, it.span, `while without matching end.`);
-                return items.length;
+                return asmItems.length;
               }
               if (
                 bodyExit.reachable &&
@@ -2455,12 +2546,12 @@ export function emitProgram(
               ) {
                 diagAt(
                   diagnostics,
-                  items[j]!.span,
+                  asmItems[j]!.span,
                   `Stack depth mismatch at while back-edge (${bodyExit.spDelta} vs ${entry.spDelta}).`,
                 );
               }
-              if (bodyExit.reachable) emitJumpTo(condLabel, items[j]!.span);
-              defineCodeLabel(endLabel, items[j]!.span, 'local');
+              if (bodyExit.reachable) emitJumpTo(condLabel, asmItems[j]!.span);
+              defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
               restoreFlow(entry);
               i = j + 1;
               continue;
@@ -2469,15 +2560,15 @@ export function emitProgram(
               const entry = snapshotFlow();
               const loopLabel = newHiddenLabel('__zax_repeat_body');
               defineCodeLabel(loopLabel, it.span, 'local');
-              const j = lowerRange(i + 1, new Set(['Until']));
-              if (j >= items.length || items[j]!.kind !== 'Until') {
+              const j = lowerAsmRange(asmItems, i + 1, new Set(['Until']));
+              if (j >= asmItems.length || asmItems[j]!.kind !== 'Until') {
                 diagAt(diagnostics, it.span, `repeat without matching until.`);
-                return items.length;
+                return asmItems.length;
               }
-              const untilNode = items[j]!;
+              const untilNode = asmItems[j]!;
               const bodyExit = snapshotFlow();
               const ok = emitJumpIfFalse(untilNode.cc, loopLabel, untilNode.span);
-              if (!ok) return items.length;
+              if (!ok) return asmItems.length;
               if (
                 bodyExit.reachable &&
                 bodyExit.spValid &&
@@ -2511,14 +2602,14 @@ export function emitProgram(
                 if (flow.reachable) emitJumpTo(endLabel, span);
               };
 
-              while (j < items.length) {
-                const armItem = items[j]!;
+              while (j < asmItems.length) {
+                const armItem = asmItems[j]!;
                 if (armItem.kind === 'Case') {
                   const bodyLabel = newHiddenLabel('__zax_case');
                   defineCodeLabel(bodyLabel, armItem.span, 'local');
                   let k = j;
-                  while (k < items.length) {
-                    const caseItem = items[k]!;
+                  while (k < asmItems.length) {
+                    const caseItem = asmItems[k]!;
                     if (caseItem.kind !== 'Case') break;
                     const v = evalImmExpr(caseItem.value, env, diagnostics);
                     if (v === undefined) {
@@ -2536,8 +2627,8 @@ export function emitProgram(
                   }
                   restoreFlow(entry);
                   sawArm = true;
-                  j = lowerRange(k, new Set(['Case', 'SelectElse', 'End']));
-                  closeArm(items[Math.min(j, items.length - 1)]!.span);
+                  j = lowerAsmRange(asmItems, k, new Set(['Case', 'SelectElse', 'End']));
+                  closeArm(asmItems[Math.min(j, asmItems.length - 1)]!.span);
                   continue;
                 }
                 if (armItem.kind === 'SelectElse') {
@@ -2548,8 +2639,8 @@ export function emitProgram(
                   defineCodeLabel(elseLabel, armItem.span, 'local');
                   restoreFlow(entry);
                   sawArm = true;
-                  j = lowerRange(j + 1, new Set(['End']));
-                  closeArm(items[Math.min(j, items.length - 1)]!.span);
+                  j = lowerAsmRange(asmItems, j + 1, new Set(['End']));
+                  closeArm(asmItems[Math.min(j, asmItems.length - 1)]!.span);
                   continue;
                 }
                 if (armItem.kind === 'End') break;
@@ -2557,20 +2648,20 @@ export function emitProgram(
                 j++;
               }
 
-              if (j >= items.length || items[j]!.kind !== 'End') {
+              if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
                 diagAt(diagnostics, it.span, `select without matching end.`);
-                return items.length;
+                return asmItems.length;
               }
               if (!sawArm) {
                 diagAt(diagnostics, it.span, `select must contain at least one case or else arm.`);
               }
 
-              defineCodeLabel(dispatchLabel, items[j]!.span, 'local');
+              defineCodeLabel(dispatchLabel, asmItems[j]!.span, 'local');
               if (!emitInstr('push', [{ kind: 'Reg', span: it.span, name: 'HL' }], it.span)) {
-                return items.length;
+                return asmItems.length;
               }
               if (!loadSelectorIntoHL(it.selector, it.span)) {
-                return items.length;
+                return asmItems.length;
               }
               for (const arm of caseArms) {
                 const miss = newHiddenLabel('__zax_select_next');
@@ -2579,16 +2670,20 @@ export function emitProgram(
                 emitJumpTo(arm.bodyLabel, arm.span);
                 defineCodeLabel(miss, arm.span, 'local');
                 if (!emitInstr('push', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span)) {
-                  return items.length;
+                  return asmItems.length;
                 }
                 if (!loadSelectorIntoHL(it.selector, arm.span)) {
-                  return items.length;
+                  return asmItems.length;
                 }
               }
-              emitInstr('pop', [{ kind: 'Reg', span: items[j]!.span, name: 'HL' }], items[j]!.span);
-              emitJumpTo(elseLabel ?? endLabel, items[j]!.span);
+              emitInstr(
+                'pop',
+                [{ kind: 'Reg', span: asmItems[j]!.span, name: 'HL' }],
+                asmItems[j]!.span,
+              );
+              emitJumpTo(elseLabel ?? endLabel, asmItems[j]!.span);
 
-              defineCodeLabel(endLabel, items[j]!.span, 'local');
+              defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
               const joinInputs = [...armExits];
               if (!elseLabel) joinInputs.push(entry);
               const reachable = joinInputs.filter((f) => f.reachable);
@@ -2602,7 +2697,7 @@ export function emitProgram(
                   if (mismatch) {
                     diagAt(
                       diagnostics,
-                      items[j]!.span,
+                      asmItems[j]!.span,
                       `Stack depth mismatch at select join (${base.spDelta} vs ${mismatch.spDelta}).`,
                     );
                   }
@@ -2631,9 +2726,13 @@ export function emitProgram(
           return i;
         };
 
-        const consumed = lowerRange(0, new Set());
-        if (consumed < items.length) {
-          diagAt(diagnostics, items[consumed]!.span, `Internal control-flow lowering error.`);
+        const consumed = lowerAsmRange(item.asm.items, 0, new Set());
+        if (consumed < item.asm.items.length) {
+          diagAt(
+            diagnostics,
+            item.asm.items[consumed]!.span,
+            `Internal control-flow lowering error.`,
+          );
         }
         syncToFlow();
         if (flow.reachable && flow.spValid && flow.spDelta !== 0) {

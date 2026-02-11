@@ -71,4 +71,25 @@ describe('PR16 op declarations and expansion', () => {
     expect(res.diagnostics.some((d) => d.message.includes('No matching op overload'))).toBe(true);
     expect(res.diagnostics.some((d) => d.message.includes('Failed to evaluate'))).toBe(false);
   });
+
+  it('supports labels inside op bodies across repeated expansion sites', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr188_op_local_labels_repeated.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes).toEqual(Uint8Array.of(0x00, 0x18, 0xfd, 0x00, 0x18, 0xfd, 0xc9));
+  });
+
+  it('supports structured select control inside op bodies', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr188_op_structured_select.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes.includes(0x00)).toBe(true);
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
 });
