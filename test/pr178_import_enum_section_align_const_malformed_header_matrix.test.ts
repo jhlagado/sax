@@ -31,9 +31,7 @@ describe('PR178 parser: malformed import/enum/section/align/const headers', () =
     expect(messages).toContain(
       'Invalid enum declaration line "enum": expected <name> <member>[, ...]',
     );
-    expect(messages).toContain(
-      'Invalid enum declaration line "enum 9bad A": expected <name> <member>[, ...]',
-    );
+    expect(messages).toContain('Invalid enum name "9bad": expected <identifier>.');
 
     expect(messages).toContain(
       'Invalid section directive line "section": expected <code|data|var> [at <imm16>]',

@@ -22,9 +22,7 @@ describe('PR179 parser: malformed type/union/var/data headers', () => {
     expect(messages).toContain(
       'Invalid type declaration line "type": expected <name> [<typeExpr>]',
     );
-    expect(messages).toContain(
-      'Invalid type declaration line "type 9Bad": expected <name> [<typeExpr>]',
-    );
+    expect(messages).toContain('Invalid type name "9Bad": expected <identifier>.');
     expect(messages).toContain(
       'Invalid type declaration line "type Word =": expected <name> [<typeExpr>]',
     );
@@ -33,10 +31,8 @@ describe('PR179 parser: malformed type/union/var/data headers', () => {
     );
 
     expect(messages).toContain('Invalid union declaration line "union": expected <name>');
-    expect(messages).toContain('Invalid union declaration line "union 9Pair": expected <name>');
-    expect(messages).toContain(
-      'Invalid union declaration line "union Pair extra": expected <name>',
-    );
+    expect(messages).toContain('Invalid union name "9Pair": expected <identifier>.');
+    expect(messages).toContain('Invalid union name "Pair extra": expected <identifier>.');
 
     expect(messages).toContain('Invalid var declaration line "var extra": expected var');
     expect(messages).toContain('Invalid data declaration line "data extra": expected data');

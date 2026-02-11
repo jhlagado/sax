@@ -1442,7 +1442,16 @@ export function parseModuleFile(
       const name = parts[0] ?? '';
       const tail = afterType.slice(name.length).trimStart();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diagInvalidHeaderLine('type declaration', text, '<name> [<typeExpr>]', lineNo);
+        if (name.length > 0) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid type name ${formatIdentifierToken(name)}: expected <identifier>.`,
+            { line: lineNo, column: 1 },
+          );
+        } else {
+          diagInvalidHeaderLine('type declaration', text, '<name> [<typeExpr>]', lineNo);
+        }
         i++;
         continue;
       }
@@ -1624,7 +1633,16 @@ export function parseModuleFile(
     if (unionTail !== undefined) {
       const name = unionTail.trim();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diagInvalidHeaderLine('union declaration', text, '<name>', lineNo);
+        if (name.length > 0) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid union name ${formatIdentifierToken(name)}: expected <identifier>.`,
+            { line: lineNo, column: 1 },
+          );
+        } else {
+          diagInvalidHeaderLine('union declaration', text, '<name>', lineNo);
+        }
         i++;
         continue;
       }
@@ -2551,7 +2569,17 @@ export function parseModuleFile(
       const decl = enumTail;
       const nameMatch = /^([A-Za-z_][A-Za-z0-9_]*)(?:\s+(.*))?$/.exec(decl);
       if (!nameMatch) {
-        diagInvalidHeaderLine('enum declaration', text, '<name> <member>[, ...]', lineNo);
+        const invalidName = decl.split(/\s+/, 1)[0] ?? '';
+        if (invalidName.length > 0) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid enum name ${formatIdentifierToken(invalidName)}: expected <identifier>.`,
+            { line: lineNo, column: 1 },
+          );
+        } else {
+          diagInvalidHeaderLine('enum declaration', text, '<name> <member>[, ...]', lineNo);
+        }
         i++;
         continue;
       }
