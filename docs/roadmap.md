@@ -18,17 +18,17 @@ Progress snapshot (rough, assembler-first):
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~85% complete (range 81-89%).
+- Working estimate (risk-weighted): ~86% complete (range 82-90%).
 - Why this is not higher: major closure work remains across parser coverage depth, ISA edge forms, CLI contract hardening, and deterministic acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
-- Spec gate: ~72%
-- Parser/AST gate: ~86%
+- Spec gate: ~73%
+- Parser/AST gate: ~88%
 - Codegen gate: ~66%
 - ISA gate: ~62%
 - CLI/output gate: ~64%
-- Hardening gate: ~70%
+- Hardening gate: ~71%
 
 What moves the needle fastest:
 
@@ -240,7 +240,7 @@ Open / in review (anchored):
 
 Next after #136 merges (anchored as soon as opened):
 
-1. Next PR: Parser/AST closure pass (edge-case rejection diagnostics parity + malformed-form recovery hardening).
+1. Next PR: Parser/AST closure pass (malformed `func`/`op`/`extern` header diagnostics parity + matrix hardening + message-order stability).
 
 Completed (anchored, most recent first):
 

@@ -1,0 +1,19 @@
+func
+func main(
+func 9bad(a: byte): void
+func ok(a: byte)
+
+op
+op macro(
+op 9bad(a: reg8)
+op macro(a: reg8): void
+
+extern @bad
+extern func
+extern func x(a: byte) at $1234
+extern func const(a: byte): void at $1234
+
+func main(): void
+  asm
+    ret
+  end

@@ -1196,6 +1196,19 @@ export function parseModuleFile(
     });
   }
 
+  function diagInvalidHeaderLine(
+    kind: string,
+    lineText: string,
+    expected: string,
+    line: number,
+  ): void {
+    const q = quoteDiagLineText(lineText);
+    diag(diagnostics, modulePath, `Invalid ${kind} line "${q}": expected ${expected}`, {
+      line,
+      column: 1,
+    });
+  }
+
   function parseExternFuncFromTail(
     tail: string,
     stmtSpan: SourceSpan,
@@ -1205,10 +1218,12 @@ export function parseModuleFile(
     const openParen = header.indexOf('(');
     const closeParen = header.lastIndexOf(')');
     if (openParen < 0 || closeParen < openParen) {
-      diag(diagnostics, modulePath, `Invalid extern func declaration`, {
-        line: lineNo,
-        column: 1,
-      });
+      diagInvalidHeaderLine(
+        'extern func declaration',
+        `func ${header}`,
+        '<name>(...): <retType> at <imm16>',
+        lineNo,
+      );
       return undefined;
     }
 
@@ -1230,11 +1245,11 @@ export function parseModuleFile(
     const afterClose = header.slice(closeParen + 1).trimStart();
     const m = /^:\s*(.+?)\s+at\s+(.+)$/.exec(afterClose);
     if (!m) {
-      diag(
-        diagnostics,
-        modulePath,
-        `Invalid extern func declaration: expected ": <retType> at <imm16>"`,
-        { line: lineNo, column: 1 },
+      diagInvalidHeaderLine(
+        'extern func declaration',
+        `func ${header}`,
+        '<name>(...): <retType> at <imm16>',
+        lineNo,
       );
       return undefined;
     }
@@ -1764,7 +1779,7 @@ export function parseModuleFile(
       const openParen = header.indexOf('(');
       const closeParen = header.lastIndexOf(')');
       if (openParen < 0 || closeParen < openParen) {
-        diag(diagnostics, modulePath, `Invalid func header`, { line: lineNo, column: 1 });
+        diagInvalidHeaderLine('func header', text, '<name>(...): <retType>', lineNo);
         i++;
         continue;
       }
@@ -2097,7 +2112,7 @@ export function parseModuleFile(
       const openParen = header.indexOf('(');
       const closeParen = header.lastIndexOf(')');
       if (openParen < 0 || closeParen < openParen) {
-        diag(diagnostics, modulePath, `Invalid op header`, { line: lineNo, column: 1 });
+        diagInvalidHeaderLine('op header', text, '<name>(...)', lineNo);
         i++;
         continue;
       }
@@ -2263,7 +2278,12 @@ export function parseModuleFile(
       }
 
       if (decl.length > 0 && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(decl)) {
-        diag(diagnostics, modulePath, `Invalid extern declaration`, { line: lineNo, column: 1 });
+        diagInvalidHeaderLine(
+          'extern declaration',
+          text,
+          '[<baseName>] or func <name>(...): <retType> at <imm16>',
+          lineNo,
+        );
         i++;
         continue;
       }
@@ -2292,7 +2312,12 @@ export function parseModuleFile(
         (previewText.toLowerCase() !== 'end' &&
           consumeKeywordPrefix(previewText, 'func') === undefined)
       ) {
-        diag(diagnostics, modulePath, `Invalid extern declaration`, { line: lineNo, column: 1 });
+        diagInvalidHeaderLine(
+          'extern declaration',
+          text,
+          '[<baseName>] or func <name>(...): <retType> at <imm16>',
+          lineNo,
+        );
         i++;
         continue;
       }
@@ -2836,17 +2861,22 @@ export function parseModuleFile(
       continue;
     }
     if (hasTopKeyword('func')) {
-      diag(diagnostics, modulePath, `Invalid func header`, { line: lineNo, column: 1 });
+      diagInvalidHeaderLine('func header', text, '<name>(...): <retType>', lineNo);
       i++;
       continue;
     }
     if (hasTopKeyword('op')) {
-      diag(diagnostics, modulePath, `Invalid op header`, { line: lineNo, column: 1 });
+      diagInvalidHeaderLine('op header', text, '<name>(...)', lineNo);
       i++;
       continue;
     }
     if (hasTopKeyword('extern')) {
-      diag(diagnostics, modulePath, `Invalid extern declaration`, { line: lineNo, column: 1 });
+      diagInvalidHeaderLine(
+        'extern declaration',
+        text,
+        '[<baseName>] or func <name>(...): <retType> at <imm16>',
+        lineNo,
+      );
       i++;
       continue;
     }
