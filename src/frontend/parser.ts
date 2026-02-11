@@ -957,6 +957,18 @@ function parseParamsFromText(
   if (trimmed.length === 0) return [];
 
   const parts = trimmed.split(',').map((p) => p.trim());
+  if (parts.some((p) => p.length === 0)) {
+    diag(
+      diagnostics,
+      filePath,
+      `Invalid parameter list: trailing or empty entries are not permitted.`,
+      {
+        line: paramsSpan.start.line,
+        column: paramsSpan.start.column,
+      },
+    );
+    return undefined;
+  }
   const out: ParamNode[] = [];
   const seen = new Set<string>();
   for (const part of parts) {
@@ -1055,6 +1067,18 @@ function parseOpParamsFromText(
   if (trimmed.length === 0) return [];
 
   const parts = trimmed.split(',').map((p) => p.trim());
+  if (parts.some((p) => p.length === 0)) {
+    diag(
+      diagnostics,
+      filePath,
+      `Invalid op parameter list: trailing or empty entries are not permitted.`,
+      {
+        line: paramsSpan.start.line,
+        column: paramsSpan.start.column,
+      },
+    );
+    return undefined;
+  }
   const out: OpParamNode[] = [];
   const seen = new Set<string>();
   for (const part of parts) {
