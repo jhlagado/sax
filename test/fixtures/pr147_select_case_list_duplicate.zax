@@ -1,6 +1,10 @@
 export func main(): void
+    ld a, 1
     select A
-      case 0, , 1
+      case 1, 2
+        nop
+      case 2, 3
         nop
     end
+    ret
   end

@@ -168,6 +168,29 @@ describe('PR15 structured asm control flow', () => {
     expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
   });
 
+  it('supports comma-separated case lists sharing one clause body', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr147_select_case_list_shared_body.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect([...bin!.bytes]).toContain(0x06); // ld b, imm8 in shared case body
+    expect([...bin!.bytes]).toContain(0x0e); // ld c, imm8 in else body
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
+
+  it('supports comma-separated case lists with char literals', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr147_select_case_list_char_literal.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect([...bin!.bytes]).toContain(0xfe); // cp imm8 compare chain
+    expect([...bin!.bytes]).toContain(0x06); // ld b, imm8 in case body
+    expect([...bin!.bytes]).toContain(0x0e); // ld c, imm8 in else body
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
+
   it('treats non-empty case body as a boundary for later stacked cases', async () => {
     const entry = join(__dirname, 'fixtures', 'pr28_select_stacked_case_split_body.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
@@ -182,6 +205,13 @@ describe('PR15 structured asm control flow', () => {
 
   it('diagnoses duplicate case values in select', async () => {
     const entry = join(__dirname, 'fixtures', 'pr15_select_duplicate_case.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics.some((d) => d.message.includes('Duplicate case value'))).toBe(true);
+  });
+
+  it('diagnoses duplicate case values across comma-separated case lists', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr147_select_case_list_duplicate.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
     expect(res.diagnostics.some((d) => d.message.includes('Duplicate case value'))).toBe(true);
@@ -299,7 +329,7 @@ describe('PR15 structured asm control flow', () => {
     expect(res.diagnostics[0]?.message).toBe('Invalid case value');
   });
 
-  it('diagnoses invalid case value with one diagnostic (list)', async () => {
+  it('diagnoses invalid case value with one diagnostic (malformed list)', async () => {
     const entry = join(__dirname, 'fixtures', 'parser_case_invalid_value_list.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);

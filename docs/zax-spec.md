@@ -1046,8 +1046,8 @@ Syntax:
 
 ```
 select <selector>
-  case <imm> ...
-  case <imm> ...
+  case <imm>[, <imm> ...]
+  case <imm>[, <imm> ...]
   else ...
 end
 ```
@@ -1065,12 +1065,14 @@ Rules:
 - There is no fallthrough: after a `case` body finishes, control transfers to after the enclosing `end` (unless the case body terminates, e.g., `ret`).
 - Duplicate `case` values within the same `select` are a compile error.
 - Nested `select` is allowed.
-- Each `case` line matches one value; grouped list syntax like `case 0, 1` is not supported.
+- A `case` line may list one or more values separated by commas (for example, `case 0, 1`).
 - Consecutive `case` lines before statements share one clause body (stacked-case syntax), e.g.:
   - `case 0`
   - `case 1`
   - `<body>`
-- Shared-case example (no fallthrough, shared body):
+- Shared-case examples (no fallthrough, shared body):
+  - `case 0, 1`
+  - `nop`
   - `case 0`
   - `case 1`
   - `nop`
