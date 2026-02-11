@@ -31,8 +31,12 @@ describe('PR154 parser: top-level malformed keyword matrix', () => {
     expect(messages).toContain('Invalid enum declaration');
     expect(messages).toContain('Invalid section directive');
     expect(messages).toContain('Invalid align directive');
-    expect(messages).toContain('Invalid bin declaration');
-    expect(messages).toContain('Invalid hex declaration');
+    expect(messages).toContain(
+      'Invalid bin declaration: expected "bin <name> in <code|data> from \\\"<path>\\\""',
+    );
+    expect(messages).toContain(
+      'Invalid hex declaration: expected "hex <name> from \\\"<path>\\\""',
+    );
     expect(messages.some((m) => m.startsWith('Unsupported top-level construct:'))).toBe(false);
   });
 });

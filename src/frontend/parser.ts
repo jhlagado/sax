@@ -2235,7 +2235,10 @@ export function parseModuleFile(
       const membersLower = new Set<string>();
       for (const m of rawParts) {
         if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(m)) {
-          diag(diagnostics, modulePath, `Invalid enum member name`, { line: lineNo, column: 1 });
+          diag(diagnostics, modulePath, `Invalid enum member name "${m}".`, {
+            line: lineNo,
+            column: 1,
+          });
           continue;
         }
         if (isReservedTopLevelName(m)) {
@@ -2359,6 +2362,14 @@ export function parseModuleFile(
         i++;
         continue;
       }
+      if (rhs.length === 0) {
+        diag(diagnostics, modulePath, `Invalid const declaration: missing initializer`, {
+          line: lineNo,
+          column: 1,
+        });
+        i++;
+        continue;
+      }
 
       const exprSpan = span(file, lineStartOffset, lineEndOffset);
       const expr = parseImmExprFromText(modulePath, rhs, exprSpan, diagnostics);
@@ -2381,8 +2392,26 @@ export function parseModuleFile(
 
     const binTail = consumeTopKeyword(rest, 'bin');
     if (binTail !== undefined) {
-      const varTarget = /^bin\s+[A-Za-z_][A-Za-z0-9_]*\s+in\s+var\s+from\s+"[^"]+"$/i.test(rest);
-      if (varTarget) {
+      const m = /^(\S+)\s+in\s+(\S+)\s+from\s+(.+)$/.exec(binTail.trim());
+      if (!m) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid bin declaration: expected "bin <name> in <code|data> from \\\"<path>\\\""`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
+      const name = m[1]!;
+      const sectionText = m[2]!.toLowerCase();
+      const pathText = m[3]!.trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        diag(diagnostics, modulePath, `Invalid bin name`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+      if (sectionText === 'var') {
         diag(diagnostics, modulePath, `bin declarations cannot target section "var"`, {
           line: lineNo,
           column: 1,
@@ -2390,30 +2419,40 @@ export function parseModuleFile(
         i++;
         continue;
       }
-      const m = /^bin\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(code|data)\s+from\s+"([^"]+)"$/i.exec(
-        rest,
-      );
-      if (!m) {
-        diag(diagnostics, modulePath, `Invalid bin declaration`, { line: lineNo, column: 1 });
-        i++;
-        continue;
-      }
-      if (isReservedTopLevelName(m[1]!)) {
+      if (sectionText !== 'code' && sectionText !== 'data') {
         diag(
           diagnostics,
           modulePath,
-          `Invalid bin name "${m[1]!}": collides with a top-level keyword.`,
+          `Invalid bin section "${m[2]!}": expected "code" or "data".`,
           { line: lineNo, column: 1 },
         );
+        i++;
+        continue;
+      }
+      if (isReservedTopLevelName(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid bin name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
+      if (!(pathText.startsWith('"') && pathText.endsWith('"') && pathText.length >= 2)) {
+        diag(diagnostics, modulePath, `Invalid bin declaration: expected quoted source path`, {
+          line: lineNo,
+          column: 1,
+        });
         i++;
         continue;
       }
       const node: BinDeclNode = {
         kind: 'BinDecl',
         span: span(file, lineStartOffset, lineEndOffset),
-        name: m[1]!,
-        section: m[2]!.toLowerCase() as BinDeclNode['section'],
-        fromPath: m[3]!,
+        name,
+        section: sectionText as BinDeclNode['section'],
+        fromPath: pathText.slice(1, -1),
       };
       items.push(node);
       i++;
@@ -2422,27 +2461,47 @@ export function parseModuleFile(
 
     const hexTail = consumeTopKeyword(rest, 'hex');
     if (hexTail !== undefined) {
-      const m = /^([A-Za-z_][A-Za-z0-9_]*)\s+from\s+"([^"]+)"$/i.exec(hexTail);
+      const m = /^(\S+)\s+from\s+(.+)$/.exec(hexTail.trim());
       if (!m) {
-        diag(diagnostics, modulePath, `Invalid hex declaration`, { line: lineNo, column: 1 });
-        i++;
-        continue;
-      }
-      if (isReservedTopLevelName(m[1]!)) {
         diag(
           diagnostics,
           modulePath,
-          `Invalid hex name "${m[1]!}": collides with a top-level keyword.`,
+          `Invalid hex declaration: expected "hex <name> from \\\"<path>\\\""`,
           { line: lineNo, column: 1 },
         );
+        i++;
+        continue;
+      }
+      const name = m[1]!;
+      const pathText = m[2]!.trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        diag(diagnostics, modulePath, `Invalid hex name`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+      if (isReservedTopLevelName(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid hex name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
+      if (!(pathText.startsWith('"') && pathText.endsWith('"') && pathText.length >= 2)) {
+        diag(diagnostics, modulePath, `Invalid hex declaration: expected quoted source path`, {
+          line: lineNo,
+          column: 1,
+        });
         i++;
         continue;
       }
       const node: HexDeclNode = {
         kind: 'HexDecl',
         span: span(file, lineStartOffset, lineEndOffset),
-        name: m[1]!,
-        fromPath: m[2]!,
+        name,
+        fromPath: pathText.slice(1, -1),
       };
       items.push(node);
       i++;
