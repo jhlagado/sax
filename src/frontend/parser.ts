@@ -623,13 +623,96 @@ function isRecoverOnlyControlFrame(frame: AsmControlFrame): boolean {
   );
 }
 
+type ParsedAsmStatement = AsmItemNode | AsmItemNode[] | undefined;
+
+function appendParsedAsmStatement(out: AsmItemNode[], parsed: ParsedAsmStatement): void {
+  if (!parsed) return;
+  if (Array.isArray(parsed)) {
+    out.push(...parsed);
+    return;
+  }
+  out.push(parsed);
+}
+
+function parseCaseValuesFromText(
+  filePath: string,
+  caseText: string,
+  stmtSpan: SourceSpan,
+  diagnostics: Diagnostic[],
+): ImmExprNode[] | undefined {
+  const parts: string[] = [];
+  let start = 0;
+  let parenDepth = 0;
+  let bracketDepth = 0;
+  let braceDepth = 0;
+  let inChar = false;
+  let escaped = false;
+
+  for (let i = 0; i < caseText.length; i++) {
+    const ch = caseText[i]!;
+    if (inChar) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === "'") {
+        inChar = false;
+      }
+      continue;
+    }
+    if (ch === "'") {
+      inChar = true;
+      continue;
+    }
+    if (ch === '(') {
+      parenDepth++;
+      continue;
+    }
+    if (ch === ')') {
+      if (parenDepth > 0) parenDepth--;
+      continue;
+    }
+    if (ch === '[') {
+      bracketDepth++;
+      continue;
+    }
+    if (ch === ']') {
+      if (bracketDepth > 0) bracketDepth--;
+      continue;
+    }
+    if (ch === '{') {
+      braceDepth++;
+      continue;
+    }
+    if (ch === '}') {
+      if (braceDepth > 0) braceDepth--;
+      continue;
+    }
+    if (ch === ',' && parenDepth === 0 && bracketDepth === 0 && braceDepth === 0) {
+      parts.push(caseText.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(caseText.slice(start));
+
+  const values: ImmExprNode[] = [];
+  for (const rawPart of parts) {
+    const part = rawPart.trim();
+    if (part.length === 0) return undefined;
+    const value = parseImmExprFromText(filePath, part, stmtSpan, diagnostics, false);
+    if (!value) return undefined;
+    values.push(value);
+  }
+  return values.length > 0 ? values : undefined;
+}
+
 function parseAsmStatement(
   filePath: string,
   text: string,
   stmtSpan: SourceSpan,
   diagnostics: Diagnostic[],
   controlStack: AsmControlFrame[],
-): AsmItemNode | undefined {
+): ParsedAsmStatement {
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
   const hasKeyword = (kw: string): boolean => new RegExp(`^${kw}\\b`, 'i').test(trimmed);
@@ -888,15 +971,15 @@ function parseAsmStatement(
     }
     top.armSeen = true;
     const exprText = caseMatch[1]!.trim();
-    const value = parseImmExprFromText(filePath, exprText, stmtSpan, diagnostics, false);
-    if (!value) {
+    const values = parseCaseValuesFromText(filePath, exprText, stmtSpan, diagnostics);
+    if (!values) {
       diag(diagnostics, filePath, `Invalid case value`, {
         line: stmtSpan.start.line,
         column: stmtSpan.start.column,
       });
       return undefined;
     }
-    return { kind: 'Case', span: stmtSpan, value };
+    return values.map((value) => ({ kind: 'Case', span: stmtSpan, value }));
   }
   if (lower === 'case') {
     const top = controlStack[controlStack.length - 1];
@@ -2316,7 +2399,7 @@ export function parseModuleFile(
               diagnostics,
               asmControlStack,
             );
-            if (stmtNode) asmItems.push(stmtNode);
+            appendParsedAsmStatement(asmItems, stmtNode);
           }
           i++;
           continue;
@@ -2329,7 +2412,7 @@ export function parseModuleFile(
           diagnostics,
           asmControlStack,
         );
-        if (stmtNode) asmItems.push(stmtNode);
+        appendParsedAsmStatement(asmItems, stmtNode);
         i++;
       }
 
@@ -2472,14 +2555,14 @@ export function parseModuleFile(
               diagnostics,
               controlStack,
             );
-            if (stmt) bodyItems.push(stmt);
+            appendParsedAsmStatement(bodyItems, stmt);
           }
           i++;
           continue;
         }
 
         const stmt = parseAsmStatement(modulePath, content, contentSpan, diagnostics, controlStack);
-        if (stmt) bodyItems.push(stmt);
+        appendParsedAsmStatement(bodyItems, stmt);
         i++;
       }
 

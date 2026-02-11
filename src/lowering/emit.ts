@@ -48,6 +48,17 @@ function diagAt(diagnostics: Diagnostic[], span: SourceSpan, message: string): v
   });
 }
 
+function warnAt(diagnostics: Diagnostic[], span: SourceSpan, message: string): void {
+  diagnostics.push({
+    id: DiagnosticIds.EmitError,
+    severity: 'warning',
+    message,
+    file: span.file,
+    line: span.start.line,
+    column: span.start.column,
+  });
+}
+
 /**
  * Emit machine-code bytes for a parsed program into an address->byte map.
  *
@@ -2631,6 +2642,8 @@ export function emitProgram(
               const entry = snapshotFlow();
               const dispatchLabel = newHiddenLabel('__zax_select_dispatch');
               const endLabel = newHiddenLabel('__zax_select_end');
+              const selectorIsReg8 =
+                it.selector.kind === 'Reg' && reg8.has(it.selector.name.toUpperCase());
               const caseValues = new Set<number>();
               const caseArms: { value: number; bodyLabel: string; span: SourceSpan }[] = [];
               let elseLabel: string | undefined;
@@ -2659,6 +2672,13 @@ export function emitProgram(
                       diagAt(diagnostics, caseItem.span, `Failed to evaluate case value.`);
                     } else {
                       const key = v & 0xffff;
+                      if (selectorIsReg8 && key > 0xff) {
+                        warnAt(
+                          diagnostics,
+                          caseItem.span,
+                          `Case value ${key} can never match reg8 selector.`,
+                        );
+                      }
                       if (caseValues.has(key)) {
                         diagAt(diagnostics, caseItem.span, `Duplicate case value ${key}.`);
                       } else {

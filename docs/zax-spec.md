@@ -1046,8 +1046,8 @@ Syntax:
 
 ```
 select <selector>
-  case <imm> ...
-  case <imm> ...
+  case <imm>[, <imm> ...]
+  case <imm>[, <imm> ...]
   else ...
 end
 ```
@@ -1065,12 +1065,14 @@ Rules:
 - There is no fallthrough: after a `case` body finishes, control transfers to after the enclosing `end` (unless the case body terminates, e.g., `ret`).
 - Duplicate `case` values within the same `select` are a compile error.
 - Nested `select` is allowed.
-- Each `case` line matches one value; grouped list syntax like `case 0, 1` is not supported.
+- A `case` line may list one or more values separated by commas (for example, `case 0, 1`).
 - Consecutive `case` lines before statements share one clause body (stacked-case syntax), e.g.:
   - `case 0`
   - `case 1`
   - `<body>`
-- Shared-case example (no fallthrough, shared body):
+- Shared-case examples (no fallthrough, shared body):
+  - `case 0, 1`
+  - `nop`
   - `case 0`
   - `case 1`
   - `nop`
@@ -1081,6 +1083,7 @@ Notes:
 
 - `select <ea>` dispatches on the address value of `<ea>`. To dispatch on the stored value, use `select (ea)`.
 - If you want to dispatch on a byte-sized value in memory, prefer loading into a `reg8` and using `select <reg8>` rather than `select (ea)` (which reads a 16-bit word).
+- The current compiler implementation emits a warning when a `reg8` selector has a `case` value outside `0..255`, because that arm can never match.
 
 Lowering (informative):
 
