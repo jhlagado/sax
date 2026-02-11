@@ -2,7 +2,7 @@
 
 **Version:** v0.1 (Draft)
 **Date:** 2026-02-11
-**Test Suite:** 388 passing tests across 191 test files
+**Test Suite:** 389 passing tests across 192 test files
 
 ---
 

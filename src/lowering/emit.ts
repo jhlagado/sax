@@ -1941,12 +1941,12 @@ export function emitProgram(
         };
 
         const emitAsmInstruction = (asmItem: AsmInstructionNode): void => {
-          const diagIfRetStackImbalanced = (): void => {
+          const diagIfRetStackImbalanced = (mnemonic = 'ret'): void => {
             if (spTrackingValid && spDeltaTracked !== 0) {
               diagAt(
                 diagnostics,
                 asmItem.span,
-                `ret with non-zero tracked stack delta (${spDeltaTracked}); function stack is imbalanced.`,
+                `${mnemonic} with non-zero tracked stack delta (${spDeltaTracked}); function stack is imbalanced.`,
               );
               return;
             }
@@ -1954,7 +1954,7 @@ export function emitProgram(
               diagAt(
                 diagnostics,
                 asmItem.span,
-                `ret reached after untracked SP mutation; cannot verify function stack balance.`,
+                `${mnemonic} reached after untracked SP mutation; cannot verify function stack balance.`,
               );
               return;
             }
@@ -1962,7 +1962,7 @@ export function emitProgram(
               diagAt(
                 diagnostics,
                 asmItem.span,
-                `ret reached with unknown stack depth; cannot verify function stack balance.`,
+                `${mnemonic} reached with unknown stack depth; cannot verify function stack balance.`,
               );
             }
           };
@@ -2567,6 +2567,20 @@ export function emitProgram(
               syncToFlow();
               return;
             }
+          }
+          if ((head === 'retn' || head === 'reti') && asmItem.operands.length === 0) {
+            diagIfRetStackImbalanced(head);
+            if (emitSyntheticEpilogue) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `${head} is not supported in functions with locals; use ret/ret cc so cleanup epilogue can run.`,
+              );
+            }
+            emitInstr(head, [], asmItem.span);
+            flow.reachable = false;
+            syncToFlow();
+            return;
           }
 
           if (head === 'jp' && asmItem.operands.length === 1) {
