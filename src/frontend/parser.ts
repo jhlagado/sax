@@ -1249,6 +1249,47 @@ export function parseModuleFile(
     return `"${trimmed.replace(/"/g, '\\"')}"`;
   }
 
+  function consumeInvalidExternBlock(startIndex: number): number {
+    let previewIndex = startIndex + 1;
+    while (previewIndex < lineCount) {
+      const { raw } = getRawLine(previewIndex);
+      const t = stripComment(raw).trim();
+      if (t.length === 0) {
+        previewIndex++;
+        continue;
+      }
+      const looksLikeBodyStart =
+        t.toLowerCase() === 'end' ||
+        consumeKeywordPrefix(t, 'func') !== undefined ||
+        looksLikeKeywordBodyDeclLine(t);
+      if (!looksLikeBodyStart) return startIndex + 1;
+      break;
+    }
+    if (previewIndex >= lineCount) return startIndex + 1;
+
+    let index = previewIndex;
+    while (index < lineCount) {
+      const { raw } = getRawLine(index);
+      const t = stripComment(raw).trim();
+      const tLower = t.toLowerCase();
+      if (t.length === 0) {
+        index++;
+        continue;
+      }
+      if (tLower === 'end') return index + 1;
+      const topKeyword = topLevelStartKeyword(t);
+      if (
+        topKeyword !== undefined &&
+        consumeKeywordPrefix(t, 'func') === undefined &&
+        !looksLikeKeywordBodyDeclLine(t)
+      ) {
+        return index;
+      }
+      index++;
+    }
+    return lineCount;
+  }
+
   const malformedTopLevelHeaderExpectations: ReadonlyArray<{
     keyword: string;
     kind: string;
@@ -1442,7 +1483,16 @@ export function parseModuleFile(
       const name = parts[0] ?? '';
       const tail = afterType.slice(name.length).trimStart();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diagInvalidHeaderLine('type declaration', text, '<name> [<typeExpr>]', lineNo);
+        if (name.length > 0) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid type name ${formatIdentifierToken(name)}: expected <identifier>.`,
+            { line: lineNo, column: 1 },
+          );
+        } else {
+          diagInvalidHeaderLine('type declaration', text, '<name> [<typeExpr>]', lineNo);
+        }
         i++;
         continue;
       }
@@ -1624,7 +1674,16 @@ export function parseModuleFile(
     if (unionTail !== undefined) {
       const name = unionTail.trim();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diagInvalidHeaderLine('union declaration', text, '<name>', lineNo);
+        if (name.length > 0) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid union name ${formatIdentifierToken(name)}: expected <identifier>.`,
+            { line: lineNo, column: 1 },
+          );
+        } else {
+          diagInvalidHeaderLine('union declaration', text, '<name>', lineNo);
+        }
         i++;
         continue;
       }
@@ -2406,15 +2465,27 @@ export function parseModuleFile(
         continue;
       }
 
-      if (decl.length > 0 && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(decl)) {
-        diagInvalidHeaderLine(
-          'extern declaration',
-          text,
-          '[<baseName>] or func <name>(...): <retType> at <imm16>',
-          lineNo,
-        );
-        i++;
-        continue;
+      if (decl.length > 0) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(decl)) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid extern base name ${formatIdentifierToken(decl)}: expected <identifier>.`,
+            { line: lineNo, column: 1 },
+          );
+          i = consumeInvalidExternBlock(i);
+          continue;
+        }
+        if (isReservedTopLevelName(decl)) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid extern base name "${decl}": collides with a top-level keyword.`,
+            { line: lineNo, column: 1 },
+          );
+          i = consumeInvalidExternBlock(i);
+          continue;
+        }
       }
 
       // Block form:
@@ -2551,7 +2622,17 @@ export function parseModuleFile(
       const decl = enumTail;
       const nameMatch = /^([A-Za-z_][A-Za-z0-9_]*)(?:\s+(.*))?$/.exec(decl);
       if (!nameMatch) {
-        diagInvalidHeaderLine('enum declaration', text, '<name> <member>[, ...]', lineNo);
+        const invalidName = decl.split(/\s+/, 1)[0] ?? '';
+        if (invalidName.length > 0) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid enum name ${formatIdentifierToken(invalidName)}: expected <identifier>.`,
+            { line: lineNo, column: 1 },
+          );
+        } else {
+          diagInvalidHeaderLine('enum declaration', text, '<name> <member>[, ...]', lineNo);
+        }
         i++;
         continue;
       }

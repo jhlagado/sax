@@ -26,8 +26,9 @@ describe('PR175 parser: malformed func/op/extern header matrix', () => {
     expect(messages).toContain('Invalid op name "9bad": expected <identifier>.');
     expect(messages).toContain('Invalid op header: unexpected trailing tokens');
 
+    expect(messages).toContain('Invalid extern base name "@bad": expected <identifier>.');
     expect(messages).toContain(
-      'Invalid extern declaration line "extern @bad": expected [<baseName>] or func <name>(...): <retType> at <imm16>',
+      'Invalid extern base name "const": collides with a top-level keyword.',
     );
     expect(messages).toContain(
       'Invalid extern func declaration line "func": expected <name>(...): <retType> at <imm16>',

@@ -1,0 +1,14 @@
+extern @bad
+
+extern const
+  func fromBadKeyword(a: byte): byte at $1000
+end
+
+extern assets
+  func fromAssets(a: byte): byte at $1002
+end
+
+func main(): void
+  asm
+    ret
+  end
