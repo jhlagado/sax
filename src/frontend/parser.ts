@@ -45,6 +45,7 @@ const RESERVED_TOP_LEVEL_KEYWORDS = new Set([
   'import',
   'type',
   'union',
+  'globals',
   'var',
   'extern',
   'bin',
@@ -1164,6 +1165,7 @@ export function parseModuleFile(
     'import',
     'type',
     'union',
+    'globals',
     'var',
     'extern',
     'bin',
@@ -1298,6 +1300,7 @@ export function parseModuleFile(
     { keyword: 'import', kind: 'import statement', expected: '"<path>.zax" or <moduleId>' },
     { keyword: 'type', kind: 'type declaration', expected: '<name> [<typeExpr>]' },
     { keyword: 'union', kind: 'union declaration', expected: '<name>' },
+    { keyword: 'globals', kind: 'globals declaration', expected: 'globals' },
     { keyword: 'var', kind: 'var declaration', expected: 'var' },
     { keyword: 'func', kind: 'func header', expected: '<name>(...): <retType>' },
     { keyword: 'op', kind: 'op header', expected: '<name>(...)' },
@@ -1829,7 +1832,7 @@ export function parseModuleFile(
       continue;
     }
 
-    if (rest.toLowerCase() === 'var') {
+    if (rest.toLowerCase() === 'var' || rest.toLowerCase() === 'globals') {
       const blockStart = lineStartOffset;
       i++;
       const decls: VarDeclNode[] = [];

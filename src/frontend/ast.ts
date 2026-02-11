@@ -143,7 +143,7 @@ export interface ConstDeclNode extends BaseNode {
 }
 
 /**
- * Variable storage block (`var`) at module or function scope.
+ * Variable storage block at module (`globals`) or function (`var`) scope.
  */
 export interface VarBlockNode extends BaseNode {
   kind: 'VarBlock';

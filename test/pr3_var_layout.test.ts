@@ -39,4 +39,27 @@ describe('PR3 module var layout', () => {
       ]),
     );
   });
+
+  it('accepts globals as module-scope storage block keyword', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr189_globals_layout.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const d8m = res.artifacts.find((a): a is D8mArtifact => a.kind === 'd8m');
+    expect(d8m).toBeDefined();
+
+    const symbols = d8m!.json['symbols'] as unknown as Array<{
+      name: string;
+      kind: string;
+      address: number;
+      size?: number;
+      [k: string]: unknown;
+    }>;
+    expect(symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'g0', kind: 'var' }),
+        expect.objectContaining({ name: 'g1', kind: 'var' }),
+      ]),
+    );
+  });
 });

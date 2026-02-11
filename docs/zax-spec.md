@@ -135,7 +135,7 @@ ZAX treats the following as **reserved** (case-insensitive):
 - Register names: `A F AF B C D E H L HL DE BC SP IX IY I R`.
 - Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
 - Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`.
-- Declaration keywords: `import`, `type`, `union`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
+- Declaration keywords: `import`, `type`, `union`, `enum`, `const`, `globals`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
 
 User-defined identifiers (module-scope symbols, locals/args, and labels) must not collide with any reserved name, ignoring case.
 
@@ -151,7 +151,7 @@ A compilation unit is a module file containing:
 
 - zero or more `import` lines
 - zero or more module-scope directives: `section`, `align`
-- module-scope declarations: `type`, `union`, `enum`, `const`, `var`, `data`, `bin`, `hex`, `extern`
+- module-scope declarations: `type`, `union`, `enum`, `const`, `globals`, `data`, `bin`, `hex`, `extern`
 - zero or more `func` and `op` declarations
 
 No nested functions are permitted.
@@ -250,7 +250,7 @@ Default placement (if not specified):
 
 Namespace rule (v0.1):
 
-- `type`, `union`, `enum`, `const`, storage symbols (`var`/`data`/`bin`), `func`, and `op` names share the same global namespace. Defining a `func` and an `op` with the same name is a compile error.
+- `type`, `union`, `enum`, `const`, storage symbols (`globals`/`data`/`bin`), `func`, and `op` names share the same global namespace. Defining a `func` and an `op` with the same name is a compile error.
 
 Forward references (v0.1):
 
@@ -476,17 +476,17 @@ ld de, (v.p) ; read pointer overlay
 
 ---
 
-## 6. Storage Declarations: `var`, `data`, `bin`, `hex`, `extern`
+## 6. Storage Declarations: `globals`, `data`, `bin`, `hex`, `extern`
 
-ZAX separates **uninitialized storage** (`var`) from **initialized bytes** (`data`) because these play different roles in an 8-bit system:
+ZAX separates **uninitialized storage** (`globals`) from **initialized bytes** (`data`) because these play different roles in an 8-bit system:
 
-- `var` reserves addresses (typically RAM). It does not emit bytes into the output image.
+- `globals` reserves addresses (typically RAM). It does not emit bytes into the output image.
 - `data` emits bytes (typically ROM constants and tables).
 - Keeping them distinct makes the output deterministic and keeps it obvious which declarations consume bytes in the final image.
 
 ### 6.1 Address vs Dereference
 
-- Storage symbols (`var`, `data`, `bin`) denote **addresses** when used as operands.
+- Storage symbols (`globals`, `data`, `bin`) denote **addresses** when used as operands.
 - Parentheses dereference memory: `(ea)` denotes memory at address `ea`.
 - Dereference width is implied by the instruction operand size:
   - `LD A, (ea)` reads a byte
@@ -523,7 +523,7 @@ Lowering guarantees and rejected patterns (v0.1):
 - The compiler guarantees lowering for loads/stores whose memory operand is an `ea` expression of the following forms:
   - `LD r8, (ea)` and `LD (ea), r8`
   - `LD r16, (ea)` and `LD (ea), r16`
-    where `ea` is a local/arg slot, a module-scope storage address (`var`/`data`/`bin`), `rec.field`, `arr[i]`, or `ea +/- imm`.
+    where `ea` is a local/arg slot, a module-scope storage address (`globals`/`data`/`bin`), `rec.field`, `arr[i]`, or `ea +/- imm`.
 - The compiler rejects source forms that are not meaningful on Z80 and do not have a well-defined lowering under the preservation constraints, including:
   - memory-to-memory forms (e.g., `LD (ea1), (ea2)`).
   - instructions where both operands require lowering and a correct sequence cannot be produced without clobbering non-destination registers or flags that must be preserved.
@@ -532,13 +532,13 @@ Non-guarantees (v0.1):
 
 - Arithmetic/logical instruction forms that are not directly encodable on Z80 (e.g., `add hl, (ea)`) are not guaranteed to be accepted, even though they may be expressible via a multi-instruction sequence.
 
-### 6.2 `var` (Uninitialized Storage)
+### 6.2 `globals` (Uninitialized Storage)
 
 Syntax:
 
 ```
 
-var
+globals
 total: word
 mode: byte
 
@@ -547,7 +547,7 @@ mode: byte
 - Declares storage in `var` (uninitialized; emits no bytes).
 - One declaration per line; no initializers.
 - This is **module-scope** uninitialized storage (addresses in the `var` section). It is distinct from a function-local `var` block, which declares stack locals (Section 8.1).
-- A `var` block continues until the next module-scope declaration, directive, or end of file.
+- A `globals` block continues until the next module-scope declaration, directive, or end of file.
 
 ### 6.3 `data` (Initialized Storage)
 
@@ -722,7 +722,7 @@ Integer semantics (v0.1):
 
 `ea` denotes an address, not a value. Allowed:
 
-- storage symbols: `var` names, `data` names, `bin` base names
+- storage symbols: `globals` names, `data` names, `bin` base names
 - function-scope symbols: argument names and local `var` names (as SP-relative stack slots)
 - field access: `rec.field`
 - indexing: `arr[i]` and nested `arr[r][c]` (index forms as defined above)
