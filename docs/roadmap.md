@@ -11,7 +11,7 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 85
+- Completed PR anchors listed below: 86
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #179: lowering/frame/op safety pass (expand SP/control/cleanup invariant coverage across deeper caller/callee interaction paths).
+1. #180: ISA coverage/parity pass (indexed rotate/shift destination legality diagnostics matrix expansion across DD/FD/CB forms).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: ISA coverage/parity pass (close remaining malformed-form diagnostics parity gaps and missing DD/FD/ED/CB legality matrix rows).
+1. Next PR: CLI/output contract hardening pass (tighten artifact contract assertions and cross-platform output behavior).
 
 Completed (anchored, most recent first):
 
+1. #179: lowering/frame/op safety pass (expand SP/control/cleanup invariant coverage across deeper caller/callee interaction paths).
 1. #178: parser/AST closure pass (tighten function-local `var` interruption recovery diagnostics ordering and top-level resume matrix coverage).
 1. #177: lowering/codegen stabilization continuation (positive epilogue-rewrite matrix for locals + `ret cc` across multi-path control and stack-neutral op expansions).
 1. #176: lowering/codegen stabilization continuation (nested-control + op-expansion + multi-return SP/frame interaction matrix beyond prior `ret cc`-only slices).
