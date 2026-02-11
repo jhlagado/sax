@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- none
+- #175: lowering/codegen stabilization continuation (`ret cc` stack-state invariants across `if/else` and `repeat/until`, with exact diagnostic matrix contracts).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: lowering/codegen stabilization continuation (`ret cc` stack-state invariants across additional structured-control contexts (`if/else` and `repeat/until`) with exact diagnostic matrix contracts).
+1. Next PR: lowering/codegen stabilization continuation (nested-control + op-expansion + multi-return SP/frame interaction matrix beyond current `ret cc` scope).
 
 Completed (anchored, most recent first):
 
