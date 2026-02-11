@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- none.
+- #156: D8M appendix closure (grouped `files` contract, low16 constant-address policy evidence, and Appendix B.5/B.6 contract coverage).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: D8M appendix closure (files-object grouping contract, lowered-symbol mapping policy evidence, and minimal-example parity coverage for Appendix B.5/B.6).
+1. Next PR: ISA coverage continuation (ED/CB/DD/FD legality matrix expansion + deterministic malformed-form diagnostics parity).
 
 Completed (anchored, most recent first):
 
