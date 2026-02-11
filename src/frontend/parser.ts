@@ -1095,6 +1095,10 @@ export function parseModuleFile(
     return consumeKeywordPrefix(input, keyword);
   }
 
+  function isReservedTopLevelName(name: string): boolean {
+    return TOP_LEVEL_KEYWORDS.has(name.toLowerCase());
+  }
+
   function parseExternFuncFromTail(
     tail: string,
     stmtSpan: SourceSpan,
@@ -1114,6 +1118,15 @@ export function parseModuleFile(
     const name = header.slice(0, openParen).trim();
     if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
       diag(diagnostics, modulePath, `Invalid extern func name`, { line: lineNo, column: 1 });
+      return undefined;
+    }
+    if (isReservedTopLevelName(name)) {
+      diag(
+        diagnostics,
+        modulePath,
+        `Invalid extern func name "${name}": collides with a top-level keyword.`,
+        { line: lineNo, column: 1 },
+      );
       return undefined;
     }
 
@@ -1246,6 +1259,16 @@ export function parseModuleFile(
         i++;
         continue;
       }
+      if (isReservedTopLevelName(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid type name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
 
       // Alias form: `type Name <typeExpr>`
       if (tail.length > 0) {
@@ -1366,6 +1389,16 @@ export function parseModuleFile(
       const name = unionTail.trim();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
         diag(diagnostics, modulePath, `Invalid union name`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+      if (isReservedTopLevelName(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid union name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
         i++;
         continue;
       }
@@ -2039,6 +2072,16 @@ export function parseModuleFile(
       }
 
       const name = nameMatch[1]!;
+      if (isReservedTopLevelName(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid enum name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
       const membersText = (nameMatch[2] ?? '').trim();
       if (membersText.length === 0) {
         diag(diagnostics, modulePath, `Enum "${name}" must declare at least one member`, {
@@ -2158,6 +2201,16 @@ export function parseModuleFile(
         i++;
         continue;
       }
+      if (isReservedTopLevelName(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid const name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
 
       const exprSpan = span(file, lineStartOffset, lineEndOffset);
       const expr = parseImmExprFromText(modulePath, rhs, exprSpan, diagnostics);
@@ -2197,6 +2250,16 @@ export function parseModuleFile(
         i++;
         continue;
       }
+      if (isReservedTopLevelName(m[1]!)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid bin name "${m[1]!}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
       const node: BinDeclNode = {
         kind: 'BinDecl',
         span: span(file, lineStartOffset, lineEndOffset),
@@ -2214,6 +2277,16 @@ export function parseModuleFile(
       const m = /^([A-Za-z_][A-Za-z0-9_]*)\s+from\s+"([^"]+)"$/i.exec(hexTail);
       if (!m) {
         diag(diagnostics, modulePath, `Invalid hex declaration`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+      if (isReservedTopLevelName(m[1]!)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid hex name "${m[1]!}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
         i++;
         continue;
       }
