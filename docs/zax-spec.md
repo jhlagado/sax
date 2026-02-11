@@ -858,6 +858,7 @@ Return and cleanup model:
 
 - They are permitted as raw instructions.
 - They are not rewritten by this mechanism; only `ret`/`ret <cc>` participate in epilogue rewriting.
+- In functions with locals (`frameSize > 0`), `retn`/`reti` are rejected with a compile error because they bypass local-frame cleanup.
 
 The compiler tracks stack depth across the function instruction stream to keep SP-relative locals/args resolvable.
 
