@@ -1929,6 +1929,8 @@ export function parseModuleFile(
       const asmItems: AsmItemNode[] = [];
       const asmControlStack: AsmControlFrame[] = [];
       let terminated = false;
+      let interruptedByKeyword: string | undefined;
+      let interruptedByLine: number | undefined;
       while (i < lineCount) {
         const { raw: rawLine, startOffset: lineOffset, endOffset } = getRawLine(i);
         const withoutComment = stripComment(rawLine);
@@ -1959,6 +1961,14 @@ export function parseModuleFile(
           items.push(funcNode);
           i++;
           break;
+        }
+        if (asmControlStack.length === 0) {
+          const topKeyword = topLevelStartKeyword(content);
+          if (topKeyword !== undefined) {
+            interruptedByKeyword = topKeyword;
+            interruptedByLine = i + 1;
+            break;
+          }
         }
 
         const fullSpan = span(file, lineOffset, endOffset);
@@ -2001,6 +2011,15 @@ export function parseModuleFile(
       }
 
       if (!terminated) {
+        if (interruptedByKeyword !== undefined && interruptedByLine !== undefined) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Unterminated func "${name}": expected "end" before "${interruptedByKeyword}"`,
+            { line: interruptedByLine, column: 1 },
+          );
+          continue;
+        }
         for (const frame of asmControlStack) {
           if (isRecoverOnlyControlFrame(frame)) continue;
           const span = frame.openSpan;
@@ -2072,6 +2091,8 @@ export function parseModuleFile(
       const bodyItems: AsmItemNode[] = [];
       const controlStack: AsmControlFrame[] = [];
       let terminated = false;
+      let interruptedByKeyword: string | undefined;
+      let interruptedByLine: number | undefined;
       let opEndOffset = file.text.length;
       while (i < lineCount) {
         const { raw: rawLine, startOffset: so, endOffset: eo } = getRawLine(i);
@@ -2086,6 +2107,14 @@ export function parseModuleFile(
           opEndOffset = eo;
           i++;
           break;
+        }
+        if (controlStack.length === 0) {
+          const topKeyword = topLevelStartKeyword(content);
+          if (topKeyword !== undefined) {
+            interruptedByKeyword = topKeyword;
+            interruptedByLine = i + 1;
+            break;
+          }
         }
 
         const fullSpan = span(file, so, eo);
@@ -2119,6 +2148,15 @@ export function parseModuleFile(
       }
 
       if (!terminated) {
+        if (interruptedByKeyword !== undefined && interruptedByLine !== undefined) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Unterminated op "${name}": expected "end" before "${interruptedByKeyword}"`,
+            { line: interruptedByLine, column: 1 },
+          );
+          continue;
+        }
         for (const frame of controlStack) {
           if (isRecoverOnlyControlFrame(frame)) continue;
           const span = frame.openSpan;

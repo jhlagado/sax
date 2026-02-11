@@ -1,0 +1,13 @@
+func broken(): void
+  asm
+    nop
+const K = 1
+
+op macro(a: reg8)
+  ld a, a
+enum E A
+
+func ok(): void
+  asm
+    ret
+  end
