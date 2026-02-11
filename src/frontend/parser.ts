@@ -2394,6 +2394,10 @@ export function parseModuleFile(
           i++;
           continue;
         }
+        if (bodyItems.length === 0 && controlStack.length === 0 && contentLower === 'asm') {
+          i++;
+          continue;
+        }
         if (contentLower === 'end' && controlStack.length === 0) {
           terminated = true;
           opEndOffset = eo;

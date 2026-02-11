@@ -12,30 +12,28 @@ enum Mode Read, Write
 extern func bios_putc(ch: byte): void at $F003
 
 func print_mode(mode: byte): void
-  asm
-    ld a, (mode)
-    or a
-    if Z
-      ld a, 'R'
-    else
-      ld a, 'W'
-    end
-    bios_putc A
+  ld a, (mode)
+  or a
+  if Z
+    ld a, 'R'
+  else
+    ld a, 'W'
+  end
+  bios_putc A
 end
 
 export func main(): void
-  asm
-    ld b, 3
+  ld b, 3
 loop:
-    select B
-      case 3
-        push bc
-        print_mode Read
-        pop bc
-      else
-        push bc
-        print_mode Write
-        pop bc
-    end
-    djnz loop
+  select B
+    case 3
+      push bc
+      print_mode Read
+      pop bc
+    else
+      push bc
+      print_mode Write
+      pop bc
+  end
+  djnz loop
 end

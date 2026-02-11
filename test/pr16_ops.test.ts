@@ -113,4 +113,14 @@ describe('PR16 op declarations and expansion', () => {
     expect(bin!.bytes.includes(0x3a)).toBe(true);
     expect(bin!.bytes.includes(0xc9)).toBe(true);
   });
+
+  it('accepts optional leading asm marker in op bodies', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr191_op_optional_asm_prefix.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes).toEqual(Uint8Array.of(0x06, 0x07, 0xc9));
+  });
 });

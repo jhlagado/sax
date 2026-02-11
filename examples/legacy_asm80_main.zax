@@ -9,10 +9,8 @@
 import legacy_asm80_lib
 
 export func main(): void
-  asm
-    legacy_init
-    legacy_putc 'H'
-    legacy_putc 'i'
-    legacy_putc '!'
+  legacy_init
+  legacy_putc 'H'
+  legacy_putc 'i'
+  legacy_putc '!'
 end
-

@@ -14,18 +14,17 @@ data
   msg: byte[10] = "HELLO, ZAX"
 
 export func main(): void
-  asm
-    ld hl, msg
-    ld bc, MsgLen
+  ld hl, msg
+  ld bc, MsgLen
   loop:
-    ld a, (hl)
-    push bc
-      bios_putc A
-      pop bc
-    inc hl
-    dec bc
-    ld a, b
-    or c
-    jp nz, loop
+  ld a, (hl)
+  push bc
+    bios_putc A
+    pop bc
+  inc hl
+  dec bc
+  ld a, b
+  or c
+  jp nz, loop
 
 end
