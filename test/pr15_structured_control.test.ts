@@ -268,6 +268,22 @@ describe('PR15 structured asm control flow', () => {
     expect(regBin!.bytes[regBin!.bytes.length - 1]).toBe(0xc9);
   });
 
+  it('evaluates memory selector once for runtime compare-chain dispatch', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr149_select_mem_selector_eval_once.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+
+    const bytes = [...bin!.bytes];
+    const ldHlAbsCount = bytes.filter((byte) => byte === 0x2a).length; // ld hl, (abs16)
+    const cpImmCount = bytes.filter((byte) => byte === 0xfe).length; // cp imm8
+
+    expect(ldHlAbsCount).toBe(1); // selector loaded once from memory
+    expect(cpImmCount).toBe(4); // two case values => low+high compare for each case
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
+
   it('diagnoses until without matching repeat', async () => {
     const entry = join(__dirname, 'fixtures', 'pr15_until_without_repeat.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
