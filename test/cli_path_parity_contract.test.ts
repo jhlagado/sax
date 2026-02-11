@@ -2,72 +2,16 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
-const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-async function buildOnce(): Promise<void> {
-  await execFileAsync('yarn', ['-s', 'build'], {
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-  });
-}
-
-async function runCli(
-  args: string[],
-  cwd?: string,
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  const node = process.execPath;
-  const cliPath = resolve(__dirname, '..', 'dist', 'src', 'cli.js');
-  try {
-    const { stdout, stderr } = await execFileAsync(node, [cliPath, ...args], {
-      encoding: 'utf8',
-      cwd,
-    });
-    return { code: 0, stdout, stderr };
-  } catch (err) {
-    const e = err as { code?: number; stdout?: string; stderr?: string };
-    return { code: e.code ?? 1, stdout: e.stdout ?? '', stderr: e.stderr ?? '' };
-  }
-}
-
-async function readArtifactSet(base: string): Promise<{
-  bin: string;
-  hex: string;
-  d8m: string;
-  lst: string;
-}> {
-  const bin = await readFile(`${base}.bin`);
-  const hex = await readFile(`${base}.hex`, 'utf8');
-  const d8m = await readFile(`${base}.d8dbg.json`, 'utf8');
-  const lst = await readFile(`${base}.lst`, 'utf8');
-  return {
-    bin: bin.toString('hex'),
-    hex,
-    d8m,
-    lst,
-  };
-}
-
-function normalizePathForCompare(path: string): string {
-  const stripped = path.startsWith('\\\\?\\UNC\\')
-    ? `\\\\${path.slice(8)}`
-    : path.startsWith('\\\\?\\')
-      ? path.slice(4)
-      : path;
-  const normalized = stripped.replace(/\\/g, '/');
-  const normalizedDarwin =
-    process.platform === 'darwin' ? normalized.replace(/^\/private\//, '/') : normalized;
-  return process.platform === 'win32' ? normalizedDarwin.toLowerCase() : normalizedDarwin;
-}
+import { ensureCliBuilt, normalizePathForCompare, readArtifactSet, runCli } from './helpers/cli.js';
 
 describe('cli path parity contract', () => {
   beforeAll(async () => {
-    await buildOnce();
+    await ensureCliBuilt();
   }, 90_000);
 
   it('emits byte-identical artifacts for relative and absolute entry/output path forms', async () => {

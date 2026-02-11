@@ -1,46 +1,17 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const execFileAsync = promisify(execFile);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-async function buildOnce(): Promise<void> {
-  await execFileAsync('yarn', ['-s', 'build'], {
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-  });
-}
-
-async function runCli(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
-  const node = process.execPath;
-  const cliPath = resolve(__dirname, '..', 'dist', 'src', 'cli.js');
-  try {
-    const { stdout, stderr } = await execFileAsync(node, [cliPath, ...args], { encoding: 'utf8' });
-    return { code: 0, stdout, stderr };
-  } catch (err) {
-    const e = err as { code?: number; stdout?: string; stderr?: string };
-    return { code: e.code ?? 1, stdout: e.stdout ?? '', stderr: e.stderr ?? '' };
-  }
-}
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { ensureCliBuilt, exists, runCli } from './helpers/cli.js';
 
 describe('cli contract matrix', () => {
   beforeAll(async () => {
-    await buildOnce();
+    await ensureCliBuilt();
   }, 90_000);
 
   it('prints help text and exits 0', async () => {

@@ -2,7 +2,7 @@
 
 **Version:** v0.1 (Draft)
 **Date:** 2026-02-11
-**Test Suite:** 377 passing tests across 187 test files
+**Test Suite:** 380 passing tests across 188 test files
 
 ---
 
@@ -22,8 +22,8 @@ Current working gate baseline (from roadmap):
 - Parser/AST gate: ~68%
 - Codegen gate: ~66%
 - ISA gate: ~53%
-- CLI/output gate: ~67%
-- Hardening gate: ~73%
+- CLI/output gate: ~72%
+- Hardening gate: ~77%
 
 Execution plan (large, gate-oriented tranches):
 
@@ -423,8 +423,8 @@ Per `docs/roadmap.md`, six completion gates must pass for integration-ready stat
 | 2. Parser/AST gate | Partial        | ~68%       |
 | 3. Codegen gate    | Partial        | ~66%       |
 | 4. ISA gate        | Partial        | ~53%       |
-| 5. CLI/output gate | Partial        | ~67%       |
-| 6. Hardening gate  | Partial        | ~73%       |
+| 5. CLI/output gate | Partial        | ~72%       |
+| 6. Hardening gate  | Partial        | ~77%       |
 
 **Overall:** ~64% (risk-weighted estimate)
 
