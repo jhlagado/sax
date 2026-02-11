@@ -118,6 +118,11 @@ function memIndexed(
   if (ea.kind === 'EaIndex' && ea.index.kind === 'IndexImm') {
     return encodeBaseDisp(ea.base, ea.index.value);
   }
+  if (ea.kind === 'EaName') {
+    const base = ea.name.toUpperCase();
+    if (base === 'IX') return { prefix: 0xdd, disp: 0 };
+    if (base === 'IY') return { prefix: 0xfd, disp: 0 };
+  }
   if (ea.kind === 'EaAdd') {
     return encodeBaseDisp(ea.base, ea.offset);
   }

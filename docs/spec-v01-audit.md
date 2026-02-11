@@ -90,12 +90,12 @@ This section maps specific normative statements to implementation evidence or ex
 
 ### 8.1 `7.2 ea` forms and lowering constraints
 
-| Normative intent                                                      | Status                 | Evidence / Diagnostic                                                                                                                   |
-| --------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Absolute `ea` symbols lower to abs16 forms where encodable            | Implemented (subset)   | `test/pr43_ld_mem_imm8.test.ts`, `test/pr48_ld_mem_imm16.test.ts`, `test/pr49_ld_mem_imm16_abs_fastpath.test.ts`                        |
-| Indexed forms `(ix+disp)/(iy+disp)` accepted for covered instructions | Implemented (subset)   | `test/isa_indexed_ld.test.ts`, `test/isa_indexed_incdec.test.ts`, `test/isa_indexed_bitops.test.ts`, `test/isa_indexed_rotates.test.ts` |
-| Nested indexed `ea` forms are not currently lowered                   | Intentionally rejected | diagnostic: `Nested indexed addresses are not supported yet.` (see `test/pr12_calls.test.ts`)                                           |
-| Non-constant index components are rejected                            | Intentionally rejected | diagnostic: `Non-constant array indices are not supported yet.`                                                                         |
+| Normative intent                                                      | Status                 | Evidence / Diagnostic                                                                                                                                                                     |
+| --------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Absolute `ea` symbols lower to abs16 forms where encodable            | Implemented (subset)   | `test/pr43_ld_mem_imm8.test.ts`, `test/pr48_ld_mem_imm16.test.ts`, `test/pr49_ld_mem_imm16_abs_fastpath.test.ts`                                                                          |
+| Indexed forms `(ix+disp)/(iy+disp)` accepted for covered instructions | Implemented (subset)   | `test/isa_indexed_ld.test.ts`, `test/isa_indexed_incdec.test.ts`, `test/isa_indexed_bitops.test.ts`, `test/isa_indexed_rotates.test.ts`, `test/pr201_isa_indexed_zero_disp_forms.test.ts` |
+| Nested indexed `ea` forms are not currently lowered                   | Intentionally rejected | diagnostic: `Nested indexed addresses are not supported yet.` (see `test/pr12_calls.test.ts`)                                                                                             |
+| Non-constant index components are rejected                            | Intentionally rejected | diagnostic: `Non-constant array indices are not supported yet.`                                                                                                                           |
 
 ### 8.2 `8.4/8.5` stack frame and SP safety rules
 
