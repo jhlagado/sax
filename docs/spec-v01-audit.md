@@ -82,7 +82,7 @@ Legend:
 | ISA core + advanced subsets                   | Implemented (subset) | `test/pr24_isa_core.test.ts`, `test/pr25_isa_advanced.test.ts`, `test/pr56_isa_misc.test.ts`, `test/pr57_isa_im_rst.test.ts`, `test/pr91_isa_hl16_adc_sbc.test.ts` |
 | indexed/ED block/system instruction slices    | Implemented (subset) | `test/isa_indexed_*.test.ts`, `test/isa_block_*.test.ts`, `test/isa_ed_misc.test.ts`                                                                               |
 | `.hex/.bin/.d8dbg.json/.lst` artifact outputs | Implemented          | `test/cli_artifacts.test.ts`, `test/cli_contract_matrix.test.ts`, `test/pr39_listing.test.ts`, `test/pr195_hex_sparse_records.test.ts`                             |
-| determinism                                   | Implemented          | `test/determinism_artifacts.test.ts`, `test/cli_determinism_contract.test.ts`                                                                                      |
+| determinism                                   | Implemented          | `test/determinism_artifacts.test.ts`, `test/cli_determinism_contract.test.ts`, `test/examples_compile.test.ts`                                                     |
 
 ## 8) Tranche 2 Normative Mapping (high-risk sections)
 
