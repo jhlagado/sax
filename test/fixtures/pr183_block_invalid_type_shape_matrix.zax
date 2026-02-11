@@ -1,0 +1,22 @@
+type Rec
+  ok: byte
+  bad: [byte]
+end
+
+union Uni
+  ok: word
+  bad: [word]
+end
+
+var
+  ok: byte
+  bad: [byte]
+
+data
+  ok: byte = 1
+  bad: [byte] = 2
+
+func main(): void
+  asm
+    ret
+  end

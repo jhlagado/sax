@@ -1522,7 +1522,7 @@ export function parseModuleFile(
             i++;
             continue;
           }
-          diag(diagnostics, modulePath, `Unsupported field type`, { line: i + 1, column: 1 });
+          diagInvalidBlockLine('record field declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1667,7 +1667,7 @@ export function parseModuleFile(
             i++;
             continue;
           }
-          diag(diagnostics, modulePath, `Unsupported field type`, { line: i + 1, column: 1 });
+          diagInvalidBlockLine('union field declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1786,10 +1786,7 @@ export function parseModuleFile(
             i++;
             continue;
           }
-          diag(diagnostics, modulePath, `Unsupported type in var declaration`, {
-            line: i + 1,
-            column: 1,
-          });
+          diagInvalidBlockLine('var declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1984,10 +1981,7 @@ export function parseModuleFile(
                 i++;
                 continue;
               }
-              diag(diagnostics, modulePath, `Unsupported type in var declaration`, {
-                line: i + 1,
-                column: 1,
-              });
+              diagInvalidBlockLine('var declaration', tDecl, '<name>: <type>', i + 1);
               i++;
               continue;
             }
@@ -2837,10 +2831,7 @@ export function parseModuleFile(
         });
 
         if (!typeExpr) {
-          diag(diagnostics, modulePath, `Unsupported type in data declaration`, {
-            line: i + 1,
-            column: 1,
-          });
+          diagInvalidBlockLine('data declaration', t, '<name>: <type> = <initializer>', i + 1);
           i++;
           continue;
         }
