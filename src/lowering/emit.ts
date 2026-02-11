@@ -1966,12 +1966,12 @@ export function emitProgram(
               );
             }
           };
-          const diagIfCallStackUnverifiable = (): void => {
+          const diagIfCallStackUnverifiable = (mnemonic = 'call'): void => {
             if (hasStackSlots && !spTrackingValid && spTrackingInvalidatedByMutation) {
               diagAt(
                 diagnostics,
                 asmItem.span,
-                `call reached after untracked SP mutation; cannot verify callee stack contract.`,
+                `${mnemonic} reached after untracked SP mutation; cannot verify callee stack contract.`,
               );
               return;
             }
@@ -1979,7 +1979,7 @@ export function emitProgram(
               diagAt(
                 diagnostics,
                 asmItem.span,
-                `call reached with unknown stack depth; cannot verify callee stack contract.`,
+                `${mnemonic} reached with unknown stack depth; cannot verify callee stack contract.`,
               );
             }
           };
@@ -2542,6 +2542,9 @@ export function emitProgram(
           }
           if (head === 'call') {
             diagIfCallStackUnverifiable();
+          }
+          if (head === 'rst' && asmItem.operands.length === 1) {
+            diagIfCallStackUnverifiable('rst');
           }
           if (head === 'ret') {
             if (asmItem.operands.length === 0) {
