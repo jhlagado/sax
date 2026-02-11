@@ -2,13 +2,13 @@
 
 **Version:** v0.1 (Draft)
 **Date:** 2026-02-11
-**Test Suite:** 317 passing tests across 153 test files
+**Test Suite:** 341 passing tests across 175 test files
 
 ---
 
 ## Executive Summary
 
-**Overall Completion: ~52% toward integration-ready**
+**Overall Completion: ~57% toward integration-ready**
 
 The ZAX assembler has a functional end-to-end pipeline. Real Z80 programs can be written today using most language features. The core language constructs are well-tested and reliable, while some advanced features remain narrow in coverage or intentionally deferred to future versions.
 
@@ -18,12 +18,12 @@ The ZAX assembler has a functional end-to-end pipeline. Real Z80 programs can be
 
 Current working gate baseline (from roadmap):
 
-- Spec gate: ~70%
-- Parser/AST gate: ~64%
+- Spec gate: ~74%
+- Parser/AST gate: ~67%
 - Codegen gate: ~60%
-- ISA gate: ~45%
+- ISA gate: ~53%
 - CLI/output gate: ~67%
-- Hardening gate: ~58%
+- Hardening gate: ~66%
 
 Execution plan (large, gate-oriented tranches):
 

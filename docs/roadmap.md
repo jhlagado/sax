@@ -11,24 +11,24 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 77
+- Completed PR anchors listed below: 78
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~75% complete (range 70-81%).
+- Working estimate (risk-weighted): ~76% complete (range 71-82%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
-- Spec gate: ~73%
-- Parser/AST gate: ~66%
+- Spec gate: ~74%
+- Parser/AST gate: ~67%
 - Codegen gate: ~60%
 - ISA gate: ~53%
 - CLI/output gate: ~67%
-- Hardening gate: ~65%
+- Hardening gate: ~66%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #171: Spec/data closure continuation (Issue #6 const/data follow-up matrix, D8M constant semantics clarification, and audit evidence expansion).
+- none
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: parser/AST closure continuation (malformed declaration/body recovery matrix expansion and deterministic diagnostic ordering hardening).
+1. Next PR: parser/AST closure continuation (remaining malformed declaration/control recovery matrix expansion and deterministic diagnostic ordering hardening).
 
 Completed (anchored, most recent first):
 
+1. #171: Spec/data closure continuation (Issue #6 const/data follow-up matrix, D8M constant semantics clarification, and audit evidence expansion).
 1. #170: Spec/parser closure continuation (Issue #144 implicit body policy closure for `func`/`op`, docs alignment, and end-to-end diagnostics coverage).
 1. #169: ISA diagnostics parity continuation (condition-token symbolic-fixup collision hardening for one-operand `jp`/`call`/`jr` + matrix coverage).
 1. #168: ISA diagnostics parity continuation (conditional control-flow arity diagnostics parity hardening for `jp`/`call`/`jr` + matrix coverage).

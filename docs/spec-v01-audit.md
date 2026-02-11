@@ -33,19 +33,19 @@ Legend:
 
 ## 3) Types + Data
 
-| Spec area                                     | Status               | Evidence                                                                                                     |
-| --------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `4.1` scalar built-ins (`byte/word/addr/ptr`) | Implemented          | `test/semantics_layout.test.ts`, `test/pr52_ptr_scalar_slots.test.ts`                                        |
-| `4.2` aliases + size usage                    | Implemented (subset) | `test/pr8_sizeof.test.ts`                                                                                    |
-| `4.3` enums                                   | Implemented          | `test/pr4_enum.test.ts`, `test/pr215_const_data_followups_matrix.test.ts`                                    |
-| `4.4` consts                                  | Implemented          | `test/pr2_const_data.test.ts`, `test/pr2_div_zero.test.ts`, `test/pr215_const_data_followups_matrix.test.ts` |
-| `5.1` arrays (fixed + inferred for `data`)    | Implemented (subset) | `test/pr51_data_inferred_array_len.test.ts`, `test/pr54_inferred_array_len_invalid.test.ts`                  |
-| `5.2` records                                 | Implemented (subset) | `test/semantics_layout.test.ts`                                                                              |
-| `5.3` unions                                  | Implemented (subset) | `test/pr50_union_field_access.test.ts`                                                                       |
-| `6.2` `var` storage                           | Implemented          | `test/pr3_var_layout.test.ts`                                                                                |
-| `6.3` `data` storage                          | Implemented          | `test/pr2_const_data.test.ts`                                                                                |
-| `6.4` `bin` / `hex` ingestion                 | Implemented          | `test/pr17_bin_hex_ingestion.test.ts`                                                                        |
-| `6.5` `extern ... at`                         | Implemented          | `test/pr12_calls.test.ts`                                                                                    |
+| Spec area                                     | Status               | Evidence                                                                                                                                      |
+| --------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `4.1` scalar built-ins (`byte/word/addr/ptr`) | Implemented          | `test/semantics_layout.test.ts`, `test/pr52_ptr_scalar_slots.test.ts`                                                                         |
+| `4.2` aliases + size usage                    | Implemented (subset) | `test/pr8_sizeof.test.ts`                                                                                                                     |
+| `4.3` enums                                   | Implemented          | `test/pr4_enum.test.ts`, `test/pr215_const_data_followups_matrix.test.ts`, `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts` |
+| `4.4` consts                                  | Implemented          | `test/pr2_const_data.test.ts`, `test/pr2_div_zero.test.ts`, `test/pr215_const_data_followups_matrix.test.ts`                                  |
+| `5.1` arrays (fixed + inferred for `data`)    | Implemented (subset) | `test/pr51_data_inferred_array_len.test.ts`, `test/pr54_inferred_array_len_invalid.test.ts`                                                   |
+| `5.2` records                                 | Implemented (subset) | `test/semantics_layout.test.ts`                                                                                                               |
+| `5.3` unions                                  | Implemented (subset) | `test/pr50_union_field_access.test.ts`                                                                                                        |
+| `6.2` `var` storage                           | Implemented          | `test/pr3_var_layout.test.ts`                                                                                                                 |
+| `6.3` `data` storage                          | Implemented          | `test/pr2_const_data.test.ts`                                                                                                                 |
+| `6.4` `bin` / `hex` ingestion                 | Implemented          | `test/pr17_bin_hex_ingestion.test.ts`                                                                                                         |
+| `6.5` `extern ... at`                         | Implemented          | `test/pr12_calls.test.ts`, `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts`                                                 |
 
 ## 4) Expressions + Fixups
 
@@ -126,21 +126,25 @@ This section maps specific normative statements to implementation evidence or ex
 
 These are intentionally unsupported or guarded forms with expected diagnostics:
 
-| Area                     | Form                        | Diagnostic (contains)                                 | Evidence                                                                                               |
-| ------------------------ | --------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Lowering / EA            | nested indexed EA           | `Nested indexed addresses are not supported yet.`     | `test/pr12_calls.test.ts`                                                                              |
-| Lowering / EA            | non-constant array index    | `Non-constant array indices are not supported yet.`   | parser/lowering negative coverage                                                                      |
-| Lowering / control       | select join mismatch        | `Stack depth mismatch at select join`                 | `test/pr15_structured_control.test.ts`, `test/pr92_lowering_interactions.test.ts`                      |
-| Lowering / control       | while back-edge mismatch    | `Stack depth mismatch at while back-edge`             | `test/pr15_structured_control.test.ts`                                                                 |
-| Lowering / control       | repeat/until mismatch       | `Stack depth mismatch at repeat/until`                | `test/pr15_structured_control.test.ts`                                                                 |
-| Lowering / control       | untracked join/back-edge    | `Cannot verify stack depth ... untracked SP mutation` | `test/pr197_untracked_stack_invariants.test.ts`                                                        |
-| Lowering / control       | unknown join/back-edge      | `Cannot verify stack depth ... unknown stack state`   | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
-| Lowering / returns       | ret with stack imbalance    | `ret with non-zero tracked stack delta`               | `test/pr23_lowering_safety.test.ts`                                                                    |
-| Lowering / returns       | ret with unknown stack      | `ret reached with unknown stack depth`                | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
-| Lowering / function exit | fallthrough stack imbalance | `has non-zero stack delta at fallthrough`             | `test/pr92_lowering_interactions.test.ts`                                                              |
-| Lowering / function exit | fallthrough unknown stack   | `has unknown stack depth at fallthrough`              | `test/pr198_lowering_unknown_stack_states.test.ts`                                                     |
-| Ops / SP safety          | untracked SP mutation       | `untracked SP mutation`                               | `test/pr23_lowering_safety.test.ts`                                                                    |
-| Ops / SP safety          | unknown stack tracking      | `expansion leaves stack depth untrackable`            | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
+| Area                     | Form                        | Diagnostic (contains)                                     | Evidence                                                                                               |
+| ------------------------ | --------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Lowering / EA            | nested indexed EA           | `Nested indexed addresses are not supported yet.`         | `test/pr12_calls.test.ts`                                                                              |
+| Lowering / EA            | non-constant array index    | `Non-constant array indices are not supported yet.`       | parser/lowering negative coverage                                                                      |
+| Lowering / control       | select join mismatch        | `Stack depth mismatch at select join`                     | `test/pr15_structured_control.test.ts`, `test/pr92_lowering_interactions.test.ts`                      |
+| Lowering / control       | while back-edge mismatch    | `Stack depth mismatch at while back-edge`                 | `test/pr15_structured_control.test.ts`                                                                 |
+| Lowering / control       | repeat/until mismatch       | `Stack depth mismatch at repeat/until`                    | `test/pr15_structured_control.test.ts`                                                                 |
+| Lowering / control       | untracked join/back-edge    | `Cannot verify stack depth ... untracked SP mutation`     | `test/pr197_untracked_stack_invariants.test.ts`                                                        |
+| Lowering / control       | unknown join/back-edge      | `Cannot verify stack depth ... unknown stack state`       | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
+| Lowering / returns       | ret with stack imbalance    | `ret with non-zero tracked stack delta`                   | `test/pr23_lowering_safety.test.ts`                                                                    |
+| Lowering / returns       | ret with unknown stack      | `ret reached with unknown stack depth`                    | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
+| Lowering / function exit | fallthrough stack imbalance | `has non-zero stack delta at fallthrough`                 | `test/pr92_lowering_interactions.test.ts`                                                              |
+| Lowering / function exit | fallthrough unknown stack   | `has unknown stack depth at fallthrough`                  | `test/pr198_lowering_unknown_stack_states.test.ts`                                                     |
+| Ops / SP safety          | untracked SP mutation       | `untracked SP mutation`                                   | `test/pr23_lowering_safety.test.ts`                                                                    |
+| Ops / SP safety          | unknown stack tracking      | `expansion leaves stack depth untrackable`                | `test/pr198_lowering_unknown_stack_states.test.ts`, `test/pr199_lowering_mismatch_propagation.test.ts` |
+| Parser / function body   | stray `end` in asm stream   | `Unexpected "end" in asm block`                           | `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts`                                     |
+| Parser / extern          | empty extern block          | `extern block must contain at least one func declaration` | `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts`                                     |
+| Parser / enum            | enum without members        | `must declare at least one member`                        | `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts`                                     |
+| Parser / enum            | enum trailing comma         | `Trailing commas are not permitted in enum member lists`  | `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts`                                     |
 
 ## 10) Tranche 3 Mapping Expansion
 
