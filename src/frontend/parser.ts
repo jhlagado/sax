@@ -3174,7 +3174,8 @@ export function parseModuleFile(
     }
 
     const asmTail = consumeKeywordPrefix(text, 'asm');
-    if (asmTail !== undefined) {
+    const asmAfterExportTail = hasExportPrefix ? consumeKeywordPrefix(rest, 'asm') : undefined;
+    if (asmTail !== undefined || asmAfterExportTail !== undefined) {
       diag(
         diagnostics,
         modulePath,

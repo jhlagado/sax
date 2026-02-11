@@ -17,20 +17,21 @@ extern func bios_putc(ch: byte): void at $F003
 export func main(): void
   var
     p: addr
-    ld hl, msg
-    ld (p), hl
+  end
+  ld hl, msg
+  ld (p), hl
 
-    ld b, MsgLen
-    repeat
-      ld hl, (p)
-      ld a, (hl)
-      inc hl
-      ld (p), hl
-      push bc
-      bios_putc A
-      pop bc
-      dec b
-    until Z
+  ld b, MsgLen
+  repeat
+    ld hl, (p)
+    ld a, (hl)
+    inc hl
+    ld (p), hl
+    push bc
+    bios_putc A
+    pop bc
+    dec b
+  until Z
 end
 ```
 
@@ -143,10 +144,11 @@ ZAX functions have formal typed parameters, optional local variables, and a comp
 func add_words(a: word, b: word): word
   var
     result: word
-    ld hl, (a)
-    ld de, (b)
-    add hl, de
-    ld (result), hl
+  end
+  ld hl, (a)
+  ld de, (b)
+  add hl, de
+  ld (result), hl
 end
 ```
 

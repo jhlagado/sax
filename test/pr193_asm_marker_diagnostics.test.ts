@@ -53,4 +53,39 @@ asm
       ),
     ).toBe(true);
   });
+
+  it('diagnoses top-level export asm marker usage', () => {
+    const source = `
+export asm
+`;
+    const diagnostics: Diagnostic[] = [];
+    parseProgram('top_level_export_asm.zax', source, diagnostics);
+
+    expect(
+      diagnostics.some((d) =>
+        d.message.includes(
+          '"asm" is not a top-level construct (function and op bodies are implicit instruction streams)',
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('diagnoses asm marker used to terminate function-local var block', () => {
+    const source = `
+func broken(): void
+  var
+    tmp: byte
+  asm
+    nop
+end
+`;
+    const diagnostics: Diagnostic[] = [];
+    parseProgram('func_var_asm_terminator.zax', source, diagnostics);
+
+    expect(
+      diagnostics.some((d) =>
+        d.message.includes('Function-local var block must end with "end" before function body'),
+      ),
+    ).toBe(true);
+  });
 });
