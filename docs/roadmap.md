@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- none
+1. #180: ISA coverage/parity pass (indexed rotate/shift destination legality diagnostics matrix expansion across DD/FD/CB forms).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: ISA coverage/parity pass (close remaining malformed-form diagnostics parity gaps and missing DD/FD/ED/CB legality matrix rows, including indexed rotate/shift destination diagnostics parity).
+1. Next PR: CLI/output contract hardening pass (tighten artifact contract assertions and cross-platform output behavior).
 
 Completed (anchored, most recent first):
 
