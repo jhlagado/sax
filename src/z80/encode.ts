@@ -1333,20 +1333,27 @@ export function encodeInstruction(
   }
 
   if (head === 'adc') {
-    if (ops.length === 2 && regName(ops[0]!) === 'HL') {
-      const src = regName(ops[1]!);
-      switch (src) {
-        case 'BC':
-          return Uint8Array.of(0xed, 0x4a);
-        case 'DE':
-          return Uint8Array.of(0xed, 0x5a);
-        case 'HL':
-          return Uint8Array.of(0xed, 0x6a);
-        case 'SP':
-          return Uint8Array.of(0xed, 0x7a);
-        default:
-          diag(diagnostics, node, `adc HL, rr expects BC/DE/HL/SP`);
-          return undefined;
+    if (ops.length === 2) {
+      const dst = regName(ops[0]!);
+      if (dst === 'HL') {
+        const src = regName(ops[1]!);
+        switch (src) {
+          case 'BC':
+            return Uint8Array.of(0xed, 0x4a);
+          case 'DE':
+            return Uint8Array.of(0xed, 0x5a);
+          case 'HL':
+            return Uint8Array.of(0xed, 0x6a);
+          case 'SP':
+            return Uint8Array.of(0xed, 0x7a);
+          default:
+            diag(diagnostics, node, `adc HL, rr expects BC/DE/HL/SP`);
+            return undefined;
+        }
+      }
+      if (dst !== 'A') {
+        diag(diagnostics, node, `adc expects destination A or HL`);
+        return undefined;
       }
     }
     const encoded = encodeAluAOrImm8OrMemHL(0x88, 0xce, 0x8e, 'adc', true);
@@ -1355,20 +1362,27 @@ export function encodeInstruction(
   }
 
   if (head === 'sbc') {
-    if (ops.length === 2 && regName(ops[0]!) === 'HL') {
-      const src = regName(ops[1]!);
-      switch (src) {
-        case 'BC':
-          return Uint8Array.of(0xed, 0x42);
-        case 'DE':
-          return Uint8Array.of(0xed, 0x52);
-        case 'HL':
-          return Uint8Array.of(0xed, 0x62);
-        case 'SP':
-          return Uint8Array.of(0xed, 0x72);
-        default:
-          diag(diagnostics, node, `sbc HL, rr expects BC/DE/HL/SP`);
-          return undefined;
+    if (ops.length === 2) {
+      const dst = regName(ops[0]!);
+      if (dst === 'HL') {
+        const src = regName(ops[1]!);
+        switch (src) {
+          case 'BC':
+            return Uint8Array.of(0xed, 0x42);
+          case 'DE':
+            return Uint8Array.of(0xed, 0x52);
+          case 'HL':
+            return Uint8Array.of(0xed, 0x62);
+          case 'SP':
+            return Uint8Array.of(0xed, 0x72);
+          default:
+            diag(diagnostics, node, `sbc HL, rr expects BC/DE/HL/SP`);
+            return undefined;
+        }
+      }
+      if (dst !== 'A') {
+        diag(diagnostics, node, `sbc expects destination A or HL`);
+        return undefined;
       }
     }
     const encoded = encodeAluAOrImm8OrMemHL(0x98, 0xde, 0x9e, 'sbc', true);

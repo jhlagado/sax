@@ -35,8 +35,8 @@ describe('PR148: known-head no-fallback diagnostics matrix', () => {
     expect(messages).toContain('and two-operand form requires destination A');
     expect(messages).toContain('or two-operand form requires destination A');
     expect(messages).toContain('xor two-operand form requires destination A');
-    expect(messages).toContain('adc two-operand form requires destination A');
-    expect(messages).toContain('sbc two-operand form requires destination A');
+    expect(messages).toContain('adc expects destination A or HL');
+    expect(messages).toContain('sbc expects destination A or HL');
     expect(messages).toContain('bit expects bit index 0..7');
     expect(messages).toContain('res b,(ix/iy+disp),r requires an indexed memory source');
     expect(messages).toContain('set b,(ix/iy+disp),r requires an indexed memory source');

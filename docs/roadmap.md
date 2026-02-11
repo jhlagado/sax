@@ -11,14 +11,14 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 66
+- Completed PR anchors listed below: 67
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~63% complete (range 58-69%).
+- Working estimate (risk-weighted): ~64% complete (range 59-70%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
@@ -26,9 +26,9 @@ Working estimate scorecard (risk-weighted, subjective):
 - Spec gate: ~70%
 - Parser/AST gate: ~64%
 - Codegen gate: ~60%
-- ISA gate: ~40%
+- ISA gate: ~41%
 - CLI/output gate: ~67%
-- Hardening gate: ~53%
+- Hardening gate: ~54%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #159: ISA diagnostics parity continuation (`ld` malformed-form diagnostics parity + lowering/abs16-fixup collision guard for register-like EA bases).
+- none.
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: ISA diagnostics parity continuation (ED/CB/DD/FD legality matrix expansion + deterministic malformed-form diagnostics parity).
+1. Next PR: ISA diagnostics parity continuation (`adc`/`sbc` malformed-form destination diagnostics parity + matrix hardening).
 
 Completed (anchored, most recent first):
 
+1. #159: ISA diagnostics parity continuation (`ld` malformed-form diagnostics parity + lowering/abs16-fixup collision guard for register-like EA bases).
 1. #158: ISA diagnostics parity continuation (explicit malformed-form diagnostics for `add` to eliminate known-head generic fallback and pin matrix behavior).
 1. #157: ISA coverage continuation (`(ix)/(iy)` zero-displacement shorthand parity across DD/FD families + lowering passthrough hardening + matrix coverage).
 1. #156: D8M appendix closure (grouped `files` contract, low16 constant-address policy evidence, and Appendix B.5/B.6 contract coverage).

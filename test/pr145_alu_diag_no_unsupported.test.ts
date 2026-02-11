@@ -19,8 +19,8 @@ describe('PR145: ALU diagnostics suppress generic fallback', () => {
     expect(messages).toContain('and two-operand form requires destination A');
     expect(messages).toContain('or two-operand form requires destination A');
     expect(messages).toContain('xor two-operand form requires destination A');
-    expect(messages).toContain('adc two-operand form requires destination A');
-    expect(messages).toContain('sbc two-operand form requires destination A');
+    expect(messages).toContain('adc expects destination A or HL');
+    expect(messages).toContain('sbc expects destination A or HL');
     expect(messages.some((m) => m.startsWith('Unsupported instruction:'))).toBe(false);
   });
 });
