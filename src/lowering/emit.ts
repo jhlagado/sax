@@ -1791,6 +1791,12 @@ export function emitProgram(
               span,
               `Cannot verify stack depth at ${contextName} join due to untracked SP mutation.`,
             );
+          } else if ((!left.spValid || !right.spValid) && hasStackSlots) {
+            diagAt(
+              diagnostics,
+              span,
+              `Cannot verify stack depth at ${contextName} join due to unknown stack state.`,
+            );
           }
           if (left.spValid && right.spValid && left.spDelta !== right.spDelta) {
             diagAt(
@@ -1903,6 +1909,14 @@ export function emitProgram(
                 diagnostics,
                 asmItem.span,
                 `ret reached after untracked SP mutation; cannot verify function stack balance.`,
+              );
+              return;
+            }
+            if (!spTrackingValid && hasStackSlots) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `ret reached with unknown stack depth; cannot verify function stack balance.`,
               );
             }
           };
@@ -2323,6 +2337,12 @@ export function emitProgram(
                   asmItem.span,
                   `op "${opDecl.name}" expansion performs untracked SP mutation; cannot verify net stack delta.`,
                 );
+              } else if (entryFlow.spValid && !exitFlow.spValid && hasStackSlots) {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `op "${opDecl.name}" expansion leaves stack depth untrackable; cannot verify net stack delta.`,
+                );
               }
             }
             syncToFlow();
@@ -2668,6 +2688,16 @@ export function emitProgram(
                   asmItems[j]!.span,
                   `Cannot verify stack depth at while back-edge due to untracked SP mutation.`,
                 );
+              } else if (
+                bodyExit.reachable &&
+                (!bodyExit.spValid || !entry.spValid) &&
+                hasStackSlots
+              ) {
+                diagAt(
+                  diagnostics,
+                  asmItems[j]!.span,
+                  `Cannot verify stack depth at while back-edge due to unknown stack state.`,
+                );
               }
               if (bodyExit.reachable) emitJumpTo(condLabel, asmItems[j]!.span);
               defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
@@ -2708,6 +2738,16 @@ export function emitProgram(
                   diagnostics,
                   untilNode.span,
                   `Cannot verify stack depth at repeat/until due to untracked SP mutation.`,
+                );
+              } else if (
+                bodyExit.reachable &&
+                (!bodyExit.spValid || !entry.spValid) &&
+                hasStackSlots
+              ) {
+                diagAt(
+                  diagnostics,
+                  untilNode.span,
+                  `Cannot verify stack depth at repeat/until due to unknown stack state.`,
                 );
               }
               i = j + 1;
@@ -2866,6 +2906,12 @@ export function emitProgram(
                     asmItems[j]!.span,
                     `Cannot verify stack depth at select join due to untracked SP mutation.`,
                   );
+                } else if (hasStackSlots) {
+                  diagAt(
+                    diagnostics,
+                    asmItems[j]!.span,
+                    `Cannot verify stack depth at select join due to unknown stack state.`,
+                  );
                 }
                 restoreFlow({
                   reachable: true,
@@ -2917,6 +2963,12 @@ export function emitProgram(
             diagnostics,
             item.span,
             `Function "${item.name}" has untracked SP mutation at fallthrough; cannot verify stack balance.`,
+          );
+        } else if (flow.reachable && !flow.spValid && hasStackSlots) {
+          diagAt(
+            diagnostics,
+            item.span,
+            `Function "${item.name}" has unknown stack depth at fallthrough; cannot verify stack balance.`,
           );
         }
         if (!emitSyntheticEpilogue && flow.reachable) {
