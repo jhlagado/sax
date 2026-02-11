@@ -1249,6 +1249,47 @@ export function parseModuleFile(
     return `"${trimmed.replace(/"/g, '\\"')}"`;
   }
 
+  function consumeInvalidExternBlock(startIndex: number): number {
+    let previewIndex = startIndex + 1;
+    while (previewIndex < lineCount) {
+      const { raw } = getRawLine(previewIndex);
+      const t = stripComment(raw).trim();
+      if (t.length === 0) {
+        previewIndex++;
+        continue;
+      }
+      const looksLikeBodyStart =
+        t.toLowerCase() === 'end' ||
+        consumeKeywordPrefix(t, 'func') !== undefined ||
+        looksLikeKeywordBodyDeclLine(t);
+      if (!looksLikeBodyStart) return startIndex + 1;
+      break;
+    }
+    if (previewIndex >= lineCount) return startIndex + 1;
+
+    let index = previewIndex;
+    while (index < lineCount) {
+      const { raw } = getRawLine(index);
+      const t = stripComment(raw).trim();
+      const tLower = t.toLowerCase();
+      if (t.length === 0) {
+        index++;
+        continue;
+      }
+      if (tLower === 'end') return index + 1;
+      const topKeyword = topLevelStartKeyword(t);
+      if (
+        topKeyword !== undefined &&
+        consumeKeywordPrefix(t, 'func') === undefined &&
+        !looksLikeKeywordBodyDeclLine(t)
+      ) {
+        return index;
+      }
+      index++;
+    }
+    return lineCount;
+  }
+
   const malformedTopLevelHeaderExpectations: ReadonlyArray<{
     keyword: string;
     kind: string;
@@ -2424,15 +2465,27 @@ export function parseModuleFile(
         continue;
       }
 
-      if (decl.length > 0 && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(decl)) {
-        diagInvalidHeaderLine(
-          'extern declaration',
-          text,
-          '[<baseName>] or func <name>(...): <retType> at <imm16>',
-          lineNo,
-        );
-        i++;
-        continue;
+      if (decl.length > 0) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(decl)) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid extern base name ${formatIdentifierToken(decl)}: expected <identifier>.`,
+            { line: lineNo, column: 1 },
+          );
+          i = consumeInvalidExternBlock(i);
+          continue;
+        }
+        if (isReservedTopLevelName(decl)) {
+          diag(
+            diagnostics,
+            modulePath,
+            `Invalid extern base name "${decl}": collides with a top-level keyword.`,
+            { line: lineNo, column: 1 },
+          );
+          i = consumeInvalidExternBlock(i);
+          continue;
+        }
       }
 
       // Block form:
