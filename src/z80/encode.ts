@@ -1410,6 +1410,23 @@ export function encodeInstruction(
         return undefined;
       }
       if (ops.length === 3) {
+        const dstIndexed = indexedReg8(ops[2]!);
+        if (dstIndexed) {
+          if (dstIndexed.prefix !== idx.prefix) {
+            diag(
+              diagnostics,
+              node,
+              `${mnemonic} indexed destination family must match source index base`,
+            );
+          } else {
+            diag(
+              diagnostics,
+              node,
+              `${mnemonic} indexed destination must use legacy reg8 B/C/D/E/H/L/A`,
+            );
+          }
+          return undefined;
+        }
         const dstReg = regName(ops[2]!);
         const dstCode = dstReg ? reg8Code(dstReg) : undefined;
         if (dstCode === undefined) {
@@ -1466,6 +1483,23 @@ export function encodeInstruction(
       if (ops.length === 1) {
         // DD/FD CB disp <op> (where <op> matches the (HL) encoding)
         return Uint8Array.of(idx.prefix, 0xcb, disp & 0xff, base + 0x06);
+      }
+      const dstIndexed = indexedReg8(ops[1]!);
+      if (dstIndexed) {
+        if (dstIndexed.prefix !== idx.prefix) {
+          diag(
+            diagnostics,
+            node,
+            `${mnemonic} indexed destination family must match source index base`,
+          );
+        } else {
+          diag(
+            diagnostics,
+            node,
+            `${mnemonic} indexed destination must use legacy reg8 B/C/D/E/H/L/A`,
+          );
+        }
+        return undefined;
       }
       const dstReg = regName(ops[1]!);
       const dstCode = dstReg ? reg8Code(dstReg) : undefined;

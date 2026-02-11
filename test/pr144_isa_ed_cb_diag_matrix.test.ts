@@ -28,7 +28,7 @@ describe('PR144: ED/CB diagnostics parity matrix', () => {
     expect(messages).toContain('set (ix/iy+disp) expects disp8');
     expect(messages).toContain('rl two-operand form requires (ix/iy+disp) source');
     expect(messages).toContain('rr (ix/iy+disp) expects disp8');
-    expect(messages).toContain('sla (ix/iy+disp),r expects reg8 destination');
+    expect(messages).toContain('sla indexed destination must use legacy reg8 B/C/D/E/H/L/A');
     expect(messages).toContain('sra (ix/iy+disp),r expects reg8 destination');
     expect(messages).toContain('rrc (ix/iy+disp) expects disp8');
     expect(messages.some((m) => m.startsWith('Unsupported instruction:'))).toBe(false);
