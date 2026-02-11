@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- none.
+- #159: ISA diagnostics parity continuation (`ld` malformed-form diagnostics parity + lowering/abs16-fixup collision guard for register-like EA bases).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: ISA diagnostics parity continuation (`ld` malformed-form diagnostics parity + lowering/abs16-fixup collision guard for register-like EA bases).
+1. Next PR: ISA diagnostics parity continuation (ED/CB/DD/FD legality matrix expansion + deterministic malformed-form diagnostics parity).
 
 Completed (anchored, most recent first):
 
