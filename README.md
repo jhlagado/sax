@@ -85,14 +85,14 @@ This is not text substitution. The compiler operates on parsed AST nodes. It kno
 
 Op parameters use a system of **matcher types** that constrain what each operand position accepts:
 
-| Matcher | Accepts |
-|---------|---------|
-| `reg8` | `A B C D E H L` |
-| `reg16` | `HL DE BC SP` |
-| `A`, `HL`, `DE`, `BC`, `SP` | That register only |
-| `imm8`, `imm16` | Compile-time immediate expressions |
-| `ea` | Effective address expressions |
-| `mem8`, `mem16` | Memory dereference operands `(ea)` |
+| Matcher                     | Accepts                            |
+| --------------------------- | ---------------------------------- |
+| `reg8`                      | `A B C D E H L`                    |
+| `reg16`                     | `HL DE BC SP`                      |
+| `A`, `HL`, `DE`, `BC`, `SP` | That register only                 |
+| `imm8`, `imm16`             | Compile-time immediate expressions |
+| `ea`                        | Effective address expressions      |
+| `mem8`, `mem16`             | Memory dereference operands `(ea)` |
 
 Fixed matchers beat class matchers. `imm8` beats `imm16` for small values. If two overloads tie, the compiler rejects the call as ambiguous rather than silently picking one. The resolution rules are simple enough to reason about by hand, which matters when you're debugging at the instruction level.
 
@@ -262,13 +262,13 @@ Tests are organized by spec section and PR scope under `test/`. Golden-file comp
 
 ## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| `docs/zax-spec.md` | **Normative** language specification (v0.1 draft) |
-| `docs/zax-op-system-spec.md` | Extended specification for the `op` system |
-| `docs/zax-cli.md` | CLI behavior and artifact conventions |
-| `docs/roadmap.md` | Development milestones and completion gates |
-| `docs/zax-ai-team-prompt.md` | AI team coordination and architecture guide |
+| Document                     | Purpose                                           |
+| ---------------------------- | ------------------------------------------------- |
+| `docs/zax-spec.md`           | **Normative** language specification (v0.1 draft) |
+| `docs/zax-op-system-spec.md` | Extended specification for the `op` system        |
+| `docs/zax-cli.md`            | CLI behavior and artifact conventions             |
+| `docs/roadmap.md`            | Development milestones and completion gates       |
+| `docs/zax-ai-team-prompt.md` | AI team coordination and architecture guide       |
 
 ---
 

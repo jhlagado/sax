@@ -1,0 +1,12 @@
+op spin()
+again:
+  nop
+  jr again
+end
+
+func main(): void
+  asm
+    spin
+    spin
+    ret
+end
