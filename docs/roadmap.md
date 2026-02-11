@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- none
+1. #181: CLI/output contract hardening pass (CLI argument/error/output contract matrix coverage and `--version` dist-path fix).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: CLI/output contract hardening pass (tighten artifact contract assertions and cross-platform output behavior).
+1. Next PR: hardening/acceptance pass (expand deterministic end-to-end contract checks and close remaining CLI/output edge behaviors).
 
 Completed (anchored, most recent first):
 
