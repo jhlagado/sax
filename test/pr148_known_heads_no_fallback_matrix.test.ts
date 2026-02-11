@@ -22,7 +22,7 @@ describe('PR148: known-head no-fallback diagnostics matrix', () => {
     expect(messages).toContain('im expects 0, 1, or 2');
     expect(messages).toContain('in a,(n) expects an imm8 port number');
     expect(messages).toContain('out (n),a immediate port form requires source A');
-    expect(messages).toContain('jp expects imm16');
+    expect(messages).toContain('jp indirect form supports (hl), (ix), or (iy) only');
     expect(messages).toContain('jr cc, disp expects NZ/Z/NC/C + disp8');
     expect(messages).toContain('ld expects two operands');
     expect(messages).toContain('inc expects one operand');
