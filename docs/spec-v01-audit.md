@@ -167,11 +167,11 @@ This tranche extends explicit mapping for additional normative areas and parser 
 
 ### 10.3 ISA/encoding diagnostics (`7.x`, ISA appendices)
 
-| Normative intent                                                  | Status               | Evidence / Diagnostic                                                                                                                                                                        |
-| ----------------------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| rel8 range failures produce deterministic diagnostics             | Implemented          | `test/pr24_isa_core.test.ts`, `test/pr37_fixup_negative.test.ts`                                                                                                                             |
-| Unsupported condition or operand forms produce stable diagnostics | Implemented (subset) | `test/pr26_rotate_retcc.test.ts`, `test/pr27_cb_rotates_shifts.test.ts`, `test/pr202_add_diag_matrix.test.ts`, `test/pr203_ld_diag_matrix.test.ts`, `test/pr204_adc_sbc_diag_matrix.test.ts` |
-| Forward fixups resolve abs16/rel8 conditionals and calls          | Implemented          | `test/pr37_forward_label_fixups.test.ts`, `test/pr86`/`pr85` anchored in roadmap                                                                                                             |
+| Normative intent                                                  | Status               | Evidence / Diagnostic                                                                                                                                                                                                                                 |
+| ----------------------------------------------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| rel8 range failures produce deterministic diagnostics             | Implemented          | `test/pr24_isa_core.test.ts`, `test/pr37_fixup_negative.test.ts`                                                                                                                                                                                      |
+| Unsupported condition or operand forms produce stable diagnostics | Implemented (subset) | `test/pr26_rotate_retcc.test.ts`, `test/pr27_cb_rotates_shifts.test.ts`, `test/pr202_add_diag_matrix.test.ts`, `test/pr203_ld_diag_matrix.test.ts`, `test/pr204_adc_sbc_diag_matrix.test.ts`, `test/pr205_indexed_cb_destination_diag_matrix.test.ts` |
+| Forward fixups resolve abs16/rel8 conditionals and calls          | Implemented          | `test/pr37_forward_label_fixups.test.ts`, `test/pr86`/`pr85` anchored in roadmap                                                                                                                                                                      |
 
 ## 11) Parser Span Evidence (line/column)
 
