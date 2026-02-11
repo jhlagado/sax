@@ -1,5 +1,5 @@
 import type { EmittedByteMap, HexArtifact, SymbolEntry, WriteHexOptions } from './types.js';
-import { getWrittenRange } from './range.js';
+import { getWrittenSegments } from './range.js';
 
 function toHexByte(n: number): string {
   return (n & 0xff).toString(16).toUpperCase().padStart(2, '0');
@@ -23,23 +23,27 @@ export function writeHex(
   opts?: WriteHexOptions,
 ): HexArtifact {
   const lineEnding = opts?.lineEnding ?? '\n';
-  const { start, end } = getWrittenRange(map);
+  const segments = getWrittenSegments(map);
   const recordSize = 16;
   const lines: string[] = [];
 
-  for (let addr = start; addr < end; addr += recordSize) {
-    const count = Math.min(recordSize, end - addr);
-    const data: number[] = [];
-    for (let i = 0; i < count; i++) {
-      data.push(map.bytes.get(addr + i) ?? 0);
+  for (const segment of segments) {
+    for (let addr = segment.start; addr < segment.end; addr += recordSize) {
+      const count = Math.min(recordSize, segment.end - addr);
+      const data: number[] = [];
+      for (let i = 0; i < count; i++) {
+        data.push(map.bytes.get(addr + i) ?? 0);
+      }
+      const hi = (addr >> 8) & 0xff;
+      const lo = addr & 0xff;
+      const recType = 0x00;
+      const header = [count, hi, lo, recType, ...data];
+      const cs = checksum(header);
+      const hexData = data.map(toHexByte).join('');
+      lines.push(
+        `:${toHexByte(count)}${toHexByte(hi)}${toHexByte(lo)}00${hexData}${toHexByte(cs)}`,
+      );
     }
-    const hi = (addr >> 8) & 0xff;
-    const lo = addr & 0xff;
-    const recType = 0x00;
-    const header = [count, hi, lo, recType, ...data];
-    const cs = checksum(header);
-    const hexData = data.map(toHexByte).join('');
-    lines.push(`:${toHexByte(count)}${toHexByte(hi)}${toHexByte(lo)}00${hexData}${toHexByte(cs)}`);
   }
 
   lines.push(':00000001FF');

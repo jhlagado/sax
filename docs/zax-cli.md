@@ -45,6 +45,7 @@ Listing note:
 - Fully empty line spans are collapsed into deterministic `; ... gap $XXXX..$YYYY` markers.
 - Use `.d8dbg.json` (D8M) for debugger-grade source mapping.
 - D8M emits sparse contiguous `segments` plus `addressWidth: 16` and `endianness: "little"` metadata.
+- Intel HEX output emits only records for written addresses (sparse gaps are not zero-filled into intermediate records).
 
 Directory creation:
 
