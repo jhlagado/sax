@@ -7,5 +7,4 @@ globals
   p: byte
 
 func main(): void
-asm
 end

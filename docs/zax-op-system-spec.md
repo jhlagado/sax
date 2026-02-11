@@ -123,6 +123,8 @@ end
 
 The body is an implicit instruction stream. The `asm` marker keyword is not used in op bodies. The instructions in the body follow exactly the same grammar as instructions inside function instruction streams: raw Z80 mnemonics, other op invocations, and structured control flow (`if`/`while`/`repeat`/`select`) are permitted. **Local labels are not permitted inside op bodies in v0.1.**
 
+Compatibility note (v0.1): early drafts allowed an explicit `asm` marker in declaration bodies. v0.1 removes that form. The parser emits explicit diagnostics when `asm` appears in function/op bodies and continues recovery.
+
 An op body may be empty (containing no instructions between the declaration line and `end`). This is occasionally useful as a no-op placeholder during development or as a deliberately empty specialization.
 
 ### 2.2 Zero-Parameter Ops
