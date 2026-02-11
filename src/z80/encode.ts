@@ -595,6 +595,10 @@ export function encodeInstruction(
   }
 
   if (head === 'djnz' && ops.length === 1) {
+    if (ops[0]!.kind === 'Mem') {
+      diag(diagnostics, node, `djnz does not support indirect targets; expects disp8`);
+      return undefined;
+    }
     const n = immValue(ops[0]!, env);
     if (n === undefined || n < -128 || n > 127) {
       diag(diagnostics, node, `djnz expects disp8`);
@@ -789,6 +793,10 @@ export function encodeInstruction(
   }
 
   if (head === 'jr' && ops.length === 1) {
+    if (ops[0]!.kind === 'Mem') {
+      diag(diagnostics, node, `jr does not support indirect targets; expects disp8`);
+      return undefined;
+    }
     const n = immValue(ops[0]!, env);
     if (n === undefined || n < -128 || n > 127) {
       diag(diagnostics, node, `jr expects disp8`);
@@ -799,9 +807,17 @@ export function encodeInstruction(
   if (head === 'jr' && ops.length === 2) {
     const cc = conditionName(ops[0]!);
     const opcode = cc ? jrConditionOpcode(cc) : undefined;
+    if (opcode === undefined) {
+      diag(diagnostics, node, `jr cc expects valid condition code NZ/Z/NC/C`);
+      return undefined;
+    }
+    if (ops[1]!.kind === 'Mem') {
+      diag(diagnostics, node, `jr cc, disp does not support indirect targets`);
+      return undefined;
+    }
     const n = immValue(ops[1]!, env);
-    if (opcode === undefined || n === undefined || n < -128 || n > 127) {
-      diag(diagnostics, node, `jr cc, disp expects NZ/Z/NC/C + disp8`);
+    if (n === undefined || n < -128 || n > 127) {
+      diag(diagnostics, node, `jr cc, disp expects disp8`);
       return undefined;
     }
     return Uint8Array.of(opcode, n & 0xff);

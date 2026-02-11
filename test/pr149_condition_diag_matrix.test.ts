@@ -22,7 +22,7 @@ describe('PR149: condition diagnostics parity matrix', () => {
     );
     expect(messages).toContain('call cc expects valid condition code NZ/Z/NC/C/PO/PE/P/M');
     expect(messages).toContain('call expects one operand (nn) or two operands (cc, nn)');
-    expect(messages).toContain('jr cc, disp expects NZ/Z/NC/C + disp8');
+    expect(messages).toContain('jr cc expects valid condition code NZ/Z/NC/C');
     expect(messages.some((m) => m.includes('Unresolved symbol'))).toBe(false);
     expect(messages.some((m) => m.startsWith('Unsupported instruction:'))).toBe(false);
   });

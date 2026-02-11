@@ -24,7 +24,7 @@ describe('PR147: broad known-head diagnostic matrix', () => {
     expect(messages).toContain('call expects imm16');
     expect(messages).toContain('call cc, nn expects imm16');
     expect(messages).toContain('jp indirect form supports (hl), (ix), or (iy) only');
-    expect(messages).toContain('jr cc, disp expects NZ/Z/NC/C + disp8');
+    expect(messages).toContain('jr cc expects valid condition code NZ/Z/NC/C');
     expect(messages).toContain('djnz expects disp8');
     expect(messages).toContain('rst expects an imm8 multiple of 8 (0..56)');
     expect(messages).toContain('im expects 0, 1, or 2');

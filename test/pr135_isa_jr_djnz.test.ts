@@ -46,7 +46,7 @@ describe('PR135: ISA jr/djnz', () => {
     const messages = res.diagnostics.map((d) => d.message);
     expect(messages).toContain('jr relative branch displacement out of range (-128..127): 128.');
     expect(messages).toContain('jr relative branch displacement out of range (-128..127): -129.');
-    expect(messages).toContain('jr cc, disp expects NZ/Z/NC/C + disp8');
+    expect(messages).toContain('jr cc expects valid condition code NZ/Z/NC/C');
     expect(messages).toContain('djnz relative branch displacement out of range (-128..127): 128.');
     expect(messages).toContain('djnz expects disp8');
   });

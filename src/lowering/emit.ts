@@ -2438,6 +2438,14 @@ export function emitProgram(
           };
           if (head === 'jr') {
             if (asmItem.operands.length === 1) {
+              if (asmItem.operands[0]!.kind === 'Mem') {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `jr does not support indirect targets; expects disp8`,
+                );
+                return;
+              }
               if (!emitRel8FromOperand(asmItem.operands[0]!, 0x18, 'jr')) return;
               flow.reachable = false;
               syncToFlow();
@@ -2453,11 +2461,19 @@ export function emitProgram(
                     : undefined;
               const opcode = ccName ? jrConditionOpcodeFromName(ccName) : undefined;
               if (opcode === undefined) {
-                diagAt(diagnostics, asmItem.span, `jr cc, disp expects NZ/Z/NC/C + disp8`);
+                diagAt(diagnostics, asmItem.span, `jr cc expects valid condition code NZ/Z/NC/C`);
                 return;
               }
-              if (!emitRel8FromOperand(asmItem.operands[1]!, opcode, `jr ${ccName!.toLowerCase()}`))
+              const target = asmItem.operands[1]!;
+              if (target.kind === 'Mem') {
+                diagAt(diagnostics, asmItem.span, `jr cc, disp does not support indirect targets`);
                 return;
+              }
+              if (target.kind !== 'Imm') {
+                diagAt(diagnostics, asmItem.span, `jr cc, disp expects disp8`);
+                return;
+              }
+              if (!emitRel8FromOperand(target, opcode, `jr ${ccName!.toLowerCase()}`)) return;
               syncToFlow();
               return;
             }
@@ -2468,6 +2484,14 @@ export function emitProgram(
               return;
             }
             const target = asmItem.operands[0]!;
+            if (target.kind === 'Mem') {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `djnz does not support indirect targets; expects disp8`,
+              );
+              return;
+            }
             if (target.kind !== 'Imm') {
               diagAt(diagnostics, asmItem.span, `djnz expects disp8`);
               return;
