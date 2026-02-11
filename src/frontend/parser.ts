@@ -37,6 +37,27 @@ import { makeSourceFile, span } from './source.js';
 import type { Diagnostic } from '../diagnostics/types.js';
 import { DiagnosticIds } from '../diagnostics/types.js';
 
+const RESERVED_TOP_LEVEL_KEYWORDS = new Set([
+  'func',
+  'const',
+  'enum',
+  'data',
+  'import',
+  'type',
+  'union',
+  'var',
+  'extern',
+  'bin',
+  'hex',
+  'op',
+  'section',
+  'align',
+]);
+
+function isReservedTopLevelDeclName(name: string): boolean {
+  return RESERVED_TOP_LEVEL_KEYWORDS.has(name.toLowerCase());
+}
+
 function diag(
   diagnostics: Diagnostic[],
   file: string,
@@ -937,6 +958,7 @@ function parseParamsFromText(
 
   const parts = trimmed.split(',').map((p) => p.trim());
   const out: ParamNode[] = [];
+  const seen = new Set<string>();
   for (const part of parts) {
     const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(part);
     if (!m) {
@@ -948,6 +970,27 @@ function parseParamsFromText(
     }
 
     const name = m[1]!;
+    if (isReservedTopLevelDeclName(name)) {
+      diag(
+        diagnostics,
+        filePath,
+        `Invalid parameter name "${name}": collides with a top-level keyword.`,
+        {
+          line: paramsSpan.start.line,
+          column: paramsSpan.start.column,
+        },
+      );
+      return undefined;
+    }
+    const lower = name.toLowerCase();
+    if (seen.has(lower)) {
+      diag(diagnostics, filePath, `Duplicate parameter name "${name}".`, {
+        line: paramsSpan.start.line,
+        column: paramsSpan.start.column,
+      });
+      return undefined;
+    }
+    seen.add(lower);
     const typeText = m[2]!.trim();
     const typeExpr = parseTypeExprFromText(typeText, paramsSpan, {
       allowInferredArrayLength: false,
@@ -1013,6 +1056,7 @@ function parseOpParamsFromText(
 
   const parts = trimmed.split(',').map((p) => p.trim());
   const out: OpParamNode[] = [];
+  const seen = new Set<string>();
   for (const part of parts) {
     const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(part);
     if (!m) {
@@ -1024,6 +1068,27 @@ function parseOpParamsFromText(
     }
 
     const name = m[1]!;
+    if (isReservedTopLevelDeclName(name)) {
+      diag(
+        diagnostics,
+        filePath,
+        `Invalid op parameter name "${name}": collides with a top-level keyword.`,
+        {
+          line: paramsSpan.start.line,
+          column: paramsSpan.start.column,
+        },
+      );
+      return undefined;
+    }
+    const lower = name.toLowerCase();
+    if (seen.has(lower)) {
+      diag(diagnostics, filePath, `Duplicate op parameter name "${name}".`, {
+        line: paramsSpan.start.line,
+        column: paramsSpan.start.column,
+      });
+      return undefined;
+    }
+    seen.add(lower);
     const matcherText = m[2]!.trim();
     out.push({
       kind: 'OpParam',
@@ -1096,7 +1161,7 @@ export function parseModuleFile(
   }
 
   function isReservedTopLevelName(name: string): boolean {
-    return TOP_LEVEL_KEYWORDS.has(name.toLowerCase());
+    return isReservedTopLevelDeclName(name);
   }
 
   function parseExternFuncFromTail(
@@ -1582,6 +1647,16 @@ export function parseModuleFile(
         i++;
         continue;
       }
+      if (isReservedTopLevelName(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid func name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
+        i++;
+        continue;
+      }
 
       const afterClose = header.slice(closeParen + 1).trimStart();
       const retMatch = /^:\s*(.+)$/.exec(afterClose);
@@ -1837,6 +1912,16 @@ export function parseModuleFile(
       const name = header.slice(0, openParen).trim();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
         diag(diagnostics, modulePath, `Invalid op name`, { line: lineNo, column: 1 });
+        i++;
+        continue;
+      }
+      if (isReservedTopLevelName(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid op name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
         i++;
         continue;
       }

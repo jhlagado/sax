@@ -1,0 +1,5 @@
+func data(a: byte): void
+func main(a: byte, a: byte): void
+op macro(func: reg8)
+op macro2(a: reg8, a: reg8)
+extern func const(ch: byte): void at $1234
