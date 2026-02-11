@@ -186,13 +186,14 @@ This tranche extends explicit mapping for additional normative areas and parser 
 
 The following tests assert line/column-bearing diagnostics to ensure span stability:
 
-| Evidence                                                | What is asserted                                                                                          |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `test/pr12_calls.test.ts`                               | Wrong-arity call diagnostics include stable `file`, `line`, `column`                                      |
-| `test/semantics_layout.test.ts`                         | Type diagnostics are generated from source spans in semantic evaluation                                   |
-| `test/pr15_structured_control.test.ts`                  | Parser/lowering diagnostics remain single and stable for malformed control constructs                     |
-| `test/parser_nested_index.test.ts`                      | Invalid nested expression path reports deterministic parse failure without cascades                       |
-| `test/pr196_parser_control_interruption_matrix.test.ts` | Control-stack interruption recovery preserves deterministic diagnostic ordering across function/op bodies |
+| Evidence                                                 | What is asserted                                                                                                               |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `test/pr12_calls.test.ts`                                | Wrong-arity call diagnostics include stable `file`, `line`, `column`                                                           |
+| `test/semantics_layout.test.ts`                          | Type diagnostics are generated from source spans in semantic evaluation                                                        |
+| `test/pr15_structured_control.test.ts`                   | Parser/lowering diagnostics remain single and stable for malformed control constructs                                          |
+| `test/parser_nested_index.test.ts`                       | Invalid nested expression path reports deterministic parse failure without cascades                                            |
+| `test/pr196_parser_control_interruption_matrix.test.ts`  | Control-stack interruption recovery preserves deterministic diagnostic ordering across function/op bodies                      |
+| `test/pr223_parser_var_and_body_recovery_matrix.test.ts` | Function-local `var` interruption and malformed body recovery preserve deterministic diagnostics and top-level resume behavior |
 
 ## 12) Remaining Open Items
 

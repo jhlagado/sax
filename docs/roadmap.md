@@ -11,7 +11,7 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 83
+- Completed PR anchors listed below: 84
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
@@ -236,7 +236,7 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #177: lowering/codegen stabilization continuation (positive epilogue-rewrite matrix for locals + `ret cc` across multi-path control and stack-neutral op expansions).
+- none
 
 Next PR (anchored as soon as opened):
 
@@ -244,6 +244,7 @@ Next PR (anchored as soon as opened):
 
 Completed (anchored, most recent first):
 
+1. #177: lowering/codegen stabilization continuation (positive epilogue-rewrite matrix for locals + `ret cc` across multi-path control and stack-neutral op expansions).
 1. #176: lowering/codegen stabilization continuation (nested-control + op-expansion + multi-return SP/frame interaction matrix beyond prior `ret cc`-only slices).
 1. #175: lowering/codegen stabilization continuation (`ret cc` stack-state invariants across `if/else` and `repeat/until`, with exact diagnostic matrix contracts).
 1. #174: lowering/codegen stabilization continuation (`ret cc` stack-state invariants across structured-control joins/back-edges, with exact diagnostic matrix contracts).
