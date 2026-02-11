@@ -11,24 +11,24 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 59
+- Completed PR anchors listed below: 60
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~48% complete (range 42-54%).
+- Working estimate (risk-weighted): ~49% complete (range 44-56%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
-- Spec gate: ~60%
-- Parser/AST gate: ~55%
+- Spec gate: ~62%
+- Parser/AST gate: ~58%
 - Codegen gate: ~50%
 - ISA gate: ~35%
 - CLI/output gate: ~58%
-- Hardening gate: ~30%
+- Hardening gate: ~31%
 
 What moves the needle fastest:
 

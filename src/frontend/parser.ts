@@ -2059,7 +2059,7 @@ export function parseModuleFile(
       i++;
 
       // Optional function-local `var` block; function instruction body is parsed
-      // as an asm stream, with optional explicit `asm` keyword.
+      // as an implicit instruction stream.
       let locals: VarBlockNode | undefined;
       let asmStartOffset: number | undefined;
       let interruptedBeforeBodyKeyword: string | undefined;
@@ -2073,7 +2073,7 @@ export function parseModuleFile(
           continue;
         }
         const t2TopKeyword = topLevelStartKeyword(t2);
-        if (t2TopKeyword !== undefined && t2Lower !== 'var' && t2Lower !== 'asm') {
+        if (t2TopKeyword !== undefined && t2Lower !== 'var') {
           interruptedBeforeBodyKeyword = t2TopKeyword;
           interruptedBeforeBodyLine = i + 1;
           break;
@@ -3170,6 +3170,21 @@ export function parseModuleFile(
         decls,
       };
       items.push(dataBlock);
+      continue;
+    }
+
+    const asmTail = consumeKeywordPrefix(text, 'asm');
+    if (asmTail !== undefined) {
+      diag(
+        diagnostics,
+        modulePath,
+        `"asm" is not a top-level construct (function and op bodies are implicit instruction streams)`,
+        {
+          line: lineNo,
+          column: 1,
+        },
+      );
+      i++;
       continue;
     }
 

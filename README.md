@@ -17,7 +17,6 @@ extern func bios_putc(ch: byte): void at $F003
 export func main(): void
   var
     p: addr
-  asm
     ld hl, msg
     ld (p), hl
 
@@ -98,7 +97,7 @@ Fixed matchers beat class matchers. `imm8` beats `imm16` for small values. If tw
 
 ## Structured Control Flow Without Abstraction
 
-ZAX provides `if`/`else`, `while`, `repeat`/`until`, and `select`/`case` inside `asm` blocks. These compile to conditional jumps — nothing more. The key design decision is that **the programmer still sets the flags**. The control-flow keywords test CPU condition codes that you establish with normal Z80 instructions:
+ZAX provides `if`/`else`, `while`, `repeat`/`until`, and `select`/`case` inside function/op instruction streams. These compile to conditional jumps — nothing more. The key design decision is that **the programmer still sets the flags**. The control-flow keywords test CPU condition codes that you establish with normal Z80 instructions:
 
 ```
 ; Compare A to zero and branch
@@ -144,7 +143,6 @@ ZAX functions have formal typed parameters, optional local variables, and a comp
 func add_words(a: word, b: word): word
   var
     result: word
-  asm
     ld hl, (a)
     ld de, (b)
     add hl, de
@@ -152,21 +150,20 @@ func add_words(a: word, b: word): word
 end
 ```
 
-Arguments are passed on the stack (pushed right-to-left by the caller, cleaned up after return). Each argument and each local occupies a 16-bit slot. The compiler computes SP-relative offsets for every slot, so `(a)` and `(result)` in the `asm` block are not magic — they are SP-relative memory accesses that the compiler lowers into real instruction sequences. Return values come back in `HL` (16-bit) or `L` (8-bit), following Z80 convention.
+Arguments are passed on the stack (pushed right-to-left by the caller, cleaned up after return). Each argument and each local occupies a 16-bit slot. The compiler computes SP-relative offsets for every slot, so `(a)` and `(result)` are not magic — they are SP-relative memory accesses that the compiler lowers into real instruction sequences. Return values come back in `HL` (16-bit) or `L` (8-bit), following Z80 convention.
 
-Calling a function from `asm` looks like calling an instruction:
+Calling a function inside an instruction stream looks like calling an instruction:
 
 ```
 func main(): void
-  asm
-    add_words $0010, $0020   ; compiler pushes args, emits call, cleans stack
-    ; HL now contains the result
+  add_words $0010, $0020   ; compiler pushes args, emits call, cleans stack
+  ; HL now contains the result
 end
 ```
 
 The compiler emits the full calling sequence: push the arguments, `call` the function, pop the arguments. You can pass registers, immediates, effective addresses, or dereferenced memory as arguments — the compiler handles the marshalling.
 
-Crucially, the `asm` block inside a function is still real assembly. You have full access to every Z80 instruction. The function declaration gives you a frame and named slots; what you do inside is up to you. If control falls off the end of the `asm` block, the compiler inserts an implicit `ret` (including any epilogue needed to clean up locals). If you write `ret` yourself, the compiler rewrites it to jump through the epilogue so the stack is always correct.
+Crucially, a function body is still real assembly. You have full access to every Z80 instruction. The function declaration gives you a frame and named slots; what you do inside is up to you. If control falls off the end of the instruction stream, the compiler inserts an implicit `ret` (including any epilogue needed to clean up locals). If you write `ret` yourself, the compiler rewrites it to jump through the epilogue so the stack is always correct.
 
 This is the middle ground ZAX occupies: you get the organizational benefit of C-style function signatures — typed parameters, scoped locals, a defined return convention — without surrendering control of the register file or the instruction stream. The function boundary is real (it affects the stack and the calling convention), but inside that boundary you are writing assembly, not a high-level language.
 
@@ -175,7 +172,7 @@ External entry points work the same way. If your ROM has a BIOS call at a fixed 
 ```
 extern func bios_putc(ch: byte): void at $F003
 
-; later, in asm:
+; later, in a function body:
 bios_putc A    ; pushes A (zero-extended), calls $F003, cleans up
 ```
 

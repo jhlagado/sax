@@ -87,7 +87,7 @@ Entry-point selection is outside v0.1 scope. A typical convention is `export fun
 
 ### 1.1 Whitespace and Newlines
 
-- In non-`asm` regions, **newlines terminate** declarations and directives.
+- In module/declaration regions, **newlines terminate** declarations and directives.
 - In instruction streams (function bodies and `op` bodies), newlines terminate instructions/keywords.
 - Spaces/tabs separate tokens.
 
@@ -134,7 +134,7 @@ ZAX treats the following as **reserved** (case-insensitive):
 - Register names: `A F AF B C D E H L HL DE BC SP IX IY I R`.
 - Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
 - Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`.
-- Declaration keywords: `import`, `type`, `union`, `enum`, `const`, `globals`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `asm`, `export`, `section`, `align`, `at`, `from`, `in`.
+- Declaration keywords: `import`, `type`, `union`, `enum`, `const`, `globals`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `export`, `section`, `align`, `at`, `from`, `in`.
 
 User-defined identifiers (module-scope symbols, locals/args, and labels) must not collide with any reserved name, ignoring case.
 
@@ -186,7 +186,7 @@ Directives:
 
 Scope rules (v0.1):
 
-- `section` and `align` directives are module-scope only. They may not appear inside `func`/`op` bodies or inside `asm` streams.
+- `section` and `align` directives are module-scope only. They may not appear inside function/op instruction streams.
 
 Emission rules (v0.1):
 
@@ -466,10 +466,11 @@ Example (informative):
 globals
 v: Value
 
-asm
-ld a, (v.b) ; read low byte
-ld hl, (v.w) ; read word overlay
-ld de, (v.p) ; read pointer overlay
+func read_value_overlay(): void
+  ld a, (v.b) ; read low byte
+  ld hl, (v.w) ; read word overlay
+  ld de, (v.p) ; read pointer overlay
+end
 
 ```
 
@@ -839,7 +840,7 @@ Frame model (v0.1 current):
 
 - Prologue reserves locals as words (`frameSize = localCount * 2`).
 - No trampoline metadata is pushed.
-- At the start of user-authored `asm`:
+- At the start of the user-authored instruction stream:
   - local slot `i` is at `SP + 2*i`
   - return address is at `SP + frameSize`
   - argument `i` (0-based) is at `SP + frameSize + 2 + 2*i`
@@ -848,7 +849,7 @@ Return and cleanup model:
 
 - If a synthetic epilogue is required (`frameSize > 0`, or at least one conditional `ret <cc>` exists), the compiler creates a per-function hidden label:
   - current implementation naming convention: `__zax_epilogue_<n>`
-- `ret` and `ret <cc>` in user-authored `asm` are rewritten to jumps to that synthetic epilogue.
+- `ret` and `ret <cc>` in user-authored instruction streams are rewritten to jumps to that synthetic epilogue.
 - The synthetic epilogue pops local slots (if any) and performs the final `ret` to caller.
 - If there are no locals and no conditional returns, plain `ret` is emitted directly with no synthetic epilogue.
 
@@ -857,9 +858,9 @@ Return and cleanup model:
 - They are permitted as raw instructions.
 - They are not rewritten by this mechanism; only `ret`/`ret <cc>` participate in epilogue rewriting.
 
-The compiler tracks stack depth across the `asm` block to keep SP-relative locals/args resolvable.
+The compiler tracks stack depth across the function instruction stream to keep SP-relative locals/args resolvable.
 
-### 8.5 SP Mutation Rules in `asm`
+### 8.5 SP Mutation Rules in Instruction Streams
 
 The compiler tracks SP deltas for:
 
@@ -922,7 +923,7 @@ Rules:
 - `end` terminates the `op` body.
   - `op` bodies may contain structured control flow that uses `end` internally; the final `end` closes the `op` body.
 - `op` bodies may be empty (no instructions).
-- `op` invocations are permitted inside `asm` streams of `func` and `op`.
+- `op` invocations are permitted inside function/op instruction streams.
 - Cyclic `op` expansion is a compile error.
 
 Notes (v0.1):
@@ -932,7 +933,7 @@ Notes (v0.1):
 Zero-parameter ops (v0.1):
 
 - `op name` (with no parameter list) is permitted and defines a zero-parameter op.
-- A zero-parameter op is invoked by writing just `name` on an `asm` line.
+- A zero-parameter op is invoked by writing just `name` on an instruction line.
 
 ### 9.3 Operand Matchers
 
@@ -1000,7 +1001,7 @@ Destination parameters (v0.1):
 
 ## 10. Structured Control Flow
 
-Structured control flow is only available inside `asm` streams. For `if`/`while`/`repeat`, conditions test CPU flags that the programmer establishes with normal Z80 instructions. `select`/`case` dispatches by equality on a selector value.
+Structured control flow is only available inside function/op instruction streams. For `if`/`while`/`repeat`, conditions test CPU flags that the programmer establishes with normal Z80 instructions. `select`/`case` dispatches by equality on a selector value.
 
 ### 10.1 Condition Codes (v0.1)
 
@@ -1130,18 +1131,18 @@ end
 
 ### 10.4 Local Labels (Discouraged, Allowed in Functions Only)
 
-ZAX discourages labels in favor of structured control flow, but allows **local labels** within an `asm` block for low-level control flow.
+ZAX discourages labels in favor of structured control flow, but allows **local labels** within a function instruction stream for low-level control flow.
 
 Label definition syntax (v0.1):
 
-- `<ident>:` at the start of an `asm` line defines a local label at the current code location.
+- `<ident>:` at the start of an instruction line defines a local label at the current code location.
   - A label definition may be followed by an instruction on the same line (e.g., `loop: djnz loop`) or may stand alone.
 
 Scope and resolution (v0.1):
 
 - Local labels are scoped to the enclosing `func` body and are not exported.
 - Local labels are **not permitted** inside `op` bodies in v0.1; any label definition in an `op` body is a compile error.
-- A local label may be referenced before its definition within the same `asm` block (forward reference).
+- A local label may be referenced before its definition within the same function instruction stream (forward reference).
 - Local label names must not collide with reserved names (Section 1.5), ignoring case.
 - When resolving an identifier in an instruction operand, local labels take precedence over locals/args, which take precedence over global symbols.
 
@@ -1223,7 +1224,7 @@ Symbols describe named addresses and constants:
 
 Recommended (non-normative) policy for a ZAX compiler:
 
-- Emit one `code` segment per contiguous emitted range that originates from a single source line in an `asm` stream.
+- Emit one `code` segment per contiguous emitted range that originates from a single source line in a function/op instruction stream.
   - Lowering may produce multiple segments tied to the same source location.
 - Emit `data` segments for `data` initializers and `bin` includes.
 - Record local labels as `symbols` of `scope: local`.

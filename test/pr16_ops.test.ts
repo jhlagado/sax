@@ -114,7 +114,7 @@ describe('PR16 op declarations and expansion', () => {
     expect(bin!.bytes.includes(0xc9)).toBe(true);
   });
 
-  it('accepts optional leading asm marker in op bodies', async () => {
+  it('parses implicit op instruction-stream bodies', async () => {
     const entry = join(__dirname, 'fixtures', 'pr191_op_optional_asm_prefix.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.diagnostics).toEqual([]);

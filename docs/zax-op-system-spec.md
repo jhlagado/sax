@@ -30,7 +30,7 @@ The document addresses both by stating normative rules precisely while also expl
 
 ## 1. What Ops Are (and What They Are Not)
 
-An `op` in ZAX is an inline macro-instruction that the compiler expands at the AST level during lowering. When you write an `op` invocation inside an `asm` block, the compiler selects the best-matching overload, substitutes the caller's operands into the op body, and emits the resulting instruction sequence in place — as if you had written those instructions directly.
+An `op` in ZAX is an inline macro-instruction that the compiler expands at the AST level during lowering. When you write an `op` invocation inside a function/op instruction stream, the compiler selects the best-matching overload, substitutes the caller's operands into the op body, and emits the resulting instruction sequence in place — as if you had written those instructions directly.
 
 ### 1.1 Comparison with Other Macro Systems
 
@@ -136,12 +136,11 @@ op halt_system
 end
 ```
 
-At the call site, you invoke it by writing just the name on an `asm` line:
+At the call site, you invoke it by writing just the name on an instruction line:
 
 ```
 func panic(): void
-  asm
-    halt_system
+  halt_system
 end
 ```
 
@@ -264,7 +263,7 @@ op move16(dst: reg16, src: mem16)
   ld dst, src
 end
 
-; in some function's asm block:
+; in some function body:
 move16 DE, (player.pos)
 ```
 
@@ -557,7 +556,7 @@ The compiler reports this as a stack-depth mismatch error within the op body.
 
 When an op is expanded inside a function that has local variables, the function's SP tracking must remain valid. The key rules:
 
-1. **Op expansion is inline.** The expanded instructions become part of the function's `asm` stream.
+1. **Op expansion is inline.** The expanded instructions become part of the function instruction stream.
 2. **SP deltas accumulate.** Each `push`/`pop` in the op body updates the function's SP tracking.
 3. **Net delta = 0.** After the complete expansion, the SP offset returns to its pre-expansion value.
 4. **Local access remains valid.** Because net delta = 0, local variable offsets computed before the op invocation remain correct after it.
@@ -827,7 +826,7 @@ These omissions are deliberate scope boundaries, not oversights. They represent 
 
 For quick reference, the normative rules governing ops in v0.1 are:
 
-Ops are module-scope declarations. They may not be nested inside functions or other ops. Op invocations are permitted inside `asm` streams of functions and op bodies. Bodies are implicit `asm` streams terminated by `end`. Bodies may be empty. Bodies may contain structured control flow, raw Z80 instructions, and other op invocations. Bodies may not contain `var` blocks.
+Ops are module-scope declarations. They may not be nested inside functions or other ops. Op invocations are permitted inside function/op instruction streams. Bodies are implicit instruction streams terminated by `end`. Bodies may be empty. Bodies may contain structured control flow, raw Z80 instructions, and other op invocations. Bodies may not contain `var` blocks.
 
 Parameters use matcher types: `reg8`, `reg16`, fixed-register matchers (`A`, `HL`, `DE`, `BC`, `SP`), `imm8`, `imm16`, `ea`, `mem8`, `mem16`. `IX`/`IY` are not matchable. Condition codes are not matchable. Substitution operates on AST nodes, not text.
 
@@ -883,7 +882,7 @@ Ops do not appear in the symbol table as callable addresses (since they have no 
 
 ### 12.1 Ops Inside Function Bodies
 
-Ops are expanded inline within the enclosing function's `asm` block. This means:
+Ops are expanded inline within the enclosing function instruction stream. This means:
 
 - The function's local variables remain accessible during op expansion (as SP-relative slots)
 - The function's stack frame is not modified by the op (net stack delta = 0)
@@ -947,7 +946,7 @@ This checklist is for compiler implementers. It covers the essential components 
 - [ ] Parse parameter lists with matcher types
 - [ ] Reject `op` declarations inside function bodies
 - [ ] Reject `var` blocks inside op bodies
-- [ ] Parse op bodies as implicit `asm` streams
+- [ ] Parse op bodies as implicit instruction streams
 - [ ] Handle `end` termination (including nested control flow)
 
 ### A.2 Name Resolution
@@ -1028,9 +1027,8 @@ op simple_inc(dst: reg16)
 end
 
 func test(): void
-  asm
-    simple_inc HL    ; should expand to: inc hl
-    simple_inc DE    ; should expand to: inc de
+  simple_inc HL    ; should expand to: inc hl
+  simple_inc DE    ; should expand to: inc de
 end
 ```
 
@@ -1049,9 +1047,8 @@ op add16(dst: DE, src: reg16)
 end
 
 func test(): void
-  asm
-    add16 HL, BC     ; should select first overload
-    add16 DE, BC     ; should select second overload
+  add16 HL, BC     ; should select first overload
+  add16 DE, BC     ; should select second overload
 end
 ```
 
@@ -1069,9 +1066,8 @@ op load_val(dst: reg8, val: imm16)
 end
 
 func test(): void
-  asm
-    load_val A, 42   ; should select imm8 overload
-    load_val A, 1000 ; should select imm16 overload
+  load_val A, 42   ; should select imm8 overload
+  load_val A, 1000 ; should select imm16 overload
 end
 ```
 
@@ -1086,8 +1082,7 @@ op ambig(dst: reg16, src: BC)
 end
 
 func test(): void
-  asm
-    ambig HL, BC     ; ERROR: ambiguous
+  ambig HL, BC     ; ERROR: ambiguous
 end
 ```
 
@@ -1141,8 +1136,7 @@ op safe_add(dst: reg16, src: reg16)
 end
 
 func test(): void
-  asm
-    safe_add HL, DE  ; should expand clear_flags then adc
+  safe_add HL, DE  ; should expand clear_flags then adc
 end
 ```
 
