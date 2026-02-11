@@ -82,6 +82,8 @@ describe('PR124 ISA: jp/call condition-code matrix', () => {
     const entry = join(__dirname, 'fixtures', 'pr124_control_flow_cc_invalid.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
-    expect(res.diagnostics.some((d) => d.message.includes('expects condition'))).toBe(true);
+    const messages = res.diagnostics.map((d) => d.message);
+    expect(messages).toContain('jp cc expects valid condition code NZ/Z/NC/C/PO/PE/P/M');
+    expect(messages).toContain('call cc expects valid condition code NZ/Z/NC/C/PO/PE/P/M');
   });
 });

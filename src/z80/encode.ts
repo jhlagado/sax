@@ -574,13 +574,17 @@ export function encodeInstruction(
   if (head === 'call' && ops.length === 2) {
     const cc = conditionName(ops[0]!);
     const opcode = cc ? callConditionOpcode(cc) : undefined;
+    if (opcode === undefined) {
+      diag(diagnostics, node, `call cc expects valid condition code NZ/Z/NC/C/PO/PE/P/M`);
+      return undefined;
+    }
     if (ops[1]!.kind === 'Mem') {
       diag(diagnostics, node, `call cc, nn does not support indirect targets`);
       return undefined;
     }
     const n = immValue(ops[1]!, env);
-    if (opcode === undefined || n === undefined || n < 0 || n > 0xffff) {
-      diag(diagnostics, node, `call cc, nn expects condition + imm16`);
+    if (n === undefined || n < 0 || n > 0xffff) {
+      diag(diagnostics, node, `call cc, nn expects imm16`);
       return undefined;
     }
     return Uint8Array.of(opcode, n & 0xff, (n >> 8) & 0xff);
@@ -764,13 +768,17 @@ export function encodeInstruction(
   if (head === 'jp' && ops.length === 2) {
     const cc = conditionName(ops[0]!);
     const opcode = cc ? jpConditionOpcode(cc) : undefined;
+    if (opcode === undefined) {
+      diag(diagnostics, node, `jp cc expects valid condition code NZ/Z/NC/C/PO/PE/P/M`);
+      return undefined;
+    }
     if (ops[1]!.kind === 'Mem') {
       diag(diagnostics, node, `jp cc, nn does not support indirect targets`);
       return undefined;
     }
     const n = immValue(ops[1]!, env);
-    if (opcode === undefined || n === undefined || n < 0 || n > 0xffff) {
-      diag(diagnostics, node, `jp cc, nn expects condition + imm16`);
+    if (n === undefined || n < 0 || n > 0xffff) {
+      diag(diagnostics, node, `jp cc, nn expects imm16`);
       return undefined;
     }
     return Uint8Array.of(opcode, n & 0xff, (n >> 8) & 0xff);
