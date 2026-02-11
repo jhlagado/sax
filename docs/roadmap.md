@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- none
+1. #183: hardening/acceptance pass (examples determinism acceptance gate tightening with repeated artifact snapshot equality checks).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: hardening/acceptance pass (broaden acceptance gates beyond CLI to examples/determinism cross-check tightening).
+1. Next PR: hardening/acceptance pass (broaden acceptance gates to additional determinism and negative-contract classes).
 
 Completed (anchored, most recent first):
 
