@@ -1168,6 +1168,25 @@ export function parseModuleFile(
     return isReservedTopLevelDeclName(name);
   }
 
+  function quoteDiagLineText(text: string): string {
+    const trimmed = text.trim();
+    const preview = trimmed.length > 96 ? `${trimmed.slice(0, 93)}...` : trimmed;
+    return preview.replace(/"/g, '\\"');
+  }
+
+  function diagInvalidBlockLine(
+    kind: string,
+    lineText: string,
+    expected: string,
+    line: number,
+  ): void {
+    const q = quoteDiagLineText(lineText);
+    diag(diagnostics, modulePath, `Invalid ${kind} line "${q}": expected ${expected}`, {
+      line,
+      column: 1,
+    });
+  }
+
   function parseExternFuncFromTail(
     tail: string,
     stmtSpan: SourceSpan,
@@ -1398,10 +1417,7 @@ export function parseModuleFile(
 
         const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
         if (!m) {
-          diag(diagnostics, modulePath, `Invalid record field declaration`, {
-            line: i + 1,
-            column: 1,
-          });
+          diagInvalidBlockLine('record field declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1531,10 +1547,7 @@ export function parseModuleFile(
 
         const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
         if (!m) {
-          diag(diagnostics, modulePath, `Invalid union field declaration`, {
-            line: i + 1,
-            column: 1,
-          });
+          diagInvalidBlockLine('union field declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1636,7 +1649,7 @@ export function parseModuleFile(
 
         const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
         if (!m) {
-          diag(diagnostics, modulePath, `Invalid var declaration`, { line: i + 1, column: 1 });
+          diagInvalidBlockLine('var declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1827,7 +1840,7 @@ export function parseModuleFile(
 
             const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(tDecl);
             if (!m) {
-              diag(diagnostics, modulePath, `Invalid var declaration`, { line: i + 1, column: 1 });
+              diagInvalidBlockLine('var declaration', tDecl, '<name>: <type>', i + 1);
               i++;
               continue;
             }
@@ -2227,10 +2240,12 @@ export function parseModuleFile(
 
         const funcTail = consumeKeywordPrefix(t, 'func');
         if (funcTail === undefined) {
-          diag(diagnostics, modulePath, `Invalid extern func declaration`, {
-            line: i + 1,
-            column: 1,
-          });
+          diagInvalidBlockLine(
+            'extern func declaration',
+            t,
+            'func <name>(...): <retType> at <imm16>',
+            i + 1,
+          );
           i++;
           continue;
         }
@@ -2620,7 +2635,7 @@ export function parseModuleFile(
 
         const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]+?)\s*=\s*(.+)$/.exec(t);
         if (!m) {
-          diag(diagnostics, modulePath, `Invalid data declaration`, { line: i + 1, column: 1 });
+          diagInvalidBlockLine('data declaration', t, '<name>: <type> = <initializer>', i + 1);
           i++;
           continue;
         }
