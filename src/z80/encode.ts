@@ -514,6 +514,10 @@ export function encodeInstruction(
       diag(diagnostics, node, `add HL, rr expects BC/DE/HL/SP`);
       return undefined;
     }
+    if (dst === 'HL') {
+      diag(diagnostics, node, `add HL, rr expects BC/DE/HL/SP`);
+      return undefined;
+    }
 
     if ((dst === 'IX' || dst === 'IY') && src) {
       const prefix = dst === 'IX' ? 0xdd : 0xfd;
@@ -534,6 +538,13 @@ export function encodeInstruction(
       diag(diagnostics, node, `add ${dst}, rr supports BC/DE/SP and same-index pair only`);
       return undefined;
     }
+    if (dst === 'IX' || dst === 'IY') {
+      diag(diagnostics, node, `add ${dst}, rr supports BC/DE/SP and same-index pair only`);
+      return undefined;
+    }
+
+    diag(diagnostics, node, `add expects destination A, HL, IX, or IY`);
+    return undefined;
   }
 
   if (head === 'call' && ops.length === 1) {
