@@ -11,24 +11,24 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 60
+- Completed PR anchors listed below: 61
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~54% complete (range 49-61%).
+- Working estimate (risk-weighted): ~56% complete (range 51-63%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
-- Spec gate: ~66%
-- Parser/AST gate: ~63%
-- Codegen gate: ~50%
+- Spec gate: ~67%
+- Parser/AST gate: ~64%
+- Codegen gate: ~56%
 - ISA gate: ~35%
 - CLI/output gate: ~64%
-- Hardening gate: ~39%
+- Hardening gate: ~44%
 
 What moves the needle fastest:
 
@@ -240,10 +240,11 @@ Open / in review (anchored):
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: Lowering invariants tranche (explicit SP/frame invariant checks across nested control + op expansion + mixed return paths, with expanded negative matrices).
+1. Next PR: Lowering invariants continuation (op-expansion + multi-return + deeper stack-join mismatch matrices).
 
 Completed (anchored, most recent first):
 
+1. #152: Parser/AST closure tranche 33 (deterministic export-target gating diagnostics, control-stack interruption recovery ordering for function/op bodies, and expanded malformed/recovery matrix coverage).
 1. #151: CLI/output hardening tranche (sparse D8M `segments` metadata + listing gap compression + sparse Intel HEX record emission + contract tests and docs sync).
 1. #137: Parser/AST closure tranche 31 (malformed `func`/`op`/`extern` header diagnostics parity + explicit expected-shape errors + malformed header matrix hardening and legacy top-level malformed-keyword expectation updates).
 1. #136: ISA+parser tranche 29/30 (known-head no-cascade safeguard + expanded ED/CB/zero-operand hardening + `(ix+disp)/(iy+disp)` parity + malformed control/top-level keyword recovery + whitespace/case-insensitive top-level and export parsing parity + extern block parsing for multi-func declarations + lowering support for `extern <binName> ... end` relative offsets against `bin` base symbols (including import-crossing fixup coverage) + type/union unterminated-block recovery at next top-level declaration + var/data keyword-collision diagnostics parity for declaration names + extern/data block-boundary recovery normalization for malformed top-level transitions + reserved top-level keyword collision diagnostics for declaration names (`type/union/enum/const/bin/hex/extern func`) + duplicate/keyword validation for func/op parameters and header-name consistency checks + duplicate-name diagnostics parity for `type`/`union` fields, enum members, and module/function `var` + `data` declarations + malformed declaration-header diagnostics normalization for `enum/const/bin/hex` + explicit interrupted-block diagnostics parity for `type`/`union`/`extern` when a new top-level declaration appears before `end` + interrupted `func` pre-asm recovery diagnostics parity so parser continues at next top-level declaration instead of aborting module parse + malformed block-body line diagnostics normalization across `type/union/var/data/extern` with expected-shape guidance and consolidated matrix coverage + interrupted `func` asm-body / `op` body recovery diagnostics parity so parser resumes top-level declarations when `end` is missing + mixed malformed + keyword-collision ordering stability pass).

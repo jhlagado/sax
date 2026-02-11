@@ -153,6 +153,7 @@ export function emitProgram(
   const stackSlotOffsets = new Map<string, number>();
   let spDeltaTracked = 0;
   let spTrackingValid = true;
+  let spTrackingInvalidatedByMutation = false;
   let generatedLabelCounter = 0;
 
   type EaResolution =
@@ -168,6 +169,16 @@ export function emitProgram(
 
   const applySpTracking = (headRaw: string, operands: AsmOperandNode[]) => {
     const head = headRaw.toLowerCase();
+    if (
+      head === 'ld' &&
+      operands.length === 2 &&
+      operands[0]?.kind === 'Reg' &&
+      operands[0].name.toUpperCase() === 'SP'
+    ) {
+      spTrackingValid = false;
+      spTrackingInvalidatedByMutation = true;
+      return;
+    }
     if (!spTrackingValid) return;
     if (head === 'push' && operands.length === 1) {
       spDeltaTracked -= 2;
@@ -194,14 +205,6 @@ export function emitProgram(
     ) {
       spDeltaTracked -= 1;
       return;
-    }
-    if (
-      head === 'ld' &&
-      operands.length === 2 &&
-      operands[0]?.kind === 'Reg' &&
-      operands[0].name.toUpperCase() === 'SP'
-    ) {
-      spTrackingValid = false;
     }
   };
 
@@ -961,6 +964,7 @@ export function emitProgram(
         if (r?.kind === 'abs') {
           emitAbs16FixupEd(0x7b, r.baseLower, r.addend, inst.span); // ld sp, (nn)
           spTrackingValid = false;
+          spTrackingInvalidatedByMutation = true;
           return true;
         }
       }
@@ -1618,6 +1622,7 @@ export function emitProgram(
         stackSlotTypes.clear();
         spDeltaTracked = 0;
         spTrackingValid = true;
+        spTrackingInvalidatedByMutation = false;
 
         const localDecls = item.locals?.decls ?? [];
         for (let li = 0; li < localDecls.length; li++) {
@@ -1634,6 +1639,7 @@ export function emitProgram(
         }
         const frameSize = localDecls.length * 2;
         const argc = item.params.length;
+        const hasStackSlots = frameSize > 0 || argc > 0;
         for (let paramIndex = 0; paramIndex < argc; paramIndex++) {
           const p = item.params[paramIndex]!;
           if (!resolveScalarKind(p.typeExpr)) {
@@ -1681,18 +1687,31 @@ export function emitProgram(
         // Track SP deltas relative to the start of user asm, after prologue reservation.
         spDeltaTracked = 0;
         spTrackingValid = true;
+        spTrackingInvalidatedByMutation = false;
 
-        type FlowState = { reachable: boolean; spDelta: number; spValid: boolean };
-        let flow: FlowState = { reachable: true, spDelta: 0, spValid: true };
+        type FlowState = {
+          reachable: boolean;
+          spDelta: number;
+          spValid: boolean;
+          spInvalidDueToMutation: boolean;
+        };
+        let flow: FlowState = {
+          reachable: true,
+          spDelta: 0,
+          spValid: true,
+          spInvalidDueToMutation: false,
+        };
         const opExpansionStack: string[] = [];
 
         const syncFromFlow = (): void => {
           spDeltaTracked = flow.spDelta;
           spTrackingValid = flow.spValid;
+          spTrackingInvalidatedByMutation = flow.spInvalidDueToMutation;
         };
         const syncToFlow = (): void => {
           flow.spDelta = spDeltaTracked;
           flow.spValid = spTrackingValid;
+          flow.spInvalidDueToMutation = spTrackingInvalidatedByMutation;
         };
         const snapshotFlow = (): FlowState => ({ ...flow });
         const restoreFlow = (state: FlowState): void => {
@@ -1755,9 +1774,24 @@ export function emitProgram(
           contextName: string,
         ): FlowState => {
           if (!left.reachable && !right.reachable)
-            return { reachable: false, spDelta: 0, spValid: true };
+            return {
+              reachable: false,
+              spDelta: 0,
+              spValid: true,
+              spInvalidDueToMutation: false,
+            };
           if (!left.reachable) return { ...right };
           if (!right.reachable) return { ...left };
+          if (
+            (!left.spValid || !right.spValid) &&
+            (left.spInvalidDueToMutation || right.spInvalidDueToMutation)
+          ) {
+            diagAt(
+              diagnostics,
+              span,
+              `Cannot verify stack depth at ${contextName} join due to untracked SP mutation.`,
+            );
+          }
           if (left.spValid && right.spValid && left.spDelta !== right.spDelta) {
             diagAt(
               diagnostics,
@@ -1769,6 +1803,7 @@ export function emitProgram(
             reachable: true,
             spDelta: left.spDelta,
             spValid: left.spValid && right.spValid,
+            spInvalidDueToMutation: left.spInvalidDueToMutation || right.spInvalidDueToMutation,
           };
         };
         const emitSelectCompareToImm16 = (
@@ -1860,6 +1895,14 @@ export function emitProgram(
                 diagnostics,
                 asmItem.span,
                 `ret with non-zero tracked stack delta (${spDeltaTracked}); function stack is imbalanced.`,
+              );
+              return;
+            }
+            if (!spTrackingValid && spTrackingInvalidatedByMutation && hasStackSlots) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `ret reached after untracked SP mutation; cannot verify function stack balance.`,
               );
             }
           };
@@ -2270,7 +2313,11 @@ export function emitProgram(
                   asmItem.span,
                   `op "${opDecl.name}" has non-zero net stack delta (${delta} byte(s)).`,
                 );
-              } else if (entryFlow.spValid && !exitFlow.spValid) {
+              } else if (
+                entryFlow.spValid &&
+                !exitFlow.spValid &&
+                exitFlow.spInvalidDueToMutation
+              ) {
                 diagAt(
                   diagnostics,
                   asmItem.span,
@@ -2539,6 +2586,7 @@ export function emitProgram(
                 flow.reachable = true;
                 flow.spValid = false;
                 flow.spDelta = 0;
+                flow.spInvalidDueToMutation = false;
                 syncFromFlow();
               }
               i++;
@@ -2610,6 +2658,16 @@ export function emitProgram(
                   asmItems[j]!.span,
                   `Stack depth mismatch at while back-edge (${bodyExit.spDelta} vs ${entry.spDelta}).`,
                 );
+              } else if (
+                bodyExit.reachable &&
+                (!bodyExit.spValid || !entry.spValid) &&
+                (bodyExit.spInvalidDueToMutation || entry.spInvalidDueToMutation)
+              ) {
+                diagAt(
+                  diagnostics,
+                  asmItems[j]!.span,
+                  `Cannot verify stack depth at while back-edge due to untracked SP mutation.`,
+                );
               }
               if (bodyExit.reachable) emitJumpTo(condLabel, asmItems[j]!.span);
               defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
@@ -2640,6 +2698,16 @@ export function emitProgram(
                   diagnostics,
                   untilNode.span,
                   `Stack depth mismatch at repeat/until (${bodyExit.spDelta} vs ${entry.spDelta}).`,
+                );
+              } else if (
+                bodyExit.reachable &&
+                (!bodyExit.spValid || !entry.spValid) &&
+                (bodyExit.spInvalidDueToMutation || entry.spInvalidDueToMutation)
+              ) {
+                diagAt(
+                  diagnostics,
+                  untilNode.span,
+                  `Cannot verify stack depth at repeat/until due to untracked SP mutation.`,
                 );
               }
               i = j + 1;
@@ -2774,7 +2842,12 @@ export function emitProgram(
               if (!elseLabel) joinInputs.push(entry);
               const reachable = joinInputs.filter((f) => f.reachable);
               if (reachable.length === 0) {
-                restoreFlow({ reachable: false, spDelta: 0, spValid: true });
+                restoreFlow({
+                  reachable: false,
+                  spDelta: 0,
+                  spValid: true,
+                  spInvalidDueToMutation: false,
+                });
               } else {
                 const base = reachable[0]!;
                 const allValid = reachable.every((f) => f.spValid);
@@ -2787,11 +2860,18 @@ export function emitProgram(
                       `Stack depth mismatch at select join (${base.spDelta} vs ${mismatch.spDelta}).`,
                     );
                   }
+                } else if (reachable.some((f) => f.spInvalidDueToMutation)) {
+                  diagAt(
+                    diagnostics,
+                    asmItems[j]!.span,
+                    `Cannot verify stack depth at select join due to untracked SP mutation.`,
+                  );
                 }
                 restoreFlow({
                   reachable: true,
                   spDelta: base.spDelta,
                   spValid: allValid,
+                  spInvalidDueToMutation: reachable.some((f) => f.spInvalidDueToMutation),
                 });
               }
               i = j + 1;
@@ -2826,6 +2906,17 @@ export function emitProgram(
             diagnostics,
             item.span,
             `Function "${item.name}" has non-zero stack delta at fallthrough (${flow.spDelta}).`,
+          );
+        } else if (
+          flow.reachable &&
+          !flow.spValid &&
+          flow.spInvalidDueToMutation &&
+          hasStackSlots
+        ) {
+          diagAt(
+            diagnostics,
+            item.span,
+            `Function "${item.name}" has untracked SP mutation at fallthrough; cannot verify stack balance.`,
           );
         }
         if (!emitSyntheticEpilogue && flow.reachable) {
