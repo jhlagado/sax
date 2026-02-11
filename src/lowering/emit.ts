@@ -1967,6 +1967,14 @@ export function emitProgram(
             }
           };
           const diagIfCallStackUnverifiable = (mnemonic = 'call'): void => {
+            if (hasStackSlots && spTrackingValid && spDeltaTracked > 0) {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `${mnemonic} reached with positive tracked stack delta (${spDeltaTracked}); cannot verify callee stack contract.`,
+              );
+              return;
+            }
             if (hasStackSlots && !spTrackingValid && spTrackingInvalidatedByMutation) {
               diagAt(
                 diagnostics,

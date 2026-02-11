@@ -877,7 +877,7 @@ Other SP assignment instructions (v0.1):
   - The programmer is responsible for ensuring SP is correct at structured-control-flow joins and at function exit.
   - Local/arg slot references assume the compiler's tracked SP offset; untracked SP assignment can make stack-slot addressing invalid.
   - Current compiler behavior: once such an assignment is seen, stack-slot addressing is rejected with a compile error.
-  - Current compiler behavior: when stack slots are present (locals and/or params), call-like boundaries (`call`, `rst`) reached after untracked or unknown stack state are diagnosed.
+  - Current compiler behavior: when stack slots are present (locals and/or params), call-like boundaries (`call`, `rst`) reached with positive tracked stack delta, or after untracked/unknown stack state, are diagnosed.
 
 Note (v0.1):
 

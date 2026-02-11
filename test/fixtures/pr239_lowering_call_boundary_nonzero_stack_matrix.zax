@@ -1,0 +1,30 @@
+func helper(): void
+  ret
+end
+
+func call_nonzero(): void
+  var
+    local: word
+  end
+  pop hl
+  helper
+  push hl
+end
+
+func callcc_nonzero(): void
+  var
+    local: word
+  end
+  pop hl
+  call nz, helper
+  push hl
+end
+
+func rst_nonzero(): void
+  var
+    local: word
+  end
+  pop hl
+  rst $38
+  push hl
+end
