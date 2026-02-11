@@ -1,0 +1,12 @@
+var
+  first: byte
+  bad: word[]
+  second: word
+
+const K = 1
+
+func main(): void
+  asm
+    ld a, K
+    ret
+  end

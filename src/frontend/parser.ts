@@ -1219,6 +1219,31 @@ export function parseModuleFile(
     });
   }
 
+  const malformedTopLevelHeaderExpectations: ReadonlyArray<{
+    keyword: string;
+    kind: string;
+    expected: string;
+  }> = [
+    { keyword: 'import', kind: 'import statement', expected: '"<path>.zax" or <moduleId>' },
+    { keyword: 'type', kind: 'type declaration', expected: '<name> [<typeExpr>]' },
+    { keyword: 'union', kind: 'union declaration', expected: '<name>' },
+    { keyword: 'var', kind: 'var declaration', expected: 'var' },
+    { keyword: 'func', kind: 'func header', expected: '<name>(...): <retType>' },
+    { keyword: 'op', kind: 'op header', expected: '<name>(...)' },
+    {
+      keyword: 'extern',
+      kind: 'extern declaration',
+      expected: '[<baseName>] or func <name>(...): <retType> at <imm16>',
+    },
+    { keyword: 'enum', kind: 'enum declaration', expected: '<name> <member>[, ...]' },
+    { keyword: 'section', kind: 'section directive', expected: '<code|data|var> [at <imm16>]' },
+    { keyword: 'align', kind: 'align directive', expected: '<imm16>' },
+    { keyword: 'const', kind: 'const declaration', expected: '<name> = <imm>' },
+    { keyword: 'bin', kind: 'bin declaration', expected: '<name> in <code|data> from "<path>"' },
+    { keyword: 'hex', kind: 'hex declaration', expected: '<name> from "<path>"' },
+    { keyword: 'data', kind: 'data declaration', expected: 'data' },
+  ];
+
   function parseExternFuncFromTail(
     tail: string,
     stmtSpan: SourceSpan,
@@ -1497,7 +1522,7 @@ export function parseModuleFile(
             i++;
             continue;
           }
-          diag(diagnostics, modulePath, `Unsupported field type`, { line: i + 1, column: 1 });
+          diagInvalidBlockLine('record field declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1642,7 +1667,7 @@ export function parseModuleFile(
             i++;
             continue;
           }
-          diag(diagnostics, modulePath, `Unsupported field type`, { line: i + 1, column: 1 });
+          diagInvalidBlockLine('union field declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1757,12 +1782,11 @@ export function parseModuleFile(
               line: i + 1,
               column: 1,
             })
-          )
-            break;
-          diag(diagnostics, modulePath, `Unsupported type in var declaration`, {
-            line: i + 1,
-            column: 1,
-          });
+          ) {
+            i++;
+            continue;
+          }
+          diagInvalidBlockLine('var declaration', t, '<name>: <type>', i + 1);
           i++;
           continue;
         }
@@ -1957,10 +1981,7 @@ export function parseModuleFile(
                 i++;
                 continue;
               }
-              diag(diagnostics, modulePath, `Unsupported type in var declaration`, {
-                line: i + 1,
-                column: 1,
-              });
+              diagInvalidBlockLine('var declaration', tDecl, '<name>: <type>', i + 1);
               i++;
               continue;
             }
@@ -2631,11 +2652,11 @@ export function parseModuleFile(
     if (binTail !== undefined) {
       const m = /^(\S+)\s+in\s+(\S+)\s+from\s+(.+)$/.exec(binTail.trim());
       if (!m) {
-        diag(
-          diagnostics,
-          modulePath,
-          `Invalid bin declaration: expected "bin <name> in <code|data> from \\\"<path>\\\""`,
-          { line: lineNo, column: 1 },
+        diagInvalidHeaderLine(
+          'bin declaration',
+          text,
+          '<name> in <code|data> from "<path>"',
+          lineNo,
         );
         i++;
         continue;
@@ -2700,12 +2721,7 @@ export function parseModuleFile(
     if (hexTail !== undefined) {
       const m = /^(\S+)\s+from\s+(.+)$/.exec(hexTail.trim());
       if (!m) {
-        diag(
-          diagnostics,
-          modulePath,
-          `Invalid hex declaration: expected "hex <name> from \\\"<path>\\\""`,
-          { line: lineNo, column: 1 },
-        );
+        diagInvalidHeaderLine('hex declaration', text, '<name> from "<path>"', lineNo);
         i++;
         continue;
       }
@@ -2815,10 +2831,7 @@ export function parseModuleFile(
         });
 
         if (!typeExpr) {
-          diag(diagnostics, modulePath, `Unsupported type in data declaration`, {
-            line: i + 1,
-            column: 1,
-          });
+          diagInvalidBlockLine('data declaration', t, '<name>: <type> = <initializer>', i + 1);
           i++;
           continue;
         }
@@ -2866,79 +2879,16 @@ export function parseModuleFile(
       continue;
     }
 
-    if (hasTopKeyword('import')) {
-      diagInvalidHeaderLine('import statement', text, '"<path>.zax" or <moduleId>', lineNo);
-      i++;
-      continue;
+    let matchedMalformedTopLevelHeader = false;
+    for (const expectation of malformedTopLevelHeaderExpectations) {
+      if (hasTopKeyword(expectation.keyword)) {
+        diagInvalidHeaderLine(expectation.kind, text, expectation.expected, lineNo);
+        i++;
+        matchedMalformedTopLevelHeader = true;
+        break;
+      }
     }
-    if (hasTopKeyword('type')) {
-      diagInvalidHeaderLine('type declaration', text, '<name> [<typeExpr>]', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('union')) {
-      diagInvalidHeaderLine('union declaration', text, '<name>', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('var')) {
-      diagInvalidHeaderLine('var declaration', text, 'var', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('func')) {
-      diagInvalidHeaderLine('func header', text, '<name>(...): <retType>', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('op')) {
-      diagInvalidHeaderLine('op header', text, '<name>(...)', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('extern')) {
-      diagInvalidHeaderLine(
-        'extern declaration',
-        text,
-        '[<baseName>] or func <name>(...): <retType> at <imm16>',
-        lineNo,
-      );
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('enum')) {
-      diagInvalidHeaderLine('enum declaration', text, '<name> <member>[, ...]', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('section')) {
-      diagInvalidHeaderLine('section directive', text, '<code|data|var> [at <imm16>]', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('align')) {
-      diagInvalidHeaderLine('align directive', text, '<imm16>', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('const')) {
-      diagInvalidHeaderLine('const declaration', text, '<name> = <imm>', lineNo);
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('bin')) {
-      diag(diagnostics, modulePath, `Invalid bin declaration`, { line: lineNo, column: 1 });
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('hex')) {
-      diag(diagnostics, modulePath, `Invalid hex declaration`, { line: lineNo, column: 1 });
-      i++;
-      continue;
-    }
-    if (hasTopKeyword('data')) {
-      diagInvalidHeaderLine('data declaration', text, 'data', lineNo);
-      i++;
+    if (matchedMalformedTopLevelHeader) {
       continue;
     }
 
