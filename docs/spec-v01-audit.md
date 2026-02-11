@@ -195,16 +195,17 @@ This tranche extends explicit mapping for additional normative areas and parser 
 
 The following tests assert line/column-bearing diagnostics to ensure span stability:
 
-| Evidence                                                 | What is asserted                                                                                                               |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `test/pr12_calls.test.ts`                                | Wrong-arity call diagnostics include stable `file`, `line`, `column`                                                           |
-| `test/semantics_layout.test.ts`                          | Type diagnostics are generated from source spans in semantic evaluation                                                        |
-| `test/pr15_structured_control.test.ts`                   | Parser/lowering diagnostics remain single and stable for malformed control constructs                                          |
-| `test/parser_nested_index.test.ts`                       | Invalid nested expression path reports deterministic parse failure without cascades                                            |
-| `test/pr196_parser_control_interruption_matrix.test.ts`  | Control-stack interruption recovery preserves deterministic diagnostic ordering across function/op bodies                      |
-| `test/pr223_parser_var_and_body_recovery_matrix.test.ts` | Function-local `var` interruption and malformed body recovery preserve deterministic diagnostics and top-level resume behavior |
-| `test/pr226_parser_decl_control_spans.test.ts`           | Declaration/control recovery diagnostics include stable line/column spans for EOF and explicit `asm` marker failures           |
-| `test/pr227_parser_toplevel_malformed_spans.test.ts`     | Top-level malformed-header/export diagnostics include deterministic ordering and line/column spans across keyword families     |
+| Evidence                                                       | What is asserted                                                                                                                                                                               |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test/pr12_calls.test.ts`                                      | Wrong-arity call diagnostics include stable `file`, `line`, `column`                                                                                                                           |
+| `test/semantics_layout.test.ts`                                | Type diagnostics are generated from source spans in semantic evaluation                                                                                                                        |
+| `test/pr15_structured_control.test.ts`                         | Parser/lowering diagnostics remain single and stable for malformed control constructs                                                                                                          |
+| `test/parser_nested_index.test.ts`                             | Invalid nested expression path reports deterministic parse failure without cascades                                                                                                            |
+| `test/pr196_parser_control_interruption_matrix.test.ts`        | Control-stack interruption recovery preserves deterministic diagnostic ordering across function/op bodies                                                                                      |
+| `test/pr223_parser_var_and_body_recovery_matrix.test.ts`       | Function-local `var` interruption and malformed body recovery preserve deterministic diagnostics and top-level resume behavior                                                                 |
+| `test/pr226_parser_decl_control_spans.test.ts`                 | Declaration/control recovery diagnostics include stable line/column spans for EOF and explicit `asm` marker failures                                                                           |
+| `test/pr227_parser_toplevel_malformed_spans.test.ts`           | Top-level malformed-header/export diagnostics include deterministic ordering and line/column spans across keyword families                                                                     |
+| `test/pr238_parser_malformed_decl_header_spans_matrix.test.ts` | Malformed declaration-header diagnostics preserve deterministic ordering and line/column spans across `func`/`op`/`extern`/`enum`/`type`/`union`/`globals`/`data`/`bin`/`hex` keyword families |
 
 ## 12) Remaining Open Items
 

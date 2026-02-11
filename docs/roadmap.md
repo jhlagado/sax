@@ -11,7 +11,7 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 98
+- Completed PR anchors listed below: 99
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #192: hardening/acceptance pass (CLI failure-class contract matrix expansion + stable diagnostic IDs in CLI compile-error output).
+1. #193: parser/AST closure pass (malformed declaration-header diagnostic ordering + line/column span matrix expansion, plus stale subset-note cleanup).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: hardening/acceptance pass (expand negative-contract classes and acceptance-matrix strictness).
+1. Next PR: Lowering/frame/op safety pass (SP/control/cleanup invariants + tests).
 
 Completed (anchored, most recent first):
 
+1. #192: hardening/acceptance pass (CLI failure-class contract matrix expansion + stable diagnostic IDs in CLI compile-error output).
 1. #191: lowering/codegen stabilization pass (`rst` call-boundary stack-contract diagnostics for unknown/untracked stack states, with matrix coverage).
 1. #190: lowering/codegen stabilization pass (`retn`/`reti` stack-contract hardening for local frames and unknown/untracked/non-zero stack states, with matrix coverage).
 1. #189: lowering/codegen stabilization pass (call-boundary stack-contract diagnostics for unknown/untracked stack state with locals, plus matrix coverage).

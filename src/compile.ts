@@ -244,11 +244,9 @@ async function loadProgram(
 /**
  * Compile a ZAX program starting from an entry file.
  *
- * PR3 implementation note:
- * - Supports a minimal subset (single file, `func` + `asm`, a tiny instruction set).
- * - Supports module-scope `const` and `data` (packed after code, aligned to 2).
- * - Supports module-scope `globals`/`var` with type layouts (var symbols only; no bytes emitted).
- * - Produces artifacts in-memory via `deps.formats` (no filesystem writes yet).
+ * - Resolves imports transitively (deterministic topological order with cycle checks).
+ * - Runs parse → semantics → lowering → format writers.
+ * - Produces artifacts in-memory via `deps.formats`.
  * - Defaults to emitting BIN + HEX + D8M unless an emit flag is explicitly provided.
  */
 export const compile: CompileFn = async (

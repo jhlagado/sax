@@ -429,7 +429,7 @@ function parseBalancedBracketContent(text: string): { inside: string; rest: stri
 }
 
 /**
- * Parse the `[...]` index portion of an EA expression (PR3 subset).
+ * Parse the `[...]` index portion of an EA expression.
  *
  * Supported:
  * - 8-bit registers (`A`..`L`)
@@ -460,7 +460,7 @@ function parseEaIndexFromText(
 }
 
 /**
- * Parse an effective-address expression from text (PR3 subset).
+ * Parse an effective-address expression from text.
  *
  * Supported:
  * - `name`

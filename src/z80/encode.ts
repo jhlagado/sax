@@ -465,10 +465,8 @@ function isKnownInstructionHead(head: string): boolean {
 /**
  * Encode a single `asm` instruction node into Z80 machine-code bytes.
  *
- * PR2 implementation note:
- * - Supports only a tiny subset: `nop`, `ret`, `jp imm16`, `ld A, imm8`, `ld HL, imm16`.
  * - Immediate operands may be `imm` expressions (const/enum names and operators), evaluated via the env.
- * - On unsupported forms, appends an error diagnostic and returns `undefined`.
+ * - Unsupported forms append an error diagnostic and return `undefined`.
  */
 export function encodeInstruction(
   node: AsmInstructionNode,
