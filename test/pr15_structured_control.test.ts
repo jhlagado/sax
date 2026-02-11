@@ -252,11 +252,36 @@ describe('PR15 structured asm control flow', () => {
     expect(constBin).toBeDefined();
     expect(regBin).toBeDefined();
 
+    const regPushHlCount = [...regBin!.bytes].filter((byte) => byte === 0xe5).length; // push hl
+    const regPopHlCount = [...regBin!.bytes].filter((byte) => byte === 0xe1).length; // pop hl
+    const constPushHlCount = [...constBin!.bytes].filter((byte) => byte === 0xe5).length;
+    const constPopHlCount = [...constBin!.bytes].filter((byte) => byte === 0xe1).length;
+
+    expect(regPushHlCount).toBe(1); // save caller HL once for runtime selector dispatch
+    expect(regPopHlCount).toBe(3); // restore on each case-match path + default fallthrough path
+    expect(constPushHlCount).toBe(0);
+    expect(constPopHlCount).toBe(0);
     expect([...regBin!.bytes]).toContain(0xfe); // compare chain uses cp imm8
     expect([...constBin!.bytes]).not.toContain(0xfe);
     expect(constBin!.bytes.length).toBeLessThan(regBin!.bytes.length);
     expect(constBin!.bytes[constBin!.bytes.length - 1]).toBe(0xc9);
     expect(regBin!.bytes[regBin!.bytes.length - 1]).toBe(0xc9);
+  });
+
+  it('evaluates memory selector once for runtime compare-chain dispatch', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr149_select_mem_selector_eval_once.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+
+    const bytes = [...bin!.bytes];
+    const ldHlAbsCount = bytes.filter((byte) => byte === 0x2a).length; // ld hl, (abs16)
+    const cpImmCount = bytes.filter((byte) => byte === 0xfe).length; // cp imm8
+
+    expect(ldHlAbsCount).toBe(1); // selector loaded once from memory
+    expect(cpImmCount).toBe(4); // two case values => low+high compare for each case
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
   });
 
   it('diagnoses until without matching repeat', async () => {
