@@ -24,14 +24,14 @@ describe('PR180 parser: malformed bin/hex header matrix', () => {
       'Invalid bin declaration line "bin asset in code": expected <name> in <code|data> from "<path>"',
     );
     expect(messages).toContain('Invalid bin section "text": expected "code" or "data".');
-    expect(messages).toContain('Invalid bin name');
+    expect(messages).toContain('Invalid bin name "1asset": expected <identifier>.');
     expect(messages).toContain('Invalid bin declaration: expected quoted source path');
 
     expect(messages).toContain('Invalid hex declaration line "hex": expected <name> from "<path>"');
     expect(messages).toContain(
       'Invalid hex declaration line "hex dump": expected <name> from "<path>"',
     );
-    expect(messages).toContain('Invalid hex name');
+    expect(messages).toContain('Invalid hex name "9dump": expected <identifier>.');
     expect(messages).toContain('Invalid hex declaration: expected quoted source path');
     expect(messages.some((m) => m.startsWith('Unsupported top-level construct:'))).toBe(false);
   });

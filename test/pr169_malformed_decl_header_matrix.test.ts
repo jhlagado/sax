@@ -16,10 +16,10 @@ describe('PR169 parser: malformed declaration header diagnostics matrix', () => 
     const messages = res.diagnostics.map((d) => d.message);
     expect(messages).toContain('Invalid enum member name "9bad".');
     expect(messages).toContain('Invalid const declaration: missing initializer');
-    expect(messages).toContain('Invalid bin name');
+    expect(messages).toContain('Invalid bin name "1asset": expected <identifier>.');
     expect(messages).toContain('Invalid bin section "text": expected "code" or "data".');
     expect(messages).toContain('Invalid bin declaration: expected quoted source path');
-    expect(messages).toContain('Invalid hex name');
+    expect(messages).toContain('Invalid hex name "9dump": expected <identifier>.');
     expect(messages).toContain('Invalid hex declaration: expected quoted source path');
     expect(messages.some((m) => m.startsWith('Unsupported top-level construct:'))).toBe(false);
   });

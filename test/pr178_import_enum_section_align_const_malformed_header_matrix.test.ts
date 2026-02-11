@@ -45,7 +45,7 @@ describe('PR178 parser: malformed import/enum/section/align/const headers', () =
     expect(messages).toContain('Invalid align directive line "align": expected <imm16>');
 
     expect(messages).toContain('Invalid const declaration line "const": expected <name> = <imm>');
-    expect(messages).toContain('Invalid const name');
+    expect(messages).toContain('Invalid const name "9bad": expected <identifier>.');
     expect(messages.some((m) => m.startsWith('Unsupported top-level construct:'))).toBe(false);
   });
 });

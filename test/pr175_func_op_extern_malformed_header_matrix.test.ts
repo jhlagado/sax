@@ -18,12 +18,12 @@ describe('PR175 parser: malformed func/op/extern header matrix', () => {
     expect(messages).toContain(
       'Invalid func header line "func main(": expected <name>(...): <retType>',
     );
-    expect(messages).toContain('Invalid func name');
+    expect(messages).toContain('Invalid func name "9bad": expected <identifier>.');
     expect(messages).toContain('Invalid func header: missing return type');
 
     expect(messages).toContain('Invalid op header line "op": expected <name>(...)');
     expect(messages).toContain('Invalid op header line "op macro(": expected <name>(...)');
-    expect(messages).toContain('Invalid op name');
+    expect(messages).toContain('Invalid op name "9bad": expected <identifier>.');
     expect(messages).toContain('Invalid op header: unexpected trailing tokens');
 
     expect(messages).toContain(
