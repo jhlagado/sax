@@ -1784,8 +1784,7 @@ export function emitProgram(
           emitJumpCondTo(0xc2, mismatchLabel, span); // jp nz, mismatch
         };
         const loadSelectorIntoHL = (selector: AsmOperandNode, span: SourceSpan): boolean => {
-          // Current select lowering may reload selector operands per-case during dispatch.
-          // For memory-based selectors, this means repeated reads by design in v0.1.
+          // Select dispatch computes selector value once and keeps it in HL for comparisons.
           if (selector.kind === 'Reg') {
             const r = selector.name.toUpperCase();
             if (r === 'BC' || r === 'DE' || r === 'HL') {
@@ -2741,12 +2740,6 @@ export function emitProgram(
                   emitInstr('pop', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span);
                   emitJumpTo(arm.bodyLabel, arm.span);
                   defineCodeLabel(miss, arm.span, 'local');
-                  if (!emitInstr('push', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span)) {
-                    return asmItems.length;
-                  }
-                  if (!loadSelectorIntoHL(it.selector, arm.span)) {
-                    return asmItems.length;
-                  }
                 }
                 emitInstr(
                   'pop',

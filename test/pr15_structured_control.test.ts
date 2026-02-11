@@ -252,6 +252,15 @@ describe('PR15 structured asm control flow', () => {
     expect(constBin).toBeDefined();
     expect(regBin).toBeDefined();
 
+    const regPushHlCount = [...regBin!.bytes].filter((byte) => byte === 0xe5).length; // push hl
+    const regPopHlCount = [...regBin!.bytes].filter((byte) => byte === 0xe1).length; // pop hl
+    const constPushHlCount = [...constBin!.bytes].filter((byte) => byte === 0xe5).length;
+    const constPopHlCount = [...constBin!.bytes].filter((byte) => byte === 0xe1).length;
+
+    expect(regPushHlCount).toBe(1); // save caller HL once for runtime selector dispatch
+    expect(regPopHlCount).toBe(3); // restore on each case-match path + default fallthrough path
+    expect(constPushHlCount).toBe(0);
+    expect(constPopHlCount).toBe(0);
     expect([...regBin!.bytes]).toContain(0xfe); // compare chain uses cp imm8
     expect([...constBin!.bytes]).not.toContain(0xfe);
     expect(constBin!.bytes.length).toBeLessThan(regBin!.bytes.length);
