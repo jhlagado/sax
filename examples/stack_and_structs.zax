@@ -12,53 +12,51 @@ type Sprite
   flags: byte
 end
 
-var
+globals
   sprites: Sprite[4]
 
 ; Simple function that uses push/pop (net stack delta 0) around scratch usage.
 export func sum_words(a: word, b: word): word
-  asm
-    push de
-    ld hl, (a)
-    ld de, (b)
-    add hl, de
-    pop de
+  push de
+  ld hl, (a)
+  ld de, (b)
+  add hl, de
+  pop de
 end
 
 ; Bump sprites[i].x by dx (dx is zero-extended in v0.1).
 export func bump_sprite_x(i: byte, dx: byte): void
-  asm
-    ; In v0.1, non-constant array indexing is limited to element sizes 1 and 2.
-    ; Sprite is larger, so we dispatch on i and use constant indices.
-    ld a, (i)
-    select A
-      case 0
-        ld hl, (sprites[0].x)
-        ld a, (dx)
-        ld e, a
-        ld d, 0
-        add hl, de
-        ld (sprites[0].x), hl
-      case 1
-        ld hl, (sprites[1].x)
-        ld a, (dx)
-        ld e, a
-        ld d, 0
-        add hl, de
-        ld (sprites[1].x), hl
-      case 2
-        ld hl, (sprites[2].x)
-        ld a, (dx)
-        ld e, a
-        ld d, 0
-        add hl, de
-        ld (sprites[2].x), hl
-      case 3
-        ld hl, (sprites[3].x)
-        ld a, (dx)
-        ld e, a
-        ld d, 0
-        add hl, de
-        ld (sprites[3].x), hl
-    end
+  ; In v0.1, non-constant array indexing is limited to element sizes 1 and 2.
+  ; Sprite is larger, so we dispatch on i and use constant indices.
+  ld a, (i)
+  select A
+    case 0
+      ld hl, (sprites[0].x)
+      ld a, (dx)
+      ld e, a
+      ld d, 0
+      add hl, de
+      ld (sprites[0].x), hl
+    case 1
+      ld hl, (sprites[1].x)
+      ld a, (dx)
+      ld e, a
+      ld d, 0
+      add hl, de
+      ld (sprites[1].x), hl
+    case 2
+      ld hl, (sprites[2].x)
+      ld a, (dx)
+      ld e, a
+      ld d, 0
+      add hl, de
+      ld (sprites[2].x), hl
+    case 3
+      ld hl, (sprites[3].x)
+      ld a, (dx)
+      ld e, a
+      ld d, 0
+      add hl, de
+      ld (sprites[3].x), hl
+  end
 end
