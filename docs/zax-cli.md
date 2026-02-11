@@ -71,6 +71,12 @@ Keep switches intentionally small:
 - `-V, --version`
 - `-h, --help`
 
+## Error contract (current implementation)
+
+- CLI argument/shape errors exit with code `2`, print a `zax:` error line, and include usage text.
+- Compile diagnostics errors exit with code `1`, do **not** print usage text, and print source diagnostics only.
+- Source diagnostics include stable diagnostic IDs (for example `[ZAX001]`, `[ZAX003]`, `[ZAX100]`) so tooling/tests can pin failure classes.
+
 ## Deterministic module order (imports)
 
 When the entry module imports other modules, the assembler resolves an import graph and chooses a deterministic module order:

@@ -249,7 +249,7 @@ export async function runCli(argv: string[]): Promise<number> {
           d.line !== undefined && d.column !== undefined
             ? `${d.file}:${d.line}:${d.column}`
             : d.file;
-        process.stderr.write(`${loc}: ${d.severity}: ${d.message}\n`);
+        process.stderr.write(`${loc}: ${d.severity}: [${d.id}] ${d.message}\n`);
       }
       return 1;
     }
