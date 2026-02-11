@@ -40,8 +40,8 @@ Legend:
 | `4.3` enums                                   | Implemented          | `test/pr4_enum.test.ts`, `test/pr215_const_data_followups_matrix.test.ts`, `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts` |
 | `4.4` consts                                  | Implemented          | `test/pr2_const_data.test.ts`, `test/pr2_div_zero.test.ts`, `test/pr215_const_data_followups_matrix.test.ts`                                  |
 | `5.1` arrays (fixed + inferred for `data`)    | Implemented (subset) | `test/pr51_data_inferred_array_len.test.ts`, `test/pr54_inferred_array_len_invalid.test.ts`                                                   |
-| `5.2` records                                 | Implemented (subset) | `test/semantics_layout.test.ts`                                                                                                               |
-| `5.3` unions                                  | Implemented (subset) | `test/pr50_union_field_access.test.ts`                                                                                                        |
+| `5.2` records                                 | Implemented (subset) | `test/semantics_layout.test.ts`, `test/pr217_parser_decl_minimum_shape_and_eof_recovery.test.ts`                                              |
+| `5.3` unions                                  | Implemented (subset) | `test/pr50_union_field_access.test.ts`, `test/pr217_parser_decl_minimum_shape_and_eof_recovery.test.ts`                                       |
 | `6.2` `var` storage                           | Implemented          | `test/pr3_var_layout.test.ts`                                                                                                                 |
 | `6.3` `data` storage                          | Implemented          | `test/pr2_const_data.test.ts`                                                                                                                 |
 | `6.4` `bin` / `hex` ingestion                 | Implemented          | `test/pr17_bin_hex_ingestion.test.ts`                                                                                                         |
@@ -145,6 +145,10 @@ These are intentionally unsupported or guarded forms with expected diagnostics:
 | Parser / extern          | empty extern block          | `extern block must contain at least one func declaration` | `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts`                                     |
 | Parser / enum            | enum without members        | `must declare at least one member`                        | `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts`                                     |
 | Parser / enum            | enum trailing comma         | `Trailing commas are not permitted in enum member lists`  | `test/pr216_parser_remaining_decl_control_recovery_matrix.test.ts`                                     |
+| Parser / type            | empty record declaration    | `must contain at least one field`                         | `test/pr217_parser_decl_minimum_shape_and_eof_recovery.test.ts`                                        |
+| Parser / union           | empty union declaration     | `must contain at least one field`                         | `test/pr217_parser_decl_minimum_shape_and_eof_recovery.test.ts`                                        |
+| Parser / function        | header at EOF without body  | `Unterminated func "...": expected function body`         | `test/pr217_parser_decl_minimum_shape_and_eof_recovery.test.ts`                                        |
+| Parser / op              | body at EOF without `end`   | `Unterminated op "...": missing "end"`                    | `test/pr217_parser_decl_minimum_shape_and_eof_recovery.test.ts`                                        |
 
 ## 10) Tranche 3 Mapping Expansion
 
