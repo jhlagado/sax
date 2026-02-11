@@ -27,10 +27,12 @@ describe('PR154 parser: top-level malformed keyword matrix', () => {
     expect(messages).toContain(
       'Invalid import statement line "import": expected "<path>.zax" or <moduleId>',
     );
-    expect(messages).toContain('Invalid type name');
-    expect(messages).toContain('Invalid union name');
-    expect(messages).toContain('Invalid var declaration');
-    expect(messages).toContain('Invalid data declaration');
+    expect(messages).toContain(
+      'Invalid type declaration line "type": expected <name> [<typeExpr>]',
+    );
+    expect(messages).toContain('Invalid union declaration line "union": expected <name>');
+    expect(messages).toContain('Invalid var declaration line "var\tx: byte": expected var');
+    expect(messages).toContain('Invalid data declaration line "data\tx: byte = 1": expected data');
     expect(messages).toContain('Invalid const declaration line "const": expected <name> = <imm>');
     expect(messages).toContain(
       'Invalid enum declaration line "enum": expected <name> <member>[, ...]',

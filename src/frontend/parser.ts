@@ -1377,7 +1377,7 @@ export function parseModuleFile(
       const name = parts[0] ?? '';
       const tail = afterType.slice(name.length).trimStart();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diag(diagnostics, modulePath, `Invalid type name`, { line: lineNo, column: 1 });
+        diagInvalidHeaderLine('type declaration', text, '<name> [<typeExpr>]', lineNo);
         i++;
         continue;
       }
@@ -1406,7 +1406,7 @@ export function parseModuleFile(
             i++;
             continue;
           }
-          diag(diagnostics, modulePath, `Invalid type alias`, { line: lineNo, column: 1 });
+          diagInvalidHeaderLine('type declaration', text, '<name> [<typeExpr>]', lineNo);
           i++;
           continue;
         }
@@ -1549,7 +1549,7 @@ export function parseModuleFile(
     if (unionTail !== undefined) {
       const name = unionTail.trim();
       if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-        diag(diagnostics, modulePath, `Invalid union name`, { line: lineNo, column: 1 });
+        diagInvalidHeaderLine('union declaration', text, '<name>', lineNo);
         i++;
         continue;
       }
@@ -2872,17 +2872,17 @@ export function parseModuleFile(
       continue;
     }
     if (hasTopKeyword('type')) {
-      diag(diagnostics, modulePath, `Invalid type name`, { line: lineNo, column: 1 });
+      diagInvalidHeaderLine('type declaration', text, '<name> [<typeExpr>]', lineNo);
       i++;
       continue;
     }
     if (hasTopKeyword('union')) {
-      diag(diagnostics, modulePath, `Invalid union name`, { line: lineNo, column: 1 });
+      diagInvalidHeaderLine('union declaration', text, '<name>', lineNo);
       i++;
       continue;
     }
     if (hasTopKeyword('var')) {
-      diag(diagnostics, modulePath, `Invalid var declaration`, { line: lineNo, column: 1 });
+      diagInvalidHeaderLine('var declaration', text, 'var', lineNo);
       i++;
       continue;
     }
@@ -2937,7 +2937,7 @@ export function parseModuleFile(
       continue;
     }
     if (hasTopKeyword('data')) {
-      diag(diagnostics, modulePath, `Invalid data declaration`, { line: lineNo, column: 1 });
+      diagInvalidHeaderLine('data declaration', text, 'data', lineNo);
       i++;
       continue;
     }
