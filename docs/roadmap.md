@@ -11,14 +11,14 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 89
+- Completed PR anchors listed below: 90
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~86% complete (range 81-90%).
+- Working estimate (risk-weighted): ~87% complete (range 82-90%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
@@ -28,7 +28,7 @@ Working estimate scorecard (risk-weighted, subjective):
 - Codegen gate: ~66%
 - ISA gate: ~53%
 - CLI/output gate: ~72%
-- Hardening gate: ~76%
+- Hardening gate: ~77%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #183: hardening/acceptance pass (examples determinism acceptance gate tightening with repeated artifact snapshot equality checks).
+1. #184: hardening/acceptance pass (CLI path-parity artifact contract for relative/absolute entry/output invocation forms).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: hardening/acceptance pass (broaden acceptance gates to additional determinism and negative-contract classes).
+1. Next PR: hardening/acceptance pass (expand negative-contract classes and acceptance-matrix strictness).
 
 Completed (anchored, most recent first):
 
+1. #183: hardening/acceptance pass (examples determinism acceptance gate tightening with repeated artifact snapshot equality checks).
 1. #182: hardening/acceptance pass (CLI determinism artifact contract matrix across repeated runs and include-flag parity/order forms).
 1. #181: CLI/output contract hardening pass (CLI argument/error/output contract matrix coverage and `--version` dist-path fix).
 1. #180: ISA coverage/parity pass (indexed rotate/shift destination legality diagnostics matrix expansion across DD/FD/CB forms).

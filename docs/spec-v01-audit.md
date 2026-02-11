@@ -77,12 +77,12 @@ Legend:
 
 ## 7) ISA + Output Contracts
 
-| Spec area                                     | Status               | Evidence                                                                                                                                                           |
-| --------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ISA core + advanced subsets                   | Implemented (subset) | `test/pr24_isa_core.test.ts`, `test/pr25_isa_advanced.test.ts`, `test/pr56_isa_misc.test.ts`, `test/pr57_isa_im_rst.test.ts`, `test/pr91_isa_hl16_adc_sbc.test.ts` |
-| indexed/ED block/system instruction slices    | Implemented (subset) | `test/isa_indexed_*.test.ts`, `test/isa_block_*.test.ts`, `test/isa_ed_misc.test.ts`                                                                               |
-| `.hex/.bin/.d8dbg.json/.lst` artifact outputs | Implemented          | `test/cli_artifacts.test.ts`, `test/cli_contract_matrix.test.ts`, `test/pr39_listing.test.ts`, `test/pr195_hex_sparse_records.test.ts`                             |
-| determinism                                   | Implemented          | `test/determinism_artifacts.test.ts`, `test/cli_determinism_contract.test.ts`, `test/examples_compile.test.ts`                                                     |
+| Spec area                                     | Status               | Evidence                                                                                                                                                                        |
+| --------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ISA core + advanced subsets                   | Implemented (subset) | `test/pr24_isa_core.test.ts`, `test/pr25_isa_advanced.test.ts`, `test/pr56_isa_misc.test.ts`, `test/pr57_isa_im_rst.test.ts`, `test/pr91_isa_hl16_adc_sbc.test.ts`              |
+| indexed/ED block/system instruction slices    | Implemented (subset) | `test/isa_indexed_*.test.ts`, `test/isa_block_*.test.ts`, `test/isa_ed_misc.test.ts`                                                                                            |
+| `.hex/.bin/.d8dbg.json/.lst` artifact outputs | Implemented          | `test/cli_artifacts.test.ts`, `test/cli_contract_matrix.test.ts`, `test/cli_path_parity_contract.test.ts`, `test/pr39_listing.test.ts`, `test/pr195_hex_sparse_records.test.ts` |
+| determinism                                   | Implemented          | `test/determinism_artifacts.test.ts`, `test/cli_determinism_contract.test.ts`, `test/cli_path_parity_contract.test.ts`, `test/examples_compile.test.ts`                         |
 
 ## 8) Tranche 2 Normative Mapping (high-risk sections)
 
@@ -219,17 +219,17 @@ This tranche maps Appendix B statements to current implementation evidence and k
 
 This is a draft checklist to make the spec-audit gate explicit in CI.
 
-| Checkpoint                    | Command / artifact                                                            | Pass condition                                                                |
-| ----------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Formatting                    | `yarn -s format:check`                                                        | exits `0`                                                                     |
-| Type safety                   | `yarn -s typecheck`                                                           | exits `0`                                                                     |
-| Full test suite               | `yarn -s test`                                                                | exits `0`                                                                     |
-| Artifact determinism          | `test/determinism_artifacts.test.ts`, `test/cli_determinism_contract.test.ts` | test green on all CI OS targets + CLI determinism contract                    |
-| Example compilation           | `test/examples_compile.test.ts`                                               | examples compile on CI matrix                                                 |
-| CLI artifact contract         | `test/cli_artifacts.test.ts`, `test/cli_contract_matrix.test.ts`              | sibling outputs + suppression + stdout/arg-validation contract stable         |
-| Structured/lowering safety    | `test/pr23_lowering_safety.test.ts`, `pr92` test                              | stack/control invariants remain enforced                                      |
-| Forward references and fixups | `test/pr37_forward_label_fixups.test.ts`                                      | forward label and conditional fixups resolve deterministically                |
-| Appendix mapping follow-up    | `docs/spec-v01-audit.md` Section 13                                           | all `Open` rows moved to `Implemented` or `Intentionally rejected` + evidence |
+| Checkpoint                    | Command / artifact                                                                                                     | Pass condition                                                                    |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Formatting                    | `yarn -s format:check`                                                                                                 | exits `0`                                                                         |
+| Type safety                   | `yarn -s typecheck`                                                                                                    | exits `0`                                                                         |
+| Full test suite               | `yarn -s test`                                                                                                         | exits `0`                                                                         |
+| Artifact determinism          | `test/determinism_artifacts.test.ts`, `test/cli_determinism_contract.test.ts`, `test/cli_path_parity_contract.test.ts` | test green on all CI OS targets + CLI determinism/path-parity contract            |
+| Example compilation           | `test/examples_compile.test.ts`                                                                                        | examples compile on CI matrix                                                     |
+| CLI artifact contract         | `test/cli_artifacts.test.ts`, `test/cli_contract_matrix.test.ts`, `test/cli_path_parity_contract.test.ts`              | sibling outputs + suppression + stdout/arg-validation/path-parity contract stable |
+| Structured/lowering safety    | `test/pr23_lowering_safety.test.ts`, `pr92` test                                                                       | stack/control invariants remain enforced                                          |
+| Forward references and fixups | `test/pr37_forward_label_fixups.test.ts`                                                                               | forward label and conditional fixups resolve deterministically                    |
+| Appendix mapping follow-up    | `docs/spec-v01-audit.md` Section 13                                                                                    | all `Open` rows moved to `Implemented` or `Intentionally rejected` + evidence     |
 
 Checklist usage guidance:
 
