@@ -16,11 +16,11 @@ describe('PR149: condition diagnostics parity matrix', () => {
 
     expect(messages).toContain('ret cc expects a valid condition code');
     expect(messages).toContain('ret expects no operands or one condition code');
-    expect(messages).toContain('jp cc, nn expects condition + imm16');
+    expect(messages).toContain('jp cc expects valid condition code NZ/Z/NC/C/PO/PE/P/M');
     expect(messages).toContain(
       'jp expects one operand (nn/(hl)/(ix)/(iy)) or two operands (cc, nn)',
     );
-    expect(messages).toContain('call cc, nn expects condition + imm16');
+    expect(messages).toContain('call cc expects valid condition code NZ/Z/NC/C/PO/PE/P/M');
     expect(messages).toContain('call expects one operand (nn) or two operands (cc, nn)');
     expect(messages).toContain('jr cc, disp expects NZ/Z/NC/C + disp8');
     expect(messages.some((m) => m.includes('Unresolved symbol'))).toBe(false);

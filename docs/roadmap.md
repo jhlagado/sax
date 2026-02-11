@@ -11,14 +11,14 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 72
+- Completed PR anchors listed below: 73
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~69% complete (range 64-75%).
+- Working estimate (risk-weighted): ~70% complete (range 65-76%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
@@ -26,9 +26,9 @@ Working estimate scorecard (risk-weighted, subjective):
 - Spec gate: ~70%
 - Parser/AST gate: ~64%
 - Codegen gate: ~60%
-- ISA gate: ~46%
+- ISA gate: ~47%
 - CLI/output gate: ~67%
-- Hardening gate: ~59%
+- Hardening gate: ~60%
 
 What moves the needle fastest:
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #165: ISA diagnostics parity continuation (`jp cc, nn` indirect-target legality diagnostics parity + matrix hardening).
+- none.
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: ISA diagnostics parity continuation (ED/CB/DD/FD legality matrix expansion + deterministic malformed-form diagnostics parity).
+1. Next PR: ISA diagnostics parity continuation (conditional `jp`/`call` condition-vs-imm diagnostics parity + matrix hardening).
 
 Completed (anchored, most recent first):
 
+1. #165: ISA diagnostics parity continuation (`jp cc, nn` indirect-target legality diagnostics parity + matrix hardening).
 1. #164: ISA diagnostics parity continuation (`call` indirect-form legality diagnostics parity + matrix hardening + status-report gate plan update).
 1. #163: ISA diagnostics parity continuation (`jp` indirect-form legality diagnostics parity + matrix hardening).
 1. #162: ISA diagnostics parity continuation (ED `in/out` indexed-byte-register legality diagnostics parity + matrix hardening).
