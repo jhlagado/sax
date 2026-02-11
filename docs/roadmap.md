@@ -11,24 +11,24 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 76
+- Completed PR anchors listed below: 77
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~74% complete (range 69-80%).
+- Working estimate (risk-weighted): ~75% complete (range 70-81%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
 
-- Spec gate: ~72%
-- Parser/AST gate: ~65%
+- Spec gate: ~73%
+- Parser/AST gate: ~66%
 - Codegen gate: ~60%
 - ISA gate: ~53%
 - CLI/output gate: ~67%
-- Hardening gate: ~64%
+- Hardening gate: ~65%
 
 What moves the needle fastest:
 
@@ -236,7 +236,7 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-- #170: Spec/parser closure continuation (Issue #144 implicit body policy closure for `func`/`op`, docs alignment, and end-to-end diagnostics coverage).
+- #171: Spec/data closure continuation (Issue #6 const/data follow-up matrix, D8M constant semantics clarification, and audit evidence expansion).
 
 Next PR (anchored as soon as opened):
 
@@ -244,6 +244,7 @@ Next PR (anchored as soon as opened):
 
 Completed (anchored, most recent first):
 
+1. #170: Spec/parser closure continuation (Issue #144 implicit body policy closure for `func`/`op`, docs alignment, and end-to-end diagnostics coverage).
 1. #169: ISA diagnostics parity continuation (condition-token symbolic-fixup collision hardening for one-operand `jp`/`call`/`jr` + matrix coverage).
 1. #168: ISA diagnostics parity continuation (conditional control-flow arity diagnostics parity hardening for `jp`/`call`/`jr` + matrix coverage).
 1. #167: ISA diagnostics parity continuation (conditional `jr`/`djnz` malformed-form diagnostics parity + matrix hardening).
