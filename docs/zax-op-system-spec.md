@@ -123,7 +123,7 @@ op load_pair(dst: reg16, src: imm16)
 end
 ```
 
-The body is an implicit `asm` stream — you do not write the `asm` keyword inside an op. The instructions in the body follow exactly the same grammar as instructions inside a function's `asm` block: raw Z80 mnemonics, other op invocations, and structured control flow (`if`/`while`/`repeat`/`select`) are permitted. **Local labels are not permitted inside op bodies in v0.1.**
+The body is an implicit `asm` stream — you do not write the `asm` keyword inside an op. The instructions in the body follow exactly the same grammar as instructions inside a function instruction stream (with or without an explicit `asm` keyword): raw Z80 mnemonics, other op invocations, and structured control flow (`if`/`while`/`repeat`/`select`) are permitted. **Local labels are not permitted inside op bodies in v0.1.**
 
 An op body may be empty (containing no instructions between the declaration line and `end`). This is occasionally useful as a no-op placeholder during development or as a deliberately empty specialization.
 
@@ -151,7 +151,7 @@ This form is useful for giving a meaningful name to a short idiom that takes no 
 
 ### 2.3 Scope and Nesting Rules
 
-Ops are module-scope declarations only. You cannot define an op inside a function body, inside another op, or inside any other block. However, op _invocations_ are permitted anywhere an instruction can appear: inside function `asm` blocks and inside other op bodies.
+Ops are module-scope declarations only. You cannot define an op inside a function body, inside another op, or inside any other block. However, op _invocations_ are permitted anywhere an instruction can appear: inside function instruction streams and inside other op bodies.
 
 An op may invoke other ops in its body, but the expansion graph must be acyclic. If expanding op `A` would require expanding op `B`, which in turn requires expanding op `A`, the compiler reports a cyclic expansion error. The compiler detects this statically during expansion, not at runtime.
 
@@ -535,7 +535,7 @@ If you want register-effect reporting (e.g., “this op clobbers `HL` and flags�
 
 ### 6.1 Structured Control Flow in Op Bodies
 
-Op bodies may contain structured control flow (`if`/`while`/`repeat`/`select`). The same rules apply as in function `asm` blocks (Section 10 of the main spec):
+Op bodies may contain structured control flow (`if`/`while`/`repeat`/`select`). The same rules apply as in function instruction streams (Section 10 of the main spec):
 
 - Stack depth must match at control-flow joins
 - Condition codes test flags that the programmer establishes
