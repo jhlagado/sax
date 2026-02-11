@@ -184,6 +184,27 @@ function conditionName(op: AsmOperandNode): string | undefined {
   return undefined;
 }
 
+function symbolicImmBaseName(op: AsmOperandNode, env: CompileEnv): string | undefined {
+  if (op.kind !== 'Imm') return undefined;
+  const expr = op.expr;
+  if (expr.kind === 'ImmName') return expr.name.toUpperCase();
+  if (expr.kind !== 'ImmBinary') return undefined;
+  if (expr.op !== '+' && expr.op !== '-') return undefined;
+
+  const leftName = expr.left.kind === 'ImmName' ? expr.left.name.toUpperCase() : undefined;
+  const rightName = expr.right.kind === 'ImmName' ? expr.right.name.toUpperCase() : undefined;
+
+  if (leftName) {
+    const right = evalImmExpr(expr.right, env);
+    if (right !== undefined) return leftName;
+  }
+  if (expr.op === '+' && rightName) {
+    const left = evalImmExpr(expr.left, env);
+    if (left !== undefined) return rightName;
+  }
+  return undefined;
+}
+
 function jpConditionOpcode(name: string): number | undefined {
   switch (name) {
     case 'NZ':
@@ -564,7 +585,7 @@ export function encodeInstruction(
       diag(diagnostics, node, `call does not support indirect targets; use imm16`);
       return undefined;
     }
-    const cc = conditionName(ops[0]!);
+    const cc = conditionName(ops[0]!) ?? symbolicImmBaseName(ops[0]!, env);
     if (cc && callConditionOpcode(cc) !== undefined) {
       diag(diagnostics, node, `call cc, nn expects two operands (cc, nn)`);
       return undefined;
@@ -767,7 +788,7 @@ export function encodeInstruction(
       return undefined;
     }
 
-    const cc = conditionName(ops[0]!);
+    const cc = conditionName(ops[0]!) ?? symbolicImmBaseName(ops[0]!, env);
     if (cc && jpConditionOpcode(cc) !== undefined) {
       diag(diagnostics, node, `jp cc, nn expects two operands (cc, nn)`);
       return undefined;
@@ -807,7 +828,7 @@ export function encodeInstruction(
       diag(diagnostics, node, `jr does not support indirect targets; expects disp8`);
       return undefined;
     }
-    const cc = conditionName(ops[0]!);
+    const cc = conditionName(ops[0]!) ?? symbolicImmBaseName(ops[0]!, env);
     if (cc && jrConditionOpcode(cc) !== undefined) {
       diag(diagnostics, node, `jr cc, disp expects two operands (cc, disp8)`);
       return undefined;

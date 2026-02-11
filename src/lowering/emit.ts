@@ -2457,6 +2457,16 @@ export function emitProgram(
                 diagAt(diagnostics, asmItem.span, `jr cc, disp expects two operands (cc, disp8)`);
                 return;
               }
+              if (single.kind === 'Imm') {
+                const symbolicTarget = symbolicTargetFromExpr(single.expr);
+                if (
+                  symbolicTarget &&
+                  jrConditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
+                ) {
+                  diagAt(diagnostics, asmItem.span, `jr cc, disp expects two operands (cc, disp8)`);
+                  return;
+                }
+              }
               if (!emitRel8FromOperand(asmItem.operands[0]!, 0x18, 'jr')) return;
               flow.reachable = false;
               syncToFlow();
@@ -2540,14 +2550,14 @@ export function emitProgram(
           if (head === 'jp' && asmItem.operands.length === 1) {
             const target = asmItem.operands[0]!;
             if (target.kind === 'Imm') {
+              const symbolicTarget = symbolicTargetFromExpr(target.expr);
               if (
-                target.expr.kind === 'ImmName' &&
-                conditionOpcodeFromName(target.expr.name) !== undefined
+                symbolicTarget &&
+                conditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
               ) {
                 diagAt(diagnostics, asmItem.span, `jp cc, nn expects two operands (cc, nn)`);
                 return;
               }
-              const symbolicTarget = symbolicTargetFromExpr(target.expr);
               if (symbolicTarget) {
                 emitAbs16Fixup(0xc3, symbolicTarget.baseLower, symbolicTarget.addend, asmItem.span);
                 flow.reachable = false;
@@ -2583,14 +2593,14 @@ export function emitProgram(
           if (head === 'call' && asmItem.operands.length === 1) {
             const target = asmItem.operands[0]!;
             if (target.kind === 'Imm') {
+              const symbolicTarget = symbolicTargetFromExpr(target.expr);
               if (
-                target.expr.kind === 'ImmName' &&
-                callConditionOpcodeFromName(target.expr.name) !== undefined
+                symbolicTarget &&
+                callConditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
               ) {
                 diagAt(diagnostics, asmItem.span, `call cc, nn expects two operands (cc, nn)`);
                 return;
               }
-              const symbolicTarget = symbolicTargetFromExpr(target.expr);
               if (symbolicTarget) {
                 emitAbs16Fixup(0xcd, symbolicTarget.baseLower, symbolicTarget.addend, asmItem.span);
                 syncToFlow();
