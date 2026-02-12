@@ -15,7 +15,7 @@ describe('PR211: jr/djnz malformed-form diagnostics parity', () => {
     const messages = res.diagnostics.map((d) => d.message);
 
     expect(messages).toContain('jr cc expects valid condition code NZ/Z/NC/C');
-    expect(messages).toContain('jr cc, disp expects disp8');
+    expect(messages).toContain('jr cc, disp does not support register targets; expects disp8');
     expect(messages).toContain('jr cc, disp does not support indirect targets');
     expect(messages).toContain('jr does not support indirect targets; expects disp8');
     expect(messages).toContain('djnz does not support indirect targets; expects disp8');

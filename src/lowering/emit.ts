@@ -2494,6 +2494,14 @@ export function emitProgram(
                   return;
                 }
               }
+              if (single.kind === 'Reg') {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `jr does not support register targets; expects disp8`,
+                );
+                return;
+              }
               if (!emitRel8FromOperand(asmItem.operands[0]!, 0x18, 'jr')) return;
               flow.reachable = false;
               syncToFlow();
@@ -2517,6 +2525,14 @@ export function emitProgram(
                 diagAt(diagnostics, asmItem.span, `jr cc, disp does not support indirect targets`);
                 return;
               }
+              if (target.kind === 'Reg') {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `jr cc, disp does not support register targets; expects disp8`,
+                );
+                return;
+              }
               if (target.kind !== 'Imm') {
                 diagAt(diagnostics, asmItem.span, `jr cc, disp expects disp8`);
                 return;
@@ -2537,6 +2553,14 @@ export function emitProgram(
                 diagnostics,
                 asmItem.span,
                 `djnz does not support indirect targets; expects disp8`,
+              );
+              return;
+            }
+            if (target.kind === 'Reg') {
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `djnz does not support register targets; expects disp8`,
               );
               return;
             }

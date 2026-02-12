@@ -49,6 +49,6 @@ describe('PR135: ISA jr/djnz', () => {
     expect(messages).toContain('jr cc expects valid condition code NZ/Z/NC/C');
     expect(messages).toContain('jr cc, disp expects two operands (cc, disp8)');
     expect(messages).toContain('djnz relative branch displacement out of range (-128..127): 128.');
-    expect(messages).toContain('djnz expects disp8');
+    expect(messages).toContain('djnz does not support register targets; expects disp8');
   });
 });
