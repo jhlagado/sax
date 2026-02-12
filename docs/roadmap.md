@@ -236,11 +236,11 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. None currently open.
+1. #196: hardening/acceptance pass (D8M contract hardening: deterministic symbol ordering + per-file segment ownership mapping and fallback behavior).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: hardening/acceptance pass (expand negative-contract classes and acceptance-matrix strictness).
+1. Next PR: hardening/acceptance pass (expand negative-contract classes and acceptance-matrix strictness beyond D8M ownership/order coverage).
 
 Completed (anchored, most recent first):
 
