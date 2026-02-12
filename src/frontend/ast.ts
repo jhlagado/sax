@@ -328,7 +328,7 @@ export type AsmControlNode =
  * Operand variants in `asm` instructions.
  */
 export type AsmOperandNode =
-  | { kind: 'Reg'; span: SourceSpan; name: string }
+  | { kind: 'Reg'; span: SourceSpan; /** Canonical upper-case register token. */ name: string }
   | { kind: 'Imm'; span: SourceSpan; expr: ImmExprNode }
   | { kind: 'Ea'; span: SourceSpan; expr: EaExprNode }
   | { kind: 'Mem'; span: SourceSpan; expr: EaExprNode }
@@ -383,7 +383,7 @@ export type EaExprNode =
  */
 export type EaIndexNode =
   | { kind: 'IndexImm'; span: SourceSpan; value: ImmExprNode }
-  | { kind: 'IndexReg8'; span: SourceSpan; reg: string }
+  | { kind: 'IndexReg8'; span: SourceSpan; /** Canonical upper-case reg8 token. */ reg: string }
   | { kind: 'IndexMemHL'; span: SourceSpan }
   | { kind: 'IndexEa'; span: SourceSpan; expr: EaExprNode };
 

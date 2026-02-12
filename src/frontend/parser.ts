@@ -444,7 +444,9 @@ function parseEaIndexFromText(
 ): EaIndexNode | undefined {
   const t = indexText.trim();
   if (t.toUpperCase() === 'HL') return { kind: 'IndexMemHL', span: indexSpan };
-  if (/^(A|B|C|D|E|H|L)$/i.test(t)) return { kind: 'IndexReg8', span: indexSpan, reg: t };
+  if (/^(A|B|C|D|E|H|L)$/i.test(t)) {
+    return { kind: 'IndexReg8', span: indexSpan, reg: canonicalRegisterToken(t) };
+  }
 
   const imm = parseImmExprFromText(filePath, t, indexSpan, diagnostics, false);
   if (imm) return { kind: 'IndexImm', span: indexSpan, value: imm };
@@ -528,7 +530,7 @@ function parseAsmOperand(
   if (t.length === 0) return undefined;
 
   if (/^(A|B|C|D|E|H|L|IXH|IXL|IYH|IYL|HL|DE|BC|SP|IX|IY|AF|AF'|I|R)$/i.test(t)) {
-    return { kind: 'Reg', span: operandSpan, name: t };
+    return { kind: 'Reg', span: operandSpan, name: canonicalRegisterToken(t) };
   }
 
   const n = parseNumberLiteral(t);
@@ -562,6 +564,11 @@ function parseAsmOperand(
     });
   }
   return undefined;
+}
+
+function canonicalRegisterToken(token: string): string {
+  if (/^af'$/i.test(token)) return "AF'";
+  return token.toUpperCase();
 }
 
 function parseAsmInstruction(
