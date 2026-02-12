@@ -6,6 +6,7 @@ import { dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { compile } from './compile.js';
+import type { Diagnostic } from './diagnostics/types.js';
 import { defaultFormatWriters } from './formats/index.js';
 import type { Artifact } from './formats/types.js';
 
@@ -224,6 +225,35 @@ async function writeArtifacts(
   process.stdout.write(`${primaryPath}\n`);
 }
 
+function normalizeDiagnosticPath(file: string): string {
+  const normalized = file.replace(/\\/g, '/');
+  return process.platform === 'win32' ? normalized.toLowerCase() : normalized;
+}
+
+function compareDiagnosticsForCli(a: Diagnostic, b: Diagnostic): number {
+  const fileCmp = normalizeDiagnosticPath(a.file).localeCompare(normalizeDiagnosticPath(b.file));
+  if (fileCmp !== 0) return fileCmp;
+
+  const lineCmp = (a.line ?? Number.POSITIVE_INFINITY) - (b.line ?? Number.POSITIVE_INFINITY);
+  if (lineCmp !== 0) return lineCmp;
+
+  const colCmp = (a.column ?? Number.POSITIVE_INFINITY) - (b.column ?? Number.POSITIVE_INFINITY);
+  if (colCmp !== 0) return colCmp;
+
+  const sevRank = (severity: Diagnostic['severity']): number => {
+    if (severity === 'error') return 0;
+    if (severity === 'warning') return 1;
+    return 2;
+  };
+  const sevCmp = sevRank(a.severity) - sevRank(b.severity);
+  if (sevCmp !== 0) return sevCmp;
+
+  const idCmp = a.id.localeCompare(b.id);
+  if (idCmp !== 0) return idCmp;
+
+  return a.message.localeCompare(b.message);
+}
+
 export async function runCli(argv: string[]): Promise<number> {
   try {
     const parsed = parseArgs(argv);
@@ -244,7 +274,8 @@ export async function runCli(argv: string[]): Promise<number> {
     );
 
     if (res.diagnostics.some((d) => d.severity === 'error')) {
-      for (const d of res.diagnostics) {
+      const sortedDiagnostics = [...res.diagnostics].sort(compareDiagnosticsForCli);
+      for (const d of sortedDiagnostics) {
         const loc =
           d.line !== undefined && d.column !== undefined
             ? `${d.file}:${d.line}:${d.column}`
