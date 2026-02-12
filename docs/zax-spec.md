@@ -135,6 +135,7 @@ ZAX treats the following as **reserved** (case-insensitive):
 - Condition codes used by structured control flow: `Z NZ C NC PO PE M P`.
 - Structured-control keywords: `if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`.
 - Declaration keywords: `import`, `type`, `union`, `enum`, `const`, `globals`, `var`, `data`, `bin`, `hex`, `extern`, `func`, `op`, `export`, `section`, `align`, `at`, `from`, `in`.
+  - `var` is reserved for function-local variable blocks. Module-scope storage uses `globals`.
 
 User-defined identifiers (module-scope symbols, locals/args, and labels) must not collide with any reserved name, ignoring case.
 
@@ -548,6 +549,7 @@ mode: byte
 - One declaration per line; no initializers.
 - This is **module-scope** uninitialized storage (addresses in the `var` section). It is distinct from a function-local `var` block, which declares stack locals (Section 8.1).
 - A `globals` block continues until the next module-scope declaration, directive, or end of file.
+- Legacy module-scope `var` blocks are rejected in v0.1 with a migration diagnostic (`Top-level "var" block has been renamed to "globals".`).
 
 ### 6.3 `data` (Initialized Storage)
 
