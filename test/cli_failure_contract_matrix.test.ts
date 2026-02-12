@@ -50,10 +50,34 @@ describe('cli failure contract matrix', () => {
 
     expect(res.code).toBe(1);
     expect(res.stdout).toBe('');
+    expect(res.stderr).toContain(`${entry}:1:1`);
     expect(res.stderr).toContain('[ZAX003]');
     expect(res.stderr).toContain('Failed to resolve import MissingModule');
     expect(res.stderr).toContain('Tried:');
     expect(res.stderr).toContain(resolve(work, 'MissingModule.zax'));
+    expect(res.stderr).not.toContain('zax [options] <entry.zax>');
+    await expectNoArtifacts(base);
+
+    await rm(work, { recursive: true, force: true });
+  });
+
+  it('returns code 1 for import cycles and reports the closing import-site span', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-import-cycle-'));
+    const entry = join(work, 'a.zax');
+    const b = join(work, 'b.zax');
+    const outHex = join(work, 'out.hex');
+    const base = join(work, 'out');
+
+    await writeFile(entry, 'import "b.zax"\n\nfunc main(): void\n  ret\nend\n', 'utf8');
+    await writeFile(b, 'import "a.zax"\n\nfunc bmain(): void\n  ret\nend\n', 'utf8');
+
+    const res = await runCli(['-o', outHex, entry]);
+
+    expect(res.code).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('[ZAX400]');
+    expect(res.stderr).toContain('Import cycle detected');
+    expect(res.stderr).toContain(`${b}:1:1`);
     expect(res.stderr).not.toContain('zax [options] <entry.zax>');
     await expectNoArtifacts(base);
 
