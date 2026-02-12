@@ -11,14 +11,14 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 103
+- Completed PR anchors listed below: 104
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
 Progress estimate (percentage):
 
 - Strict (gate-based): 0% complete until all 6 completion gates are green (Section 3).
-- Working estimate (risk-weighted): ~90% complete (range 85-93%).
+- Working estimate (risk-weighted): ~91% complete (range 86-94%).
 - Why this is not higher: closure work remains substantial across parser/AST depth, deeper lowering invariants, ISA breadth, CLI contract hardening, and acceptance gates.
 
 Working estimate scorecard (risk-weighted, subjective):
@@ -28,7 +28,7 @@ Working estimate scorecard (risk-weighted, subjective):
 - Codegen gate: ~66%
 - ISA gate: ~53%
 - CLI/output gate: ~74%
-- Hardening gate: ~81%
+- Hardening gate: ~82%
 
 What moves the needle fastest:
 
@@ -236,7 +236,7 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #199: hardening/acceptance pass (module-ID collision diagnostics now pin to the colliding module file/span with cross-platform same-basename fixture coverage).
+1. #200: hardening/acceptance pass (CLI failure-contract matrix now pins import and import-cycle source-span diagnostics in stderr while preserving no-artifact-on-failure guarantees).
 
 Next PR (anchored as soon as opened):
 
@@ -244,6 +244,7 @@ Next PR (anchored as soon as opened):
 
 Completed (anchored, most recent first):
 
+1. #199: hardening/acceptance pass (module-ID collision diagnostics now pin to the colliding module file/span with cross-platform same-basename fixture coverage).
 1. #198: hardening/acceptance pass (import-cycle diagnostics now report stable import-site file/line/column at the edge that closes the cycle).
 1. #197: hardening/acceptance pass (import-resolution diagnostics now carry import-site line/column spans for unresolved and unreadable import candidates).
 1. #196: hardening/acceptance pass (D8M contract hardening: deterministic symbol ordering + per-file segment ownership mapping and fallback behavior).
