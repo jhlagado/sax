@@ -601,7 +601,7 @@ function parseAsmInstruction(
     }
   }
 
-  return { kind: 'AsmInstruction', span: instrSpan, head, operands };
+  return { kind: 'AsmInstruction', span: instrSpan, head: headLower, operands };
 }
 
 type AsmControlFrame =

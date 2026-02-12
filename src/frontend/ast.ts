@@ -305,6 +305,7 @@ export interface AsmLabelNode extends BaseNode {
  */
 export interface AsmInstructionNode extends BaseNode {
   kind: 'AsmInstruction';
+  /** Canonical lower-case instruction mnemonic. */
   head: string;
   operands: AsmOperandNode[];
 }
