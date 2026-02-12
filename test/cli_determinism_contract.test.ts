@@ -12,7 +12,7 @@ import { ensureCliBuilt, readArtifactSet, runCli } from './helpers/cli.js';
 describe('cli determinism contract', () => {
   beforeAll(async () => {
     await ensureCliBuilt();
-  }, 90_000);
+  }, 180_000);
 
   it('produces identical sibling artifacts across repeated CLI runs', async () => {
     const work = await mkdtemp(join(tmpdir(), 'zax-cli-det-'));

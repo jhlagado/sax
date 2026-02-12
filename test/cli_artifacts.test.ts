@@ -12,7 +12,7 @@ import { ensureCliBuilt, exists, runCli } from './helpers/cli.js';
 describe('cli artifacts', () => {
   beforeAll(async () => {
     await ensureCliBuilt();
-  }, 90_000);
+  }, 180_000);
 
   it('writes default sibling artifacts from -o output path', async () => {
     const work = await mkdtemp(join(tmpdir(), 'zax-cli-'));

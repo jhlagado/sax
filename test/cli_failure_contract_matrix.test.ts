@@ -15,7 +15,7 @@ async function expectNoArtifacts(base: string): Promise<void> {
 describe('cli failure contract matrix', () => {
   beforeAll(async () => {
     await ensureCliBuilt();
-  }, 90_000);
+  }, 180_000);
 
   it('returns code 1 for missing entry file and writes no artifacts', async () => {
     const work = await mkdtemp(join(tmpdir(), 'zax-cli-missing-entry-'));
@@ -139,6 +139,47 @@ describe('cli failure contract matrix', () => {
     expect(res.stderr).toContain('[ZAX100]');
     expect(res.stderr).toContain('error:');
     expect(res.stderr).not.toContain('zax [options] <entry.zax>');
+    await expectNoArtifacts(base);
+
+    await rm(work, { recursive: true, force: true });
+  });
+
+  it('emits compile diagnostics in deterministic sorted order across files', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-diagnostic-order-'));
+    const entry = join(work, 'main.zax');
+    const a = join(work, 'a.zax');
+    const b = join(work, 'b.zax');
+    const outHex = join(work, 'out.hex');
+    const base = join(work, 'out');
+
+    await writeFile(
+      entry,
+      ['import "b.zax"', 'import "a.zax"', '', 'func main(): void', '  ret', 'end', ''].join('\n'),
+      'utf8',
+    );
+    await writeFile(a, 'func a(: void\nend\n', 'utf8');
+    await writeFile(b, 'func b(: void\nend\n', 'utf8');
+
+    const res = await runCli(['-o', outHex, entry]);
+
+    expect(res.code).toBe(1);
+    expect(res.stdout).toBe('');
+    const normalizedStderr = normalizePathForCompare(res.stderr);
+    const aLine1 = normalizePathForCompare(`${a}:1:1`);
+    const aLine2 = normalizePathForCompare(`${a}:2:1`);
+    const bLine1 = normalizePathForCompare(`${b}:1:1`);
+    const bLine2 = normalizePathForCompare(`${b}:2:1`);
+    const a1Pos = normalizedStderr.indexOf(aLine1);
+    const a2Pos = normalizedStderr.indexOf(aLine2);
+    const b1Pos = normalizedStderr.indexOf(bLine1);
+    const b2Pos = normalizedStderr.indexOf(bLine2);
+    expect(a1Pos).toBeGreaterThanOrEqual(0);
+    expect(a2Pos).toBeGreaterThanOrEqual(0);
+    expect(b1Pos).toBeGreaterThanOrEqual(0);
+    expect(b2Pos).toBeGreaterThanOrEqual(0);
+    expect(a1Pos).toBeLessThan(a2Pos);
+    expect(a2Pos).toBeLessThan(b1Pos);
+    expect(b1Pos).toBeLessThan(b2Pos);
     await expectNoArtifacts(base);
 
     await rm(work, { recursive: true, force: true });

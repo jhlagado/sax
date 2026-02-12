@@ -30,25 +30,58 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-function parseLockTimestamp(raw: string): number | undefined {
+type LockMeta = { pid?: number; createdAt?: number };
+
+function parseLockMeta(raw: string): LockMeta | undefined {
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
   try {
-    const parsed = JSON.parse(trimmed) as { createdAt?: unknown };
-    const value = parsed.createdAt;
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    return undefined;
+    const parsed = JSON.parse(trimmed) as { pid?: unknown; createdAt?: unknown };
+    const pid =
+      typeof parsed.pid === 'number' && Number.isFinite(parsed.pid) ? parsed.pid : undefined;
+    const createdAt =
+      typeof parsed.createdAt === 'number' && Number.isFinite(parsed.createdAt)
+        ? parsed.createdAt
+        : undefined;
+    if (pid === undefined && createdAt === undefined) return undefined;
+    const lockMeta: LockMeta = {};
+    if (pid !== undefined) lockMeta.pid = pid;
+    if (createdAt !== undefined) lockMeta.createdAt = createdAt;
+    return lockMeta;
   } catch {
     const numeric = Number(trimmed);
-    return Number.isFinite(numeric) ? numeric : undefined;
+    if (!Number.isFinite(numeric)) return undefined;
+    return { createdAt: numeric };
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  if (pid === process.pid) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException;
+    return e.code === 'EPERM';
   }
 }
 
 async function clearStaleLockIfNeeded(): Promise<void> {
   const lockText = await readFile(buildLockPath, 'utf8').catch(() => '');
-  const createdAt = parseLockTimestamp(lockText);
-  if (createdAt === undefined) return;
-  if (Date.now() - createdAt < lockStaleMs) return;
+  const lockMeta = parseLockMeta(lockText);
+  if (lockMeta === undefined) return;
+
+  const ownerAlive = lockMeta.pid !== undefined ? isProcessAlive(lockMeta.pid) : undefined;
+  if (ownerAlive === false) {
+    await rm(buildLockPath, { force: true });
+    return;
+  }
+
+  if (lockMeta.createdAt === undefined) return;
+  if (Date.now() - lockMeta.createdAt < lockStaleMs) return;
+  if (ownerAlive === true) return;
+
   await rm(buildLockPath, { force: true });
 }
 
@@ -72,14 +105,14 @@ async function buildCliWithLock(): Promise<void> {
     } catch (err) {
       const e = err as NodeJS.ErrnoException;
       if (e.code && e.code !== 'EEXIST') throw err;
-      let waitedMs = 0;
-      while (waitedMs < lockWaitMaxMs) {
+      const deadline = Date.now() + lockWaitMaxMs;
+      while (Date.now() < deadline) {
         if (!(await pathExists(buildLockPath))) break;
         await clearStaleLockIfNeeded();
         if (!(await pathExists(buildLockPath))) break;
         await sleep(lockWaitSliceMs);
-        waitedMs += lockWaitSliceMs;
       }
+      await clearStaleLockIfNeeded();
     }
   }
 }

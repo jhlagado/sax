@@ -12,7 +12,7 @@ import { ensureCliBuilt, exists, runCli } from './helpers/cli.js';
 describe('cli contract matrix', () => {
   beforeAll(async () => {
     await ensureCliBuilt();
-  }, 90_000);
+  }, 180_000);
 
   it('prints help text and exits 0', async () => {
     const res = await runCli(['--help']);

@@ -35,7 +35,7 @@ async function readArtifact(base: string, kind: ArtifactKind): Promise<string> {
 describe('cli acceptance matrix strictness', () => {
   beforeAll(async () => {
     await ensureCliBuilt();
-  }, 90_000);
+  }, 180_000);
 
   it('keeps artifact payloads stable across primary-type and suppression combinations', async () => {
     const work = await mkdtemp(join(tmpdir(), 'zax-cli-acceptance-matrix-'));
