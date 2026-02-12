@@ -174,7 +174,7 @@ This tranche extends explicit mapping for additional normative areas and parser 
 | Import graph is resolved deterministically with dependency ordering                                  | Implemented            | `test/pr10_imports.test.ts`                                               |
 | Import cycles are rejected with stable diagnostics                                                   | Intentionally rejected | diagnostic contains `Import cycle detected` (`test/pr10_imports.test.ts`) |
 | Include search paths are honored in order                                                            | Implemented            | `test/pr11_include_dirs.test.ts`                                          |
-| Missing import diagnostics include attempted paths                                                   | Implemented            | `test/pr11_include_dirs.test.ts`                                          |
+| Missing import diagnostics include attempted paths + source span                                      | Implemented            | `test/pr11_include_dirs.test.ts`, `test/pr242_import_resolution_diag_spans.test.ts` |
 | `export` is limited to `const`/`func`/`op` and other targets are rejected without parse-side effects | Implemented            | `test/pr157_export_malformed_matrix.test.ts`                              |
 
 ### 10.2 Data/layout contracts (`2.2`, `5.x`, `6.x`)
@@ -209,6 +209,7 @@ The following tests assert line/column-bearing diagnostics to ensure span stabil
 | `test/pr226_parser_decl_control_spans.test.ts`                 | Declaration/control recovery diagnostics include stable line/column spans for EOF and explicit `asm` marker failures                                                                           |
 | `test/pr227_parser_toplevel_malformed_spans.test.ts`           | Top-level malformed-header/export diagnostics include deterministic ordering and line/column spans across keyword families                                                                     |
 | `test/pr238_parser_malformed_decl_header_spans_matrix.test.ts` | Malformed declaration-header diagnostics preserve deterministic ordering and line/column spans across `func`/`op`/`extern`/`enum`/`type`/`union`/`globals`/`data`/`bin`/`hex` keyword families |
+| `test/pr242_import_resolution_diag_spans.test.ts`              | Import-resolution diagnostics include deterministic line/column spans for both `ImportNotFound` and hard import-candidate read failures                                                       |
 
 ## 12) Remaining Open Items
 

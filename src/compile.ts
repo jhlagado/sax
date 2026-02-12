@@ -150,6 +150,8 @@ async function loadProgram(
               err,
             )}`,
             file: p,
+            line: imp.span.start.line,
+            column: imp.span.start.column,
           });
           hardFailure = true;
           break;
@@ -167,6 +169,8 @@ async function loadProgram(
             .map((c) => `- ${c}`)
             .join('\n')}`,
           file: p,
+          line: imp.span.start.line,
+          column: imp.span.start.column,
         });
         continue;
       }
