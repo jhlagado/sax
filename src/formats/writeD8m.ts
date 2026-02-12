@@ -196,7 +196,7 @@ export function writeD8m(
     entry.symbols.push(withoutFile);
   }
 
-  const symbolRangesByFile = new Map<string, SymbolAddressRange>();
+  const symbolRangesByFile = new Map<string, SymbolAddressRange[]>();
   for (const symbol of serializedSymbols) {
     if (symbol.kind === 'constant' || symbol.file === undefined) continue;
     const spanSize = symbol.size !== undefined && symbol.size > 0 ? symbol.size : 1;
@@ -204,21 +204,22 @@ export function writeD8m(
       start: symbol.address,
       end: Math.min(0x10000, symbol.address + spanSize),
     };
-    const current = symbolRangesByFile.get(symbol.file);
-    if (!current) {
-      symbolRangesByFile.set(symbol.file, range);
-      continue;
+    const currentRanges = symbolRangesByFile.get(symbol.file);
+    if (currentRanges) {
+      currentRanges.push(range);
+    } else {
+      symbolRangesByFile.set(symbol.file, [range]);
     }
-    symbolRangesByFile.set(symbol.file, {
-      start: Math.min(current.start, range.start),
-      end: Math.max(current.end, range.end),
-    });
+  }
+
+  for (const ranges of symbolRangesByFile.values()) {
+    ranges.sort((a, b) => a.start - b.start || a.end - b.end);
   }
 
   for (const segment of segments) {
     const segmentRange: SymbolAddressRange = { start: segment.start, end: segment.end };
     const fileKeys = Array.from(symbolRangesByFile.entries())
-      .filter(([, range]) => rangesOverlap(range, segmentRange))
+      .filter(([, ranges]) => ranges.some((range) => rangesOverlap(range, segmentRange)))
       .map(([path]) => path)
       .sort((a, b) => a.localeCompare(b));
     const targets = fileKeys.length > 0 ? fileKeys : [fileList[0] ?? ''];

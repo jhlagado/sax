@@ -76,4 +76,33 @@ describe('PR241 D8M contract hardening', () => {
     expect(json.files['a.zax']?.segments).toMatchObject([{ start: 0x3000, end: 0x3001 }]);
     expect(json.files['z.zax']?.segments ?? []).toEqual([]);
   });
+
+  it('does not over-claim disjoint symbol regions for the same file', () => {
+    const map: EmittedByteMap = {
+      bytes: new Map<number, number>([
+        [0x1000, 0xaa],
+        [0x2000, 0xbb],
+        [0x4000, 0xcc],
+      ]),
+    };
+    const symbols: SymbolEntry[] = [
+      { kind: 'label', name: 'lib_a', address: 0x1000, file: 'lib.zax', scope: 'global' },
+      { kind: 'label', name: 'main_a', address: 0x2000, file: 'main.zax', scope: 'global' },
+      { kind: 'label', name: 'lib_b', address: 0x4000, file: 'lib.zax', scope: 'global' },
+    ];
+
+    const artifact = writeD8m(map, symbols);
+    const json = artifact.json as unknown as D8mView;
+
+    expect(json.segments).toEqual([
+      { start: 0x1000, end: 0x1001 },
+      { start: 0x2000, end: 0x2001 },
+      { start: 0x4000, end: 0x4001 },
+    ]);
+    expect(json.files['lib.zax']?.segments).toMatchObject([
+      { start: 0x1000, end: 0x1001 },
+      { start: 0x4000, end: 0x4001 },
+    ]);
+    expect(json.files['main.zax']?.segments).toMatchObject([{ start: 0x2000, end: 0x2001 }]);
+  });
 });
