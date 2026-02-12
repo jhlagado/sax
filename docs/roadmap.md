@@ -11,7 +11,7 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 101
+- Completed PR anchors listed below: 102
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
@@ -24,11 +24,11 @@ Progress estimate (percentage):
 Working estimate scorecard (risk-weighted, subjective):
 
 - Spec gate: ~74%
-- Parser/AST gate: ~69%
+- Parser/AST gate: ~70%
 - Codegen gate: ~66%
 - ISA gate: ~53%
 - CLI/output gate: ~74%
-- Hardening gate: ~79%
+- Hardening gate: ~80%
 
 What moves the needle fastest:
 
@@ -236,7 +236,7 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #197: hardening/acceptance pass (import-resolution diagnostics now carry import-site line/column spans for unresolved and unreadable import candidates).
+1. #198: hardening/acceptance pass (import-cycle diagnostics now report stable import-site file/line/column at the edge that closes the cycle).
 
 Next PR (anchored as soon as opened):
 
@@ -244,6 +244,7 @@ Next PR (anchored as soon as opened):
 
 Completed (anchored, most recent first):
 
+1. #197: hardening/acceptance pass (import-resolution diagnostics now carry import-site line/column spans for unresolved and unreadable import candidates).
 1. #196: hardening/acceptance pass (D8M contract hardening: deterministic symbol ordering + per-file segment ownership mapping and fallback behavior).
 1. #195: ISA coverage tranche (explicit register-target diagnostics parity for malformed `call`/`jp`/`jr`/`djnz` flows, plus matrix coverage).
 1. #194: lowering/frame/op safety pass (call-like boundary diagnostics for positive tracked stack deltas with stack slots, plus regression matrix coverage).

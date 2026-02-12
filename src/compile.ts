@@ -83,7 +83,7 @@ async function loadProgram(
 ): Promise<ProgramNode | undefined> {
   const entryPath = normalizePath(entryFile);
   const modules = new Map<string, ModuleFileNode>();
-  const edges = new Map<string, Set<string>>();
+  const edges = new Map<string, Map<string, { line: number; column: number }>>();
   const includeDirs = (options.includeDirs ?? []).map(normalizePath);
 
   const loadModule = async (
@@ -123,7 +123,7 @@ async function loadProgram(
     }
 
     modules.set(p, moduleFile);
-    edges.set(p, new Set());
+    edges.set(p, new Map());
 
     for (const imp of importTargets(moduleFile)) {
       const candidates = resolveImportCandidates(p, imp, includeDirs);
@@ -175,7 +175,13 @@ async function loadProgram(
         continue;
       }
 
-      edges.get(p)!.add(resolved);
+      const moduleEdges = edges.get(p)!;
+      if (!moduleEdges.has(resolved)) {
+        moduleEdges.set(resolved, {
+          line: imp.span.start.line,
+          column: imp.span.start.column,
+        });
+      }
       await loadModule(resolved, p, resolvedText);
     }
   };
@@ -209,25 +215,27 @@ async function loadProgram(
 
   const sortKey = (p: string) => `${canonicalModuleId(p).toLowerCase()}\n${p}`;
 
-  const visit = (p: string, stack: string[]) => {
+  const visit = (p: string, stack: string[], fromModule?: string) => {
     if (visited.has(p)) return;
     if (visiting.has(p)) {
       const cycleStart = stack.indexOf(p);
       const cycle = cycleStart >= 0 ? stack.slice(cycleStart).concat([p]) : stack.concat([p]);
+      const edge = fromModule ? edges.get(fromModule)?.get(p) : undefined;
       diagnostics.push({
         id: DiagnosticIds.SemanticsError,
         severity: 'error',
         message: `Import cycle detected: ${cycle.join(' -> ')}`,
-        file: entryPath,
+        file: fromModule ?? entryPath,
+        ...(edge !== undefined ? { line: edge.line, column: edge.column } : {}),
       });
       return;
     }
     visiting.add(p);
-    const deps = Array.from(edges.get(p) ?? []).sort((a, b) =>
+    const deps = Array.from((edges.get(p) ?? new Map()).keys()).sort((a, b) =>
       sortKey(a).localeCompare(sortKey(b)),
     );
     for (const d of deps) {
-      visit(d, stack.concat([p]));
+      visit(d, stack.concat([p]), p);
       if (hasErrors(diagnostics)) return;
     }
     visiting.delete(p);

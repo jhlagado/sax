@@ -169,13 +169,13 @@ This tranche extends explicit mapping for additional normative areas and parser 
 
 ### 10.1 Imports, cycles, and search paths (`3.x`)
 
-| Normative intent                                                                                     | Status                 | Evidence / Diagnostic                                                               |
-| ---------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------- |
-| Import graph is resolved deterministically with dependency ordering                                  | Implemented            | `test/pr10_imports.test.ts`                                                         |
-| Import cycles are rejected with stable diagnostics                                                   | Intentionally rejected | diagnostic contains `Import cycle detected` (`test/pr10_imports.test.ts`)           |
-| Include search paths are honored in order                                                            | Implemented            | `test/pr11_include_dirs.test.ts`                                                    |
-| Missing import diagnostics include attempted paths + source span                                     | Implemented            | `test/pr11_include_dirs.test.ts`, `test/pr242_import_resolution_diag_spans.test.ts` |
-| `export` is limited to `const`/`func`/`op` and other targets are rejected without parse-side effects | Implemented            | `test/pr157_export_malformed_matrix.test.ts`                                        |
+| Normative intent                                                                                     | Status                 | Evidence / Diagnostic                                                                              |
+| ---------------------------------------------------------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------- |
+| Import graph is resolved deterministically with dependency ordering                                  | Implemented            | `test/pr10_imports.test.ts`                                                                        |
+| Import cycles are rejected with stable diagnostics + import-site span                                | Intentionally rejected | diagnostic contains `Import cycle detected` with pinned line/column in `test/pr10_imports.test.ts` |
+| Include search paths are honored in order                                                            | Implemented            | `test/pr11_include_dirs.test.ts`                                                                   |
+| Missing import diagnostics include attempted paths + source span                                     | Implemented            | `test/pr11_include_dirs.test.ts`, `test/pr242_import_resolution_diag_spans.test.ts`                |
+| `export` is limited to `const`/`func`/`op` and other targets are rejected without parse-side effects | Implemented            | `test/pr157_export_malformed_matrix.test.ts`                                                       |
 
 ### 10.2 Data/layout contracts (`2.2`, `5.x`, `6.x`)
 
@@ -200,6 +200,7 @@ The following tests assert line/column-bearing diagnostics to ensure span stabil
 
 | Evidence                                                       | What is asserted                                                                                                                                                                               |
 | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test/pr10_imports.test.ts`                                    | Import-cycle diagnostics include stable import-site `file`, `line`, and `column`                                                                                                               |
 | `test/pr12_calls.test.ts`                                      | Wrong-arity call diagnostics include stable `file`, `line`, `column`                                                                                                                           |
 | `test/semantics_layout.test.ts`                                | Type diagnostics are generated from source spans in semantic evaluation                                                                                                                        |
 | `test/pr15_structured_control.test.ts`                         | Parser/lowering diagnostics remain single and stable for malformed control constructs                                                                                                          |

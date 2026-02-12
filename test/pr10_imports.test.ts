@@ -35,9 +35,16 @@ describe('PR10 imports + packing', () => {
 
   it('reports import cycles', async () => {
     const entry = join(__dirname, 'fixtures', 'pr10_cycle_a.zax');
+    const cycleB = join(__dirname, 'fixtures', 'pr10_cycle_b.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
-    expect(res.diagnostics.some((d) => d.id === DiagnosticIds.SemanticsError)).toBe(true);
-    expect(res.diagnostics.some((d) => d.message.includes('Import cycle detected'))).toBe(true);
+
+    const cycleDiag = res.diagnostics.find(
+      (d) => d.id === DiagnosticIds.SemanticsError && d.message.includes('Import cycle detected'),
+    );
+    expect(cycleDiag).toBeDefined();
+    expect(cycleDiag?.file).toBe(cycleB);
+    expect(cycleDiag?.line).toBe(2);
+    expect(cycleDiag?.column).toBe(1);
   });
 });
