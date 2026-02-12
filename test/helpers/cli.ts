@@ -33,33 +33,43 @@ async function pathExists(path: string): Promise<boolean> {
 
 type LockMeta = { pid?: number; createdAt?: number };
 
+function parsePid(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+    return undefined;
+  }
+  return value > 0 ? value : undefined;
+}
+
+function parseCreatedAt(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+    return undefined;
+  }
+  return value >= 0 ? value : undefined;
+}
+
 function parseLockMeta(raw: string): LockMeta | undefined {
   const trimmed = raw.trim();
   if (!trimmed) return undefined;
   try {
     const parsedUnknown = JSON.parse(trimmed) as unknown;
-    if (typeof parsedUnknown === 'number' && Number.isFinite(parsedUnknown)) {
-      return { createdAt: parsedUnknown };
+    const parsedNumber = parseCreatedAt(parsedUnknown);
+    if (parsedNumber !== undefined) {
+      return { createdAt: parsedNumber };
     }
     if (parsedUnknown === null || typeof parsedUnknown !== 'object') {
       return undefined;
     }
     const parsed = parsedUnknown as { pid?: unknown; createdAt?: unknown };
-    const pid =
-      typeof parsed.pid === 'number' && Number.isFinite(parsed.pid) ? parsed.pid : undefined;
-    const createdAt =
-      typeof parsed.createdAt === 'number' && Number.isFinite(parsed.createdAt)
-        ? parsed.createdAt
-        : undefined;
+    const pid = parsePid(parsed.pid);
+    const createdAt = parseCreatedAt(parsed.createdAt);
     if (pid === undefined && createdAt === undefined) return undefined;
     const lockMeta: LockMeta = {};
     if (pid !== undefined) lockMeta.pid = pid;
     if (createdAt !== undefined) lockMeta.createdAt = createdAt;
     return lockMeta;
   } catch {
-    const numeric = Number(trimmed);
-    if (!Number.isFinite(numeric)) return undefined;
-    return { createdAt: numeric };
+    const numeric = parseCreatedAt(Number(trimmed));
+    return numeric === undefined ? undefined : { createdAt: numeric };
   }
 }
 

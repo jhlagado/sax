@@ -21,6 +21,17 @@ describe('PR249 CLI build-lock eviction matrix', () => {
     expect(parseLockMeta('123')).toEqual({ createdAt: 123 });
   });
 
+  it('rejects invalid pid/createdAt values in parsed lock metadata', () => {
+    expect(parseLockMeta('{"pid": -1, "createdAt": 42}')).toEqual({ createdAt: 42 });
+    expect(parseLockMeta('{"pid": 0, "createdAt": 42}')).toEqual({ createdAt: 42 });
+    expect(parseLockMeta('{"pid": 12.5, "createdAt": 42}')).toEqual({ createdAt: 42 });
+    expect(parseLockMeta('{"pid": 1234, "createdAt": -1}')).toEqual({ pid: 1234 });
+    expect(parseLockMeta('{"pid": 1234, "createdAt": 12.5}')).toEqual({ pid: 1234 });
+    expect(parseLockMeta('{"pid": -1, "createdAt": -1}')).toBeUndefined();
+    expect(parseLockMeta('-1')).toBeUndefined();
+    expect(parseLockMeta('12.5')).toBeUndefined();
+  });
+
   it('never evicts unknown or malformed lock metadata', () => {
     const isOwnerAlive = () => true;
     expect(
