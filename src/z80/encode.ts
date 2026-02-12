@@ -38,6 +38,39 @@ function regName(op: AsmOperandNode): string | undefined {
   return op.kind === 'Reg' ? op.name.toUpperCase() : undefined;
 }
 
+function registerTokenName(op: AsmOperandNode): string | undefined {
+  const name =
+    op.kind === 'Reg'
+      ? op.name.toUpperCase()
+      : op.kind === 'Imm' && op.expr.kind === 'ImmName'
+        ? op.expr.name.toUpperCase()
+        : undefined;
+  if (!name) return undefined;
+  switch (name) {
+    case 'A':
+    case 'B':
+    case 'C':
+    case 'D':
+    case 'E':
+    case 'H':
+    case 'L':
+    case 'BC':
+    case 'DE':
+    case 'HL':
+    case 'SP':
+    case 'AF':
+    case 'IX':
+    case 'IY':
+    case 'IXH':
+    case 'IXL':
+    case 'IYH':
+    case 'IYL':
+      return name;
+    default:
+      return undefined;
+  }
+}
+
 function reg8Code(name: string): number | undefined {
   switch (name.toUpperCase()) {
     case 'B':
@@ -583,6 +616,10 @@ export function encodeInstruction(
       diag(diagnostics, node, `call does not support indirect targets; use imm16`);
       return undefined;
     }
+    if (registerTokenName(ops[0]!) !== undefined && immValue(ops[0]!, env) === undefined) {
+      diag(diagnostics, node, `call does not support register targets; use imm16`);
+      return undefined;
+    }
     const cc = conditionName(ops[0]!) ?? symbolicImmBaseName(ops[0]!, env);
     if (cc && callConditionOpcode(cc) !== undefined) {
       diag(diagnostics, node, `call cc, nn expects two operands (cc, nn)`);
@@ -621,6 +658,10 @@ export function encodeInstruction(
   if (head === 'djnz' && ops.length === 1) {
     if (ops[0]!.kind === 'Mem') {
       diag(diagnostics, node, `djnz does not support indirect targets; expects disp8`);
+      return undefined;
+    }
+    if (registerTokenName(ops[0]!) !== undefined && immValue(ops[0]!, env) === undefined) {
+      diag(diagnostics, node, `djnz does not support register targets; expects disp8`);
       return undefined;
     }
     const n = immValue(ops[0]!, env);
@@ -785,13 +826,23 @@ export function encodeInstruction(
       diag(diagnostics, node, `jp indirect form supports (hl), (ix), or (iy) only`);
       return undefined;
     }
+    const jpReg = registerTokenName(ops[0]!);
+    const jpImm = immValue(ops[0]!, env);
+    if (jpReg !== undefined && jpImm === undefined) {
+      if (jpReg === 'HL' || jpReg === 'IX' || jpReg === 'IY') {
+        diag(diagnostics, node, `jp indirect form requires parentheses; use (hl), (ix), or (iy)`);
+        return undefined;
+      }
+      diag(diagnostics, node, `jp does not support register targets; use imm16`);
+      return undefined;
+    }
 
     const cc = conditionName(ops[0]!) ?? symbolicImmBaseName(ops[0]!, env);
     if (cc && jpConditionOpcode(cc) !== undefined) {
       diag(diagnostics, node, `jp cc, nn expects two operands (cc, nn)`);
       return undefined;
     }
-    const n = immValue(ops[0]!, env);
+    const n = jpImm;
     if (n === undefined || n < 0 || n > 0xffff) {
       diag(diagnostics, node, `jp expects imm16`);
       return undefined;
@@ -824,6 +875,10 @@ export function encodeInstruction(
   if (head === 'jr' && ops.length === 1) {
     if (ops[0]!.kind === 'Mem') {
       diag(diagnostics, node, `jr does not support indirect targets; expects disp8`);
+      return undefined;
+    }
+    if (registerTokenName(ops[0]!) !== undefined && immValue(ops[0]!, env) === undefined) {
+      diag(diagnostics, node, `jr does not support register targets; expects disp8`);
       return undefined;
     }
     const cc = conditionName(ops[0]!) ?? symbolicImmBaseName(ops[0]!, env);

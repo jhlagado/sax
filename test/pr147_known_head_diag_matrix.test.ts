@@ -21,14 +21,14 @@ describe('PR147: broad known-head diagnostic matrix', () => {
     expect(messages).toContain('push supports BC/DE/HL/AF/IX/IY only');
     expect(messages).toContain('pop supports BC/DE/HL/AF/IX/IY only');
     expect(messages).toContain('ex expects two operands');
-    expect(messages).toContain('call expects imm16');
+    expect(messages).toContain('call does not support register targets; use imm16');
     expect(messages).toContain('call cc, nn expects two operands (cc, nn)');
     expect(messages).toContain('call cc, nn expects imm16');
     expect(messages).toContain('jp cc, nn expects two operands (cc, nn)');
     expect(messages).toContain('jp indirect form supports (hl), (ix), or (iy) only');
     expect(messages).toContain('jr cc, disp expects two operands (cc, disp8)');
     expect(messages).toContain('jr cc expects valid condition code NZ/Z/NC/C');
-    expect(messages).toContain('djnz expects disp8');
+    expect(messages).toContain('djnz does not support register targets; expects disp8');
     expect(messages).toContain('rst expects an imm8 multiple of 8 (0..56)');
     expect(messages).toContain('im expects 0, 1, or 2');
     expect(messages).toContain('in a,(n) expects an imm8 port number');

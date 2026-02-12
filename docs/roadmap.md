@@ -11,7 +11,7 @@ Core policy:
 
 Progress snapshot (rough, assembler-first):
 
-- Completed PR anchors listed below: 100
+- Completed PR anchors listed below: 101
 - Assembler completion gates fully green: 0/6
 - Integration readiness with Debug80: not yet (gates not satisfied)
 
@@ -236,14 +236,15 @@ Use only real GitHub PR numbers:
 
 Open / in review (anchored):
 
-1. #194: lowering/frame/op safety pass (call-like boundary diagnostics for positive tracked stack deltas with stack slots, plus regression matrix coverage).
+1. #195: ISA coverage tranche (explicit register-target diagnostics parity for malformed `call`/`jp`/`jr`/`djnz` flows, plus matrix coverage).
 
 Next PR (anchored as soon as opened):
 
-1. Next PR: ISA coverage tranche (prioritize v0.1 workflows + fixtures).
+1. Next PR: hardening/acceptance pass (expand negative-contract classes and acceptance-matrix strictness).
 
 Completed (anchored, most recent first):
 
+1. #194: lowering/frame/op safety pass (call-like boundary diagnostics for positive tracked stack deltas with stack slots, plus regression matrix coverage).
 1. #193: parser/AST closure pass (malformed declaration-header diagnostic ordering + line/column span matrix expansion, plus stale subset-note cleanup).
 1. #192: hardening/acceptance pass (CLI failure-class contract matrix expansion + stable diagnostic IDs in CLI compile-error output).
 1. #191: lowering/codegen stabilization pass (`rst` call-boundary stack-contract diagnostics for unknown/untracked stack states, with matrix coverage).
