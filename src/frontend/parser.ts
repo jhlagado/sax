@@ -23,6 +23,7 @@ import type {
   OpDeclNode,
   OpMatcherNode,
   OpParamNode,
+  OffsetofPathNode,
   ParamNode,
   ProgramNode,
   RecordFieldNode,
@@ -158,6 +159,8 @@ type ImmToken =
   | { kind: 'num'; text: string }
   | { kind: 'ident'; text: string }
   | { kind: 'op'; text: string }
+  | { kind: 'comma' }
+  | { kind: 'dot' }
   | { kind: 'lparen' }
   | { kind: 'rparen' }
   | { kind: 'lbrack' }
@@ -175,6 +178,16 @@ function tokenizeImm(text: string): ImmToken[] | undefined {
     }
     if (ch === '(') {
       out.push({ kind: 'lparen' });
+      i++;
+      continue;
+    }
+    if (ch === ',') {
+      out.push({ kind: 'comma' });
+      i++;
+      continue;
+    }
+    if (ch === '.') {
+      out.push({ kind: 'dot' });
       i++;
       continue;
     }
@@ -320,6 +333,61 @@ function parseImmExprFromText(
   const tokens = tokenized;
   let idx = 0;
 
+  function parseBuiltinTypeExprArg(): TypeExprNode | undefined {
+    const arg = tokens[idx];
+    if (!arg || arg.kind !== 'ident') return undefined;
+    idx++;
+
+    let typeExpr: TypeExprNode = { kind: 'TypeName', span: exprSpan, name: arg.text };
+    while (tokens[idx]?.kind === 'lbrack') {
+      idx++;
+      const lenTok = tokens[idx];
+      if (!lenTok || lenTok.kind !== 'num') return undefined;
+      if (!/^[0-9]+$/.test(lenTok.text)) return undefined;
+      const len = Number.parseInt(lenTok.text, 10);
+      idx++;
+      if (tokens[idx]?.kind !== 'rbrack') return undefined;
+      idx++;
+      typeExpr = { kind: 'ArrayType', span: exprSpan, element: typeExpr, length: len };
+    }
+    return typeExpr;
+  }
+
+  function parseOffsetofPathArg(): OffsetofPathNode | undefined {
+    const root = tokens[idx];
+    if (!root || root.kind !== 'ident') return undefined;
+    idx++;
+
+    const path: OffsetofPathNode = {
+      kind: 'OffsetofPath',
+      span: exprSpan,
+      base: root.text,
+      steps: [],
+    };
+
+    while (true) {
+      if (tokens[idx]?.kind === 'dot') {
+        idx++;
+        const fieldTok = tokens[idx];
+        if (!fieldTok || fieldTok.kind !== 'ident') return undefined;
+        idx++;
+        path.steps.push({ kind: 'OffsetofField', span: exprSpan, name: fieldTok.text });
+        continue;
+      }
+      if (tokens[idx]?.kind === 'lbrack') {
+        idx++;
+        const inner = parseExpr(1);
+        if (!inner) return undefined;
+        if (tokens[idx]?.kind !== 'rbrack') return undefined;
+        idx++;
+        path.steps.push({ kind: 'OffsetofIndex', span: exprSpan, expr: inner });
+        continue;
+      }
+      break;
+    }
+    return path;
+  }
+
   function parseExpr(minPrec: number): ImmExprNode | undefined {
     let left = parsePrimary();
     if (!left) return undefined;
@@ -348,29 +416,31 @@ function parseImmExprFromText(
     if (t.kind === 'ident') {
       if (t.text === 'sizeof' && tokens[idx + 1]?.kind === 'lparen') {
         idx += 2; // sizeof (
-        const arg = tokens[idx];
-        if (!arg || arg.kind !== 'ident') return undefined;
-        idx++;
-
-        let typeExpr: TypeExprNode = { kind: 'TypeName', span: exprSpan, name: arg.text };
-        while (tokens[idx]?.kind === 'lbrack') {
-          idx++;
-          const lenTok = tokens[idx];
-          if (!lenTok || lenTok.kind !== 'num') return undefined;
-          if (!/^[0-9]+$/.test(lenTok.text)) return undefined;
-          const len = Number.parseInt(lenTok.text, 10);
-          idx++;
-          if (tokens[idx]?.kind !== 'rbrack') return undefined;
-          idx++;
-          typeExpr = { kind: 'ArrayType', span: exprSpan, element: typeExpr, length: len };
-        }
-
+        const typeExpr = parseBuiltinTypeExprArg();
+        if (!typeExpr) return undefined;
         if (tokens[idx]?.kind !== 'rparen') return undefined;
         idx++;
         return {
           kind: 'ImmSizeof',
           span: exprSpan,
           typeExpr,
+        };
+      }
+      if (t.text === 'offsetof' && tokens[idx + 1]?.kind === 'lparen') {
+        idx += 2; // offsetof (
+        const typeExpr = parseBuiltinTypeExprArg();
+        if (!typeExpr) return undefined;
+        if (tokens[idx]?.kind !== 'comma') return undefined;
+        idx++;
+        const path = parseOffsetofPathArg();
+        if (!path) return undefined;
+        if (tokens[idx]?.kind !== 'rparen') return undefined;
+        idx++;
+        return {
+          kind: 'ImmOffsetof',
+          span: exprSpan,
+          typeExpr,
+          path,
         };
       }
       idx++;

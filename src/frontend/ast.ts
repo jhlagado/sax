@@ -361,6 +361,7 @@ export type ImmExprNode =
   | { kind: 'ImmLiteral'; span: SourceSpan; value: number }
   | { kind: 'ImmName'; span: SourceSpan; name: string }
   | { kind: 'ImmSizeof'; span: SourceSpan; typeExpr: TypeExprNode }
+  | { kind: 'ImmOffsetof'; span: SourceSpan; typeExpr: TypeExprNode; path: OffsetofPathNode }
   | { kind: 'ImmUnary'; span: SourceSpan; op: '+' | '-' | '~'; expr: ImmExprNode }
   | {
       kind: 'ImmBinary';
@@ -399,6 +400,19 @@ export type EaIndexNode =
   | { kind: 'IndexEa'; span: SourceSpan; expr: EaExprNode };
 
 /**
+ * Field path used by `offsetof(Type, path)` built-in.
+ */
+export interface OffsetofPathNode extends BaseNode {
+  kind: 'OffsetofPath';
+  base: string;
+  steps: OffsetofPathStepNode[];
+}
+
+export type OffsetofPathStepNode =
+  | { kind: 'OffsetofField'; span: SourceSpan; name: string }
+  | { kind: 'OffsetofIndex'; span: SourceSpan; expr: ImmExprNode };
+
+/**
  * Union of all AST node types.
  */
 export type Node =
@@ -418,5 +432,7 @@ export type Node =
   | ImmExprNode
   | EaExprNode
   | EaIndexNode
+  | OffsetofPathNode
+  | OffsetofPathStepNode
   | DataInitializerNode
   | OpMatcherNode;

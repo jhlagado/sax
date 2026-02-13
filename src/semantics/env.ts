@@ -11,7 +11,7 @@ import type {
   TypeDeclNode,
   UnionDeclNode,
 } from '../frontend/ast.js';
-import { sizeOfTypeExpr } from './layout.js';
+import { offsetOfPathInTypeExpr, sizeOfTypeExpr } from './layout.js';
 
 /**
  * Immutable compilation environment for PR2: resolved constant and enum member values.
@@ -67,6 +67,15 @@ export function evalImmExpr(
     }
     case 'ImmSizeof': {
       return sizeOfTypeExpr(expr.typeExpr, env, diagnostics);
+    }
+    case 'ImmOffsetof': {
+      return offsetOfPathInTypeExpr(
+        expr.typeExpr,
+        expr.path,
+        env,
+        (inner) => evalImmExpr(inner, env, diagnostics),
+        diagnostics,
+      );
     }
     case 'ImmUnary': {
       const v = evalImmExpr(expr.expr, env, diagnostics);

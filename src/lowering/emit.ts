@@ -515,9 +515,17 @@ export function emitProgram(
   };
 
   const cloneImmExpr = (expr: ImmExprNode): ImmExprNode => {
+    const cloneOffsetofPath = (path: any): any => ({
+      ...path,
+      steps: path.steps.map((step: any) =>
+        step.kind === 'OffsetofIndex' ? { ...step, expr: cloneImmExpr(step.expr) } : { ...step },
+      ),
+    });
     if (expr.kind === 'ImmLiteral') return { ...expr };
     if (expr.kind === 'ImmName') return { ...expr };
     if (expr.kind === 'ImmSizeof') return { ...expr };
+    if (expr.kind === 'ImmOffsetof')
+      return { ...expr, path: cloneOffsetofPath(expr.path) as typeof expr.path };
     if (expr.kind === 'ImmUnary') return { ...expr, expr: cloneImmExpr(expr.expr) };
     return { ...expr, left: cloneImmExpr(expr.left), right: cloneImmExpr(expr.right) };
   };
@@ -2433,10 +2441,21 @@ export function emitProgram(
             }
 
             const substituteImm = (expr: ImmExprNode): ImmExprNode => {
+              const substituteOffsetofPath = (path: any): any => ({
+                ...path,
+                steps: path.steps.map((step: any) =>
+                  step.kind === 'OffsetofIndex'
+                    ? { ...step, expr: substituteImm(step.expr) }
+                    : { ...step },
+                ),
+              });
               if (expr.kind === 'ImmName') {
                 const bound = bindings.get(expr.name.toLowerCase());
                 if (bound && bound.kind === 'Imm') return cloneImmExpr(bound.expr);
                 return { ...expr };
+              }
+              if (expr.kind === 'ImmOffsetof') {
+                return { ...expr, path: substituteOffsetofPath(expr.path) as typeof expr.path };
               }
               if (expr.kind === 'ImmUnary') return { ...expr, expr: substituteImm(expr.expr) };
               if (expr.kind === 'ImmBinary') {
@@ -2494,12 +2513,23 @@ export function emitProgram(
               }
 
               const substituteImmWithOpLabels = (expr: ImmExprNode): ImmExprNode => {
+                const substituteOffsetofPath = (path: any): any => ({
+                  ...path,
+                  steps: path.steps.map((step: any) =>
+                    step.kind === 'OffsetofIndex'
+                      ? { ...step, expr: substituteImmWithOpLabels(step.expr) }
+                      : { ...step },
+                  ),
+                });
                 if (expr.kind === 'ImmName') {
                   const bound = bindings.get(expr.name.toLowerCase());
                   if (bound && bound.kind === 'Imm') return cloneImmExpr(bound.expr);
                   const mapped = localLabelMap.get(expr.name.toLowerCase());
                   if (mapped) return { kind: 'ImmName', span: expr.span, name: mapped };
                   return { ...expr };
+                }
+                if (expr.kind === 'ImmOffsetof') {
+                  return { ...expr, path: substituteOffsetofPath(expr.path) as typeof expr.path };
                 }
                 if (expr.kind === 'ImmUnary') {
                   return { ...expr, expr: substituteImmWithOpLabels(expr.expr) };
