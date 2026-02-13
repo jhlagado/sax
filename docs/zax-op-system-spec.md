@@ -18,7 +18,8 @@ The document addresses both by stating normative rules precisely while also expl
 - Implementation notes marked "(impl)" are recommendations for compiler authors; any compliant implementation that produces the same observable behavior is acceptable.
 - Algorithm descriptions use pseudocode for clarity; actual implementation may differ in structure as long as behavior matches.
 
-**Version:** This specification corresponds to ZAX v0.1 as defined in the main spec.
+**Version:** This specification corresponds to ZAX v0.2 on `main`.
+Normative precedence: `docs/v01-scope-decisions.md` and `docs/zax-spec.md` govern behavior; this document expands op-specific details.
 
 **Related documents:**
 
@@ -54,7 +55,7 @@ Ops are _not_ functions. They have no stack frame, no calling convention, no ret
 | Stack frame           | None                               | Optional (if locals declared) |
 | Recursion             | Forbidden (cyclic expansion error) | Permitted                     |
 | Local variables       | Forbidden                          | Permitted (`var` block)       |
-| Overloading           | By operand matchers                | Not supported in v0.1         |
+| Overloading           | By operand matchers                | Not supported for functions   |
 | Register/flag effects | Inline code semantics              | Caller-save convention        |
 
 ### 1.3 When to Use Ops
@@ -121,9 +122,9 @@ op load_pair(dst: reg16, src: imm16)
 end
 ```
 
-The body is an implicit instruction stream. The `asm` marker keyword is not used in op bodies. The instructions in the body follow exactly the same grammar as instructions inside function instruction streams: raw Z80 mnemonics, other op invocations, and structured control flow (`if`/`while`/`repeat`/`select`) are permitted. **Local labels are not permitted inside op bodies in v0.1.**
+The body is an implicit instruction stream. The `asm` marker keyword is not used in op bodies. The instructions in the body follow exactly the same grammar as instructions inside function instruction streams: raw Z80 mnemonics, other op invocations, and structured control flow (`if`/`while`/`repeat`/`select`) are permitted. Local labels inside op bodies are allowed and must be hygienically rewritten per expansion site.
 
-Compatibility note (v0.1): early drafts allowed an explicit `asm` marker in declaration bodies. v0.1 removes that form. The parser emits explicit diagnostics when `asm` appears in function/op bodies and continues recovery.
+Compatibility note: early drafts allowed an explicit `asm` marker in declaration bodies. Current behavior removes that form. The parser emits explicit diagnostics when `asm` appears in function/op bodies and continues recovery.
 
 An op body may be empty (containing no instructions between the declaration line and `end`). This is occasionally useful as a no-op placeholder during development or as a deliberately empty specialization.
 
@@ -156,7 +157,7 @@ An op may invoke other ops in its body, but the expansion graph must be acyclic.
 
 **Forward references.** An op may be invoked before it is declared, consistent with ZAX's whole-program compilation model (Section 3.2 of the main spec). All op declarations are visible throughout the module and any importing modules.
 
-**Import visibility.** Ops follow the same visibility rules as other module-scope declarations. In v0.1, all ops are public; the `export` keyword is accepted for forward compatibility but has no effect.
+**Import visibility.** Ops follow the same visibility rules as other module-scope declarations. Ops are public; the `export` keyword is accepted for clarity/forward compatibility.
 
 ### 2.4 No Locals
 
@@ -178,7 +179,7 @@ The heart of the op system is its operand matchers. Each parameter in an op decl
 
 The distinction between a fixed matcher and a class matcher is central to overload resolution. When the caller writes `add16 HL, BC`, both an overload with `dst: HL` and an overload with `dst: reg16` would accept `HL` in the first position. The fixed matcher wins because it is more specific (Section 5).
 
-Note that `IX` and `IY` are usable in raw Z80 mnemonics throughout ZAX, but they are not supported by op matchers in v0.1. You cannot write `dst: IX` as a fixed matcher, nor does `reg16` match `IX` or `IY`. If you need IX/IY-aware ops, the v0.1 workaround is to use the index registers directly in the op body and accept a less-specific matcher for the parameter (or simply write the instruction sequence inline).
+`IX` and `IY` are matchable in v0.2 through `idx16`, and condition codes are matchable through `cc`.
 
 ### 3.2 Immediate Matchers
 
@@ -223,7 +224,7 @@ If `src` is bound to `(hero.flags)` via a `mem8` matcher, then `ld dst, src` exp
 
 ### 3.4 Matcher Summary
 
-The following table collects all matcher types available in v0.1. The "Accepts" column describes what call-site operands can bind to a parameter of that type. The "Substitutes as" column describes what appears in the expanded op body.
+The following table collects matcher types available in v0.2. The "Accepts" column describes what call-site operands can bind to a parameter of that type. The "Substitutes as" column describes what appears in the expanded op body.
 
 | Matcher | Accepts                                | Substitutes as                        |
 | ------- | -------------------------------------- | ------------------------------------- |
@@ -239,14 +240,12 @@ The following table collects all matcher types available in v0.1. The "Accepts" 
 | `ea`    | Effective-address expression           | The address expression (no parens)    |
 | `mem8`  | `(ea)` dereference, byte-width implied | The full dereference including parens |
 | `mem16` | `(ea)` dereference, word-width implied | The full dereference including parens |
+| `idx16` | `IX` or `IY`                           | The index register token              |
+| `cc`    | `Z NZ C NC PE PO M P`                  | The condition-code token              |
 
-### 3.5 What Matchers Do Not Cover in v0.1
+### 3.5 What Matchers Do Not Cover in v0.2
 
-Several operand forms that exist in Z80 assembly are not represented by op matchers in v0.1:
-
-Condition codes (`Z`, `NZ`, `C`, `NC`, etc.) are not matchable as op parameters. You cannot write an op that accepts a condition code and dispatches on it. If you need condition-code polymorphism, write separate overloads or use structured control flow inside the op body.
-
-Index registers (`IX`, `IY`) and their displacement forms (`(IX+d)`, `(IY+d)`) are not matchable. They can appear in raw instructions inside an op body, but they cannot be bound as parameters.
+Several operand forms that exist in Z80 assembly are still not represented by dedicated op matchers in v0.2:
 
 The `(HL)` memory operand used in Z80 byte-access instructions (like `ld a, (hl)`) is a register-indirect form, not an `ea` dereference in ZAX's sense. Its interaction with `mem8` matching is as follows: `(HL)` at a call site does not match `mem8` because `HL` is not an `ea` expression — it is a register. If you need to accept `(HL)` as an op parameter, use the fixed form in the op body directly, or provide a separate overload.
 
@@ -310,11 +309,11 @@ Expanding `safe_add16 DE, BC` first substitutes `DE` and `BC` into the body, pro
 
 The compiler tracks the expansion stack and reports a cyclic expansion error if it detects that expanding op `X` eventually leads back to expanding op `X` again, regardless of the depth of nesting.
 
-### 4.4 Labels Inside Ops (v0.1 Rule)
+### 4.4 Labels Inside Ops (v0.2 Rule)
 
-Local labels are **forbidden** inside op bodies in v0.1. This avoids introducing label-hygiene and name-mangling machinery in the first implementation. Any `<ident>:` label definition encountered inside an op body is a compile error.
+Local labels are allowed inside op bodies in v0.2. Implementations must perform hygiene/name-mangling per expansion site so independent expansion instances cannot collide.
 
-**(impl)** The compiler should reject op bodies containing label definitions during parsing of the op body (or during validation before expansion), with a diagnostic that explicitly states local labels are not permitted inside ops in v0.1.
+**(impl)** The compiler should rewrite op-local labels to unique internal names keyed by expansion site while preserving diagnostics at source-level labels.
 
 ### 4.5 Expansion Algorithm Summary
 
@@ -526,11 +525,11 @@ Overload resolution requires that the call-site operand count matches the parame
 
 ---
 
-## 6. Register/Flag Effects (v0.1)
+## 6. Register/Flag Effects (v0.2)
 
-Ops are **inline expansions**. They do not have a special preservation guarantee in v0.1. An op body behaves like any other inline instruction sequence: it may read or write registers and flags according to the Z80 instruction semantics used in the body. There is **no compiler-inserted autosave** and no mandatory clobber policy in the op system itself.
+Ops are **inline expansions**. They do not have a special preservation guarantee by themselves. An op body behaves like any other inline instruction sequence: it may read or write registers and flags according to the Z80 instruction semantics used in the body. There is **no compiler-inserted autosave** and no mandatory clobber policy in the op system itself.
 
-If you want register-effect reporting (e.g., “this op clobbers `HL` and flags”), that is a **separate, passive analysis** of the emitted instructions. Such analysis may be performed by the assembler or tooling and may be used for documentation, linting, or diagnostics, but it is not a normative part of op expansion in v0.1.
+If you want register-effect reporting (e.g., "this op clobbers `HL` and flags"), that is a **separate, passive analysis** of the emitted instructions. Such analysis may be performed by the assembler or tooling and may be used for documentation, linting, or diagnostics, but it is not a normative part of op expansion.
 
 ### 6.1 Structured Control Flow in Op Bodies
 
@@ -621,7 +620,7 @@ end
 
 Invoked as `fill8 screenBuffer, $20, 80`, this expands to a loop that writes the value `$20` to 80 consecutive bytes starting at the address `screenBuffer`. The `ea` matcher binds to the effective address of `screenBuffer` (its location in memory), and the two `imm8` matchers bind to the literal values.
 
-Note that this op clobbers `HL`, `B`, and `A` internally, plus flags. Because ops have no automatic preservation in v0.1, these effects are visible to the caller unless the op body explicitly saves/restores registers.
+Note that this op clobbers `HL`, `B`, and `A` internally, plus flags. Because ops have no automatic preservation, these effects are visible to the caller unless the op body explicitly saves/restores registers.
 
 ### 7.3 Overload Resolution in Action
 
@@ -678,7 +677,7 @@ note: available overloads:
   - add16(dst: HL, src: reg16)    ; HL does not match IX
   - add16(dst: DE, src: reg16)    ; DE does not match IX
   - add16(dst: BC, src: reg16)    ; BC does not match IX
-help: IX is not supported by op matchers in v0.1
+help: use `idx16` for IX/IY matcher-based overloads in v0.2
 ```
 
 ### 8.2 Ambiguous Overload
@@ -806,17 +805,13 @@ The decision to make ops operate on parsed AST nodes rather than raw text was dr
 
 **Compiler integration.** Because the compiler understands the op's parameter types and body structure, it can validate substitutions, check stack deltas, and produce meaningful diagnostics. None of this is possible with text substitution.
 
-### 9.2 What v0.1 Intentionally Omits
+### 9.2 What v0.2 Intentionally Omits
 
-Several features that would be natural extensions of the op system are intentionally omitted from v0.1 to keep the initial implementation tractable:
-
-**Condition-code matchers.** A `cc` matcher type that binds to `Z`, `NZ`, `C`, `NC`, etc. would enable ops that abstract over conditional behavior. This is deferred because it complicates overload resolution and condition handling.
-
-**IX/IY matchers.** Extending `reg16` (or adding `idx16`) to cover `IX` and `IY` would be useful but requires rethinking displacement handling in the matcher system.
+Several features that would be natural extensions of the op system are intentionally omitted from v0.2 to keep the implementation tractable:
 
 **Variadic parameters.** Ops with a variable number of operands (e.g., a `push_all` that saves an arbitrary set of registers) would be powerful but significantly complicate overload resolution.
 
-**Typed pointer/array matchers.** Matching on the _type_ of an `ea` (e.g., "this must be an address of a `Sprite` record") would enable safer ops but requires deeper type system integration than v0.1 supports.
+**Typed pointer/array matchers.** Matching on the _type_ of an `ea` (e.g., "this must be an address of a `Sprite` record") would enable safer ops but requires deeper type system integration than v0.2 currently supports.
 
 **Guard expressions.** Allowing overloads to specify additional constraints beyond matcher types (e.g., "only when `imm8` value is non-zero") would increase expressiveness but adds complexity to the resolution algorithm.
 
@@ -826,7 +821,7 @@ These omissions are deliberate scope boundaries, not oversights. They represent 
 
 ## 10. Summary of Normative Rules
 
-For quick reference, the normative rules governing ops in v0.1 are:
+For quick reference, the normative rules governing ops in v0.2 are:
 
 Ops are module-scope declarations. They may not be nested inside functions or other ops. Op invocations are permitted inside function/op instruction streams. Bodies are implicit instruction streams terminated by `end`. Bodies may be empty. Bodies may contain structured control flow, raw Z80 instructions, and other op invocations. Bodies may not contain `var` blocks.
 
@@ -852,7 +847,7 @@ When an op expands to multiple instructions, the debugger needs to know which so
 
 ### 11.2 Recommended Policy
 
-**(impl)** For v0.1, the recommended policy is:
+**(impl)** For v0.2, the recommended policy is:
 
 - All instructions in an op expansion are attributed to the **call site** (the line containing the op invocation).
 - The D8M segment for the expansion has `kind: "macro"` to indicate it resulted from op expansion.
@@ -868,7 +863,7 @@ Future versions may support stepping _into_ op expansions, showing the op body s
 - Debugger support for "step into macro" vs "step over macro"
 - UI to show macro expansion context
 
-These features are out of scope for v0.1.
+These features are out of scope for v0.2.
 
 ### 11.4 Symbol Table
 
@@ -895,9 +890,7 @@ Ops are expanded inline within the enclosing function instruction stream. This m
 An op body may invoke a function using the normal function-call syntax (Section 8.3 of the main spec). When this happens:
 
 - The compiler generates the call sequence (push arguments, `call`, pop arguments)
-- The typed-call boundary follows the active ABI:
-  - `v0.1`: call-clobber semantics (`AF/BC/DE/HL` volatile)
-  - `v0.2`: preservation-safe boundary (`void`: preserve all; non-void: only `HL` output may change)
+- The typed-call boundary is preservation-safe in v0.2 (`void`: preserve all; non-void: only `HL` output may change).
 - Any additional clobbers are from surrounding op instructions (ops still have no automatic preservation)
 
 This interaction can lead to significant expansion overhead. Consider:
@@ -909,7 +902,7 @@ op process_with_log(dst: reg16, src: imm16)
 end
 ```
 
-In `v0.2`, the function call boundary itself is preservation-safe; visible clobbers come from explicit instructions in the op body. In `v0.1`, call clobbers remain visible unless the op body explicitly saves/restores registers.
+In v0.2, the function call boundary itself is preservation-safe; visible clobbers come from explicit instructions in the op body.
 
 **Guidance for op authors:** Avoid function calls inside ops when possible. If you must call a function, consider whether the op should be a function instead.
 
@@ -930,18 +923,18 @@ This is permitted, but the net stack delta must still be zero. Any save/restore 
 
 ### 12.4 Calling Ops from Functions vs Calling Functions from Ops
 
-| Scenario                | Effect                                                                                                            |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Function calls op       | Op expands inline; function's frame unaffected                                                                    |
-| Op calls function       | Full call sequence generated; call-boundary effects follow active ABI (`v0.1` clobber / `v0.2` preservation-safe) |
-| Op calls op             | Nested inline expansion; no call overhead                                                                         |
-| Function calls function | Normal call/ret; stack frame management                                                                           |
+| Scenario                | Effect                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| Function calls op       | Op expands inline; function's frame unaffected                                      |
+| Op calls function       | Full call sequence generated; typed call boundary remains preservation-safe in v0.2 |
+| Op calls op             | Nested inline expansion; no call overhead                                           |
+| Function calls function | Normal call/ret; stack frame management                                             |
 
 ---
 
 ## Appendix A: Implementation Checklist
 
-This checklist is for compiler implementers. It covers the essential components needed for a compliant v0.1 op implementation.
+This checklist is for compiler implementers. It covers the essential components needed for a compliant v0.2 op implementation.
 
 ### A.1 Parser
 

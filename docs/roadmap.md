@@ -2,6 +2,8 @@
 
 This roadmap replaces optimistic status tracking with a risk-first plan.
 
+Normative behavior is defined by `docs/zax-spec.md` and `docs/v01-scope-decisions.md`. This roadmap is execution planning, not a language authority.
+
 Core policy:
 
 - Build a fully working assembler first.
@@ -33,14 +35,14 @@ Working estimate scorecard (risk-weighted, subjective):
 What moves the needle fastest:
 
 - Make the CLI/output gate real: implement `docs/zax-cli.md` options in code, and add contract tests that verify the artifact set and naming rules.
-- Expand ISA coverage with fixtures + negative tests until every instruction needed by `examples/*.zax` and the v0.1 spec is supported (or explicitly rejected).
+- Expand ISA coverage with fixtures + negative tests until every instruction needed by `examples/*.zax` and the active spec is supported (or explicitly rejected).
 - Add hardening gates that are difficult to game: examples compile (already exists) plus determinism checks and broad negative fixture classes.
 
 ---
 
 ## 1) Reality Check (Current State)
 
-The codebase has meaningful progress, but it is **not near complete** for a production-grade v0.1 assembler.
+The codebase has meaningful progress, but it is **not near complete** for a production-grade v0.2 assembler.
 
 ### What exists
 
@@ -93,7 +95,7 @@ Treat ZAX as "integration-ready" only when every gate below is green:
 
 1. Spec gate
 
-- All `v0.1` features in `docs/zax-spec.md` are implemented, or intentionally rejected with stable diagnostics.
+- All active features in `docs/zax-spec.md` + `docs/v01-scope-decisions.md` are implemented, or intentionally rejected with stable diagnostics.
 
 1. Parser/AST gate
 
@@ -109,7 +111,7 @@ Treat ZAX as "integration-ready" only when every gate below is green:
 
 1. ISA gate
 
-- Required Z80 instruction subset for v0.1 examples and intended workflows is implemented and tested.
+- Required Z80 instruction subset for active examples and intended workflows is implemented and tested.
 - Relative branch range validation exists where applicable.
 
 1. CLI/output gate

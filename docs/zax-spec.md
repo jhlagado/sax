@@ -1,4 +1,4 @@
-# ZAX Language Specification (Draft v0.1)
+# ZAX Language Specification (Draft v0.2)
 
 This document is the implementable first draft specification for **ZAX**, a structured assembler for the Z80 family. It is written for humans: it introduces concepts in the same order you’ll use them when writing ZAX.
 
@@ -10,7 +10,9 @@ ZAX aims to make assembly code easier to read and refactor by providing:
 - structured control flow inside function/op instruction streams (`if`/`while`/`repeat`/`select`)
 - `op`: inline “macro-instructions” with operand matching
 
-Anything not defined here is undefined behavior or a compile error in v0.1.
+Normative precedence for v0.2: `docs/v01-scope-decisions.md` is the governing design source. If this document and the scope-decisions document disagree, the scope-decisions document takes precedence until this spec is updated.
+
+Anything not defined here is undefined behavior or a compile error in v0.2.
 
 ---
 
@@ -336,11 +338,11 @@ Semantics:
 - Storage width is `byte` if member count ≤ 256, else `word`.
 - Enum members are immediate values usable in `imm` expressions.
 
-Enum name binding (v0.1):
+Enum name binding (v0.2):
 
-- Enum member names are introduced into the global namespace as immediate values.
-  - Example: after `enum Mode Read, Write`, `Read` and `Write` may be used in `imm` expressions.
-- Qualified member access (e.g., `Mode.Read`) is not supported in v0.1.
+- Enum members must be referenced with qualified form: `EnumType.Member`.
+  - Example: after `enum Mode Read, Write`, use `Mode.Read` and `Mode.Write` in `imm` expressions.
+- Unqualified enum member references are compile errors.
 
 Notes (v0.1):
 
@@ -359,9 +361,11 @@ export const Public = $8000
 
 - `const` values are compile-time `imm` expressions.
 
-Notes (v0.1):
+Notes (v0.2):
 
-- There is no built-in `sizeof`/`offsetof` in v0.1. If you need sizes or offsets, define them as explicit `const` values.
+- `sizeof(Type)` and `offsetof(Type, fieldPath)` are compile-time built-ins.
+- `sizeof` returns storage size (power-of-2 for composites).
+- `offsetof` returns byte offset using storage-size field progression.
 
 ---
 
@@ -798,12 +802,11 @@ Function-body block termination (v0.1):
 - Return values:
   - 16-bit return in `HL`
   - 8-bit return in `L`
-- Register/flag volatility:
-  - `v0.1` (release branch): functions may clobber any registers and flags (other than producing the return value in `HL`/`L`).
-  - `v0.2` (`main`): typed `func`/`extern func` call sites are preservation-safe at the language boundary.
-    - `void` calls preserve all registers and flags.
-    - non-`void` calls preserve all registers and flags except `HL` (return channel; `L` carries byte returns).
-    - this boundary guarantee is compiler-generated call glue; explicit raw Z80 `call` mnemonics remain raw assembly semantics.
+- Register/flag volatility (typed call boundary, v0.2):
+  - typed `func`/`extern func` call sites are preservation-safe at the language boundary.
+  - `void` calls preserve all registers and flags.
+  - non-`void` calls preserve all registers and flags except `HL` (return channel; `L` carries byte returns).
+  - this boundary guarantee is compiler-generated call glue; explicit raw Z80 `call` mnemonics remain raw assembly semantics.
 
 Notes (v0.1):
 
@@ -829,9 +832,9 @@ Argument values (v0.1):
 
 Calls follow the calling convention in 8.2 (compiler emits the required pushes, call, and any temporary saves/restores).
 
-Parsing and name resolution (v0.1):
+Parsing and name resolution (v0.2):
 
-- If an instruction line begins with `<ident>:` it defines a local label **inside a function body**. Local labels are **not permitted** inside `op` bodies in v0.1; any `<ident>:` definition in an `op` body is a compile error. Any remaining tokens on the line are parsed as another instruction line (mnemonic/`op`/call/etc.).
+- If an instruction line begins with `<ident>:` it defines a local label in a function or op body. Labels defined in op bodies are hygienically rewritten per expansion site to avoid collisions. Any remaining tokens on the line are parsed as another instruction line (mnemonic/`op`/call/etc.).
 - Otherwise, the first token of an instruction line is interpreted as:
   1. a structured-control keyword (`if`, `else`, `while`, `repeat`, `until`, `select`, `case`, `end`), else
   2. a Z80 mnemonic, else
@@ -919,7 +922,7 @@ Stack-depth constraints (v0.1):
 
 Normative reference:
 
-- The **op system specification** (`docs/zax-op-system-spec.md`) is the normative source for op expansion semantics, overload resolution, autosave/clobber rules, and diagnostics. This section is a compact summary for the core language spec; where the two documents overlap, the op system specification takes precedence.
+- The **op system specification** (`docs/zax-op-system-spec.md`) provides expanded implementation detail for op behavior. This document remains the primary language authority; op-system text should align with this spec and `docs/v01-scope-decisions.md`.
 
 ### 9.2 Declaration Form
 
@@ -949,7 +952,7 @@ Rules:
 - `op` invocations are permitted inside function/op instruction streams.
 - Cyclic `op` expansion is a compile error.
 
-Notes (v0.1):
+Notes (v0.2):
 
 - `op` bodies do not support `var` blocks. If an expansion needs temporaries, implement them via register usage and autosave (`push`/`pop`) as needed.
 
@@ -982,7 +985,8 @@ Notes (v0.1):
 - Matchers constrain call sites, but the `op` body must still be valid for all matched operands. If an expansion yields an illegal instruction form for a given call, compilation fails at that call site.
 - In `op` parameters, `mem8` and `mem16` disambiguate dereference width. In raw Z80 mnemonics, dereference width is implied by the instruction form (destination/source registers).
 - `reg16` includes `SP`; `op` authors should use fixed-register matchers if an expansion is only valid for a subset of register pairs.
-- `IX`/`IY` are usable in raw Z80 mnemonics but are not supported by `op` matchers in v0.1.
+- `IX`/`IY` indexed addressing is matchable via `idx16` matcher forms in v0.2.
+- Condition codes are matchable via `cc` in v0.2.
 
 Operand substitution (v0.1):
 
@@ -1005,17 +1009,15 @@ Specificity (v0.1):
 - `imm8` is more specific than `imm16` for values that fit in 8 bits.
 - `mem8`/`mem16` are more specific than `ea`.
 
-### 9.5 Autosave Clobber Policy
+### 9.5 Op Clobber and Stack Policy
 
-To keep `op` expansions transparent:
+Ops are inline expansions. They do not have a hidden preservation boundary of their own.
 
-- An `op` expansion must preserve all registers and flags **except** explicit destination(s).
-- The compiler may use scratch registers and `push/pop` internally.
-- Net stack delta must be zero.
+- Register/flag effects of an `op` are the effects of the expanded instruction sequence.
+- Net stack delta of an `op` expansion must be zero.
+- Preservation-safe behavior is guaranteed at typed function-call boundaries (Section 8.2), not at arbitrary inline `op` boundaries.
 
-The simplest implementation is permitted: always preserve flags (save/restore `AF`) unless `AF` is an explicit destination.
-
-Destination parameters (v0.1):
+Destination parameters (v0.2):
 
 - By convention, any `op` parameter whose name starts with `dst` or `out` (e.g., `dst`, `dst2`, `out`) is treated as a destination.
 - If an `op` declares no `dst*`/`out*` parameters, the first parameter is treated as the destination.
