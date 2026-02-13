@@ -21,7 +21,7 @@ describe('PR39 listing (.lst) artifact', () => {
 
     expect(lst!.text).toContain('; ZAX listing');
     expect(lst!.text).toContain('0000: 3E 05 C9 .. 48 45 4C 4C 4F');
-    expect(lst!.text).toContain('|>.. HELLO|');
+    expect(lst!.text).toContain('|>.. HELLO...|');
     expect(lst!.text).toMatch(/;\s+data\s+msg\s+=\s+\$0004/);
     expect(lst!.text).toMatch(/;\s+constant\s+MsgLen\s+=\s+\$0005\s+\(5\)/);
   });

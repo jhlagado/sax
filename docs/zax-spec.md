@@ -791,7 +791,12 @@ Function-body block termination (v0.1):
 - Return values:
   - 16-bit return in `HL`
   - 8-bit return in `L`
-- Register/flag volatility (v0.1): unless explicitly documented otherwise, functions may clobber any registers and flags (other than producing the return value in `HL`/`L`). The caller must save anything it needs preserved.
+- Register/flag volatility:
+  - `v0.1` (release branch): functions may clobber any registers and flags (other than producing the return value in `HL`/`L`).
+  - `v0.2` (`main`): typed `func`/`extern func` call sites are preservation-safe at the language boundary.
+    - `void` calls preserve all registers and flags.
+    - non-`void` calls preserve all registers and flags except `HL` (return channel; `L` carries byte returns).
+    - this boundary guarantee is compiler-generated call glue; explicit raw Z80 `call` mnemonics remain raw assembly semantics.
 
 Notes (v0.1):
 

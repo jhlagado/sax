@@ -2073,6 +2073,13 @@ export function emitProgram(
           if (callable) {
             const args = asmItem.operands;
             const params = callable.kind === 'func' ? callable.node.params : callable.node.params;
+            const returnType =
+              callable.kind === 'func' ? callable.node.returnType : callable.node.returnType;
+            const returnsVoid =
+              returnType.kind === 'TypeName' && returnType.name.toLowerCase() === 'void';
+            const preservedRegs = returnsVoid
+              ? ['AF', 'BC', 'DE', 'IX', 'IY', 'HL']
+              : ['AF', 'BC', 'DE', 'IX', 'IY'];
             if (args.length !== params.length) {
               diagAt(
                 diagnostics,
@@ -2082,7 +2089,35 @@ export function emitProgram(
               return;
             }
 
+            const restorePreservedRegs = (): boolean => {
+              for (let ri = preservedRegs.length - 1; ri >= 0; ri--) {
+                if (
+                  !emitInstr(
+                    'pop',
+                    [{ kind: 'Reg', span: asmItem.span, name: preservedRegs[ri]! }],
+                    asmItem.span,
+                  )
+                ) {
+                  return false;
+                }
+              }
+              return true;
+            };
+
+            for (const reg of preservedRegs) {
+              if (
+                !emitInstr(
+                  'push',
+                  [{ kind: 'Reg', span: asmItem.span, name: reg }],
+                  asmItem.span,
+                )
+              ) {
+                return;
+              }
+            }
+
             let ok = true;
+            let pushedArgWords = 0;
             for (let ai = args.length - 1; ai >= 0; ai--) {
               const arg = args[ai]!;
               const param = params[ai]!;
@@ -2102,6 +2137,7 @@ export function emitProgram(
                 if (arg.kind === 'Reg' && reg8.has(arg.name.toUpperCase())) {
                   ok = pushZeroExtendedReg8(arg.name.toUpperCase(), asmItem.span);
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 if (arg.kind === 'Imm') {
@@ -2113,6 +2149,7 @@ export function emitProgram(
                         asmItem.span,
                       );
                       if (!ok) break;
+                      pushedArgWords++;
                       continue;
                     }
                     diagAt(
@@ -2125,16 +2162,19 @@ export function emitProgram(
                   }
                   ok = pushImm16(v & 0xff, asmItem.span);
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 if (arg.kind === 'Ea') {
                   ok = pushEaAddress(arg.expr, asmItem.span);
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 if (arg.kind === 'Mem') {
                   ok = pushMemValue(arg.expr, 'byte', asmItem.span);
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 diagAt(
@@ -2152,11 +2192,13 @@ export function emitProgram(
                     asmItem.span,
                   );
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 if (arg.kind === 'Reg' && reg8.has(arg.name.toUpperCase())) {
                   ok = pushZeroExtendedReg8(arg.name.toUpperCase(), asmItem.span);
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 if (arg.kind === 'Imm') {
@@ -2168,6 +2210,7 @@ export function emitProgram(
                         asmItem.span,
                       );
                       if (!ok) break;
+                      pushedArgWords++;
                       continue;
                     }
                     diagAt(
@@ -2180,16 +2223,19 @@ export function emitProgram(
                   }
                   ok = pushImm16(v & 0xffff, asmItem.span);
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 if (arg.kind === 'Ea') {
                   ok = pushEaAddress(arg.expr, asmItem.span);
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 if (arg.kind === 'Mem') {
                   ok = pushMemValue(arg.expr, 'word', asmItem.span);
                   if (!ok) break;
+                  pushedArgWords++;
                   continue;
                 }
                 diagAt(
@@ -2202,7 +2248,13 @@ export function emitProgram(
               }
             }
 
-            if (!ok) return;
+            if (!ok) {
+              for (let k = 0; k < pushedArgWords; k++) {
+                emitInstr('pop', [{ kind: 'Reg', span: asmItem.span, name: 'BC' }], asmItem.span);
+              }
+              restorePreservedRegs();
+              return;
+            }
 
             diagIfCallStackUnverifiable();
             if (callable.kind === 'extern') {
@@ -2213,6 +2265,7 @@ export function emitProgram(
             for (let k = 0; k < args.length; k++) {
               emitInstr('pop', [{ kind: 'Reg', span: asmItem.span, name: 'BC' }], asmItem.span);
             }
+            if (!restorePreservedRegs()) return;
             syncToFlow();
             return;
           }

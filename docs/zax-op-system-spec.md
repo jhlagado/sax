@@ -895,8 +895,10 @@ Ops are expanded inline within the enclosing function instruction stream. This m
 An op body may invoke a function using the normal function-call syntax (Section 8.3 of the main spec). When this happens:
 
 - The compiler generates the call sequence (push arguments, `call`, pop arguments)
-- The call clobbers registers per the calling convention (AF, BC, DE, HL are volatile)
-- The resulting register/flag effects are simply the effects of the call plus any surrounding op instructions
+- The typed-call boundary follows the active ABI:
+  - `v0.1`: call-clobber semantics (`AF/BC/DE/HL` volatile)
+  - `v0.2`: preservation-safe boundary (`void`: preserve all; non-void: only `HL` output may change)
+- Any additional clobbers are from surrounding op instructions (ops still have no automatic preservation)
 
 This interaction can lead to significant expansion overhead. Consider:
 
@@ -907,7 +909,7 @@ op process_with_log(dst: reg16, src: imm16)
 end
 ```
 
-The function call `log_debug` clobbers AF, BC, DE, HL. Because ops are inline expansions, those clobbers are visible unless the op body explicitly saves/restores registers around the call. This can make such ops expensive or surprising.
+In `v0.2`, the function call boundary itself is preservation-safe; visible clobbers come from explicit instructions in the op body. In `v0.1`, call clobbers remain visible unless the op body explicitly saves/restores registers.
 
 **Guidance for op authors:** Avoid function calls inside ops when possible. If you must call a function, consider whether the op should be a function instead.
 
@@ -931,7 +933,7 @@ This is permitted, but the net stack delta must still be zero. Any save/restore 
 | Scenario                | Effect                                               |
 | ----------------------- | ---------------------------------------------------- |
 | Function calls op       | Op expands inline; function's frame unaffected       |
-| Op calls function       | Full call sequence generated; clobbers volatile regs |
+| Op calls function       | Full call sequence generated; call-boundary effects follow active ABI (`v0.1` clobber / `v0.2` preservation-safe) |
 | Op calls op             | Nested inline expansion; no call overhead            |
 | Function calls function | Normal call/ret; stack frame management              |
 

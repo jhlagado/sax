@@ -27,12 +27,6 @@ describe('PR239 lowering call-boundary non-zero stack matrix', () => {
       {
         message:
           'call reached with positive tracked stack delta (2); cannot verify callee stack contract.',
-        line: 10,
-        column: 3,
-      },
-      {
-        message:
-          'call reached with positive tracked stack delta (2); cannot verify callee stack contract.',
         line: 19,
         column: 3,
       },

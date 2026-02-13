@@ -1,6 +1,6 @@
 ; PR13 fixture: ea indexing with reg8
 section code at $0000
-section data at $0040
+section data at $0080
 
 extern func takeAddr(p: word): void at $1234
 
@@ -11,4 +11,3 @@ export func main(): void
     ld b, 2
     takeAddr arr[B]
 end
-

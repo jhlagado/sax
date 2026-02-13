@@ -18,6 +18,30 @@ describe('PR190 parser/lowering: implicit function asm body', () => {
     const bin = res.artifacts.find((a) => a.kind === 'bin');
     expect(bin?.kind).toBe('bin');
     if (bin?.kind !== 'bin') return;
-    expect([...bin.bytes]).toEqual([0xcd, 0x04, 0x00, 0xc9, 0x3e, 0x2a, 0xc9]);
+    expect([...bin.bytes]).toEqual([
+      0xf5,
+      0xc5,
+      0xd5,
+      0xdd,
+      0xe5,
+      0xfd,
+      0xe5,
+      0xe5,
+      0xcd,
+      0x14,
+      0x00,
+      0xe1,
+      0xfd,
+      0xe1,
+      0xdd,
+      0xe1,
+      0xd1,
+      0xc1,
+      0xf1,
+      0xc9,
+      0x3e,
+      0x2a,
+      0xc9,
+    ]);
   });
 });

@@ -18,7 +18,34 @@ describe('PR214: implicit body policy closure for func/op', () => {
 
     const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
     expect(bin).toBeDefined();
-    expect(bin?.bytes).toEqual(Uint8Array.of(0x3e, 0x07, 0xcd, 0x06, 0x00, 0xc9, 0x00, 0xc9));
+    expect(bin?.bytes).toEqual(
+      Uint8Array.of(
+        0x3e,
+        0x07,
+        0xf5,
+        0xc5,
+        0xd5,
+        0xdd,
+        0xe5,
+        0xfd,
+        0xe5,
+        0xe5,
+        0xcd,
+        0x16,
+        0x00,
+        0xe1,
+        0xfd,
+        0xe1,
+        0xdd,
+        0xe1,
+        0xd1,
+        0xc1,
+        0xf1,
+        0xc9,
+        0x00,
+        0xc9,
+      ),
+    );
   });
 
   it('diagnoses legacy explicit asm markers inside func/op bodies', async () => {

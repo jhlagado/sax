@@ -1,6 +1,6 @@
 ; PR13 fixture: pass ea and (ea) as call args
 section code at $0000
-section data at $0040
+section data at $0080
 
 extern func takeWord(w: word): void at $1234
 extern func takeByte(b: byte): void at $1234
@@ -14,4 +14,3 @@ export func main(): void
     takeWord (w)
     takeByte (b)
 end
-
