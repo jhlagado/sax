@@ -57,7 +57,7 @@ end
 Key ideas this demonstrates:
 
 - `data` emits bytes; `var` reserves addresses (emits no bytes).
-- `rec.field` and `arr[i]` are addresses (effective addresses); parentheses dereference.
+- `rec.field` and `arr[i]` are effective addresses; when the resulting type is scalar, `LD` and call arguments treat them as values (compiler inserts loads/stores).
 - Structured control flow exists only inside function/op instruction streams.
 
 ### 0.3 Design Philosophy
@@ -376,7 +376,8 @@ Arrays are nested fixed-size arrays:
 
 Indexing:
 
-- `a[i]` denotes the **effective address** of element `i` (not a dereference).
+- `a[i]` denotes the **effective address** of element `i`.
+- When the element type is scalar, `LD A, a[i]` and `LD a[i], A` are allowed and imply a dereference.
 - Arrays are **0-based**: valid indices are `0..len-1`. No runtime bounds checks are emitted.
 
 Layout:
@@ -396,7 +397,7 @@ Index forms (v0.1):
 Notes (v0.1):
 
 - Parentheses inside `[]` are permitted only for Z80 indirect index patterns.
-- `arr[i]` is an effective address (an `ea`), not a dereference. Use parentheses to read/write memory: `ld a, (arr[i])`.
+- `arr[i]` is an effective address (`ea`). Use parentheses for explicit dereference, or rely on value semantics in `LD` when the element type is scalar.
 
 ### 5.2 Records (Power-of-2 Sized)
 
@@ -426,6 +427,7 @@ Layout rules:
 Field access:
 
 - `rec.field` denotes the **effective address** of the field.
+- When the field type is scalar, `LD` and call arguments treat `rec.field` as a value (implicit dereference).
 
 Example: arrays of records use `ea` paths (informative):
 
@@ -492,8 +494,9 @@ ZAX separates **uninitialized storage** (`globals`) from **initialized bytes** (
 
 ### 6.1 Address vs Dereference
 
-- Storage symbols (`globals`, `data`, `bin`) denote **addresses** when used as operands.
-- Parentheses dereference memory: `(ea)` denotes memory at address `ea`.
+- `globals` declarations are typed. Scalar globals use **value semantics** in `LD` and call arguments; composite globals remain addresses.
+- `data`, `bin`, and `hex` names denote **addresses** when used as operands.
+- Parentheses dereference memory: `(ea)` denotes memory at address `ea` (for scalar globals, `(name)` is allowed but redundant).
 - Dereference width is implied by the instruction operand size:
   - `LD A, (ea)` reads a byte
   - `LD HL, (ea)` reads a word
@@ -737,6 +740,10 @@ Integer semantics (v0.1):
 
 Conceptually, an `ea` is a base address plus a sequence of **address-path** segments: `.field` selects a record field, and `[index]` selects an array element. Both forms produce an address; dereference requires parentheses as described in 6.1.
 
+Value semantics note (v0.2):
+
+- When a scalar-typed variable, field, or element appears in `LD` or call-argument position, the compiler inserts the implicit dereference. In other contexts, `ea` still denotes an address value.
+
 Precedence (v0.1):
 
 - Address-path segments (`.field`, `[index]`) bind tighter than address arithmetic (`ea + imm`, `ea - imm`).
@@ -759,8 +766,8 @@ export func add(a: word, b: word): word
   var
     temp: word
   end
-  ld hl, (a)
-  ld de, (b)
+  ld hl, a
+  ld de, b
   add hl, de
 end
 ```

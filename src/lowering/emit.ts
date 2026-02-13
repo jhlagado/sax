@@ -149,6 +149,7 @@ export function emitProgram(
   };
 
   const storageTypes = new Map<string, TypeExprNode>();
+  const rawAddressSymbols = new Set<string>();
   const stackSlotTypes = new Map<string, TypeExprNode>();
   const stackSlotOffsets = new Map<string, number>();
   let spDeltaTracked = 0;
@@ -574,6 +575,72 @@ export function emitProgram(
     return undefined;
   };
 
+  const resolveArrayElementType = (te: TypeExprNode): TypeExprNode | undefined => {
+    if (te.kind === 'ArrayType') return te.element;
+    if (te.kind === 'TypeName') {
+      const decl = env.types.get(te.name);
+      if (decl?.kind === 'TypeDecl' && decl.typeExpr.kind === 'ArrayType') {
+        return decl.typeExpr.element;
+      }
+    }
+    return undefined;
+  };
+
+  const resolveEaBaseName = (ea: EaExprNode): string | undefined => {
+    switch (ea.kind) {
+      case 'EaName':
+        return ea.name;
+      case 'EaField':
+      case 'EaIndex':
+      case 'EaAdd':
+      case 'EaSub':
+        return resolveEaBaseName(ea.base);
+    }
+  };
+
+  const resolveEaTypeExpr = (ea: EaExprNode): TypeExprNode | undefined => {
+    switch (ea.kind) {
+      case 'EaName': {
+        const lower = ea.name.toLowerCase();
+        return stackSlotTypes.get(lower) ?? storageTypes.get(lower);
+      }
+      case 'EaAdd':
+      case 'EaSub':
+        return resolveEaTypeExpr(ea.base);
+      case 'EaField': {
+        const baseType = resolveEaTypeExpr(ea.base);
+        if (!baseType) return undefined;
+        const agg = resolveAggregateType(baseType);
+        if (!agg) return undefined;
+        for (const f of agg.fields) {
+          if (f.name === ea.field) return f.typeExpr;
+        }
+        return undefined;
+      }
+      case 'EaIndex': {
+        const baseType = resolveEaTypeExpr(ea.base);
+        if (!baseType) return undefined;
+        return resolveArrayElementType(baseType);
+      }
+    }
+  };
+
+  const resolveScalarBinding = (name: string): 'byte' | 'word' | 'addr' | undefined => {
+    const lower = name.toLowerCase();
+    if (rawAddressSymbols.has(lower)) return undefined;
+    const typeExpr = stackSlotTypes.get(lower) ?? storageTypes.get(lower);
+    if (!typeExpr) return undefined;
+    return resolveScalarKind(typeExpr);
+  };
+
+  const resolveScalarTypeForEa = (ea: EaExprNode): 'byte' | 'word' | 'addr' | undefined => {
+    const base = resolveEaBaseName(ea);
+    if (base && rawAddressSymbols.has(base.toLowerCase())) return undefined;
+    const typeExpr = resolveEaTypeExpr(ea);
+    if (!typeExpr) return undefined;
+    return resolveScalarKind(typeExpr);
+  };
+
   const resolveEa = (ea: EaExprNode, span: SourceSpan): EaResolution | undefined => {
     const go = (expr: EaExprNode): EaResolution | undefined => {
       switch (expr.kind) {
@@ -972,8 +1039,25 @@ export function emitProgram(
 
   const lowerLdWithEa = (inst: AsmInstructionNode): boolean => {
     if (inst.head.toLowerCase() !== 'ld' || inst.operands.length !== 2) return false;
-    const dst = inst.operands[0]!;
-    const src = inst.operands[1]!;
+    const coerceValueOperand = (op: AsmOperandNode): AsmOperandNode => {
+      if (op.kind === 'Imm' && op.expr.kind === 'ImmName') {
+        const scalar = resolveScalarBinding(op.expr.name);
+        if (scalar) {
+          return {
+            kind: 'Mem',
+            span: op.span,
+            expr: { kind: 'EaName', span: op.span, name: op.expr.name },
+          };
+        }
+      }
+      if (op.kind === 'Ea') {
+        const scalar = resolveScalarTypeForEa(op.expr);
+        if (scalar) return { kind: 'Mem', span: op.span, expr: op.expr };
+      }
+      return op;
+    };
+    const dst = coerceValueOperand(inst.operands[0]!);
+    const src = coerceValueOperand(inst.operands[1]!);
     const isRegisterToken = (name: string): boolean => {
       const token = name.toUpperCase();
       return (
@@ -1197,6 +1281,29 @@ export function emitProgram(
         emitCodeBytes(Uint8Array.of(0x73, 0x23, 0x72), inst.span.file);
         return true;
       }
+    }
+
+    // LD (ea), (ea) via A/HL
+    if (dst.kind === 'Mem' && src.kind === 'Mem') {
+      const scalar =
+        resolveScalarTypeForEa(dst.expr) ?? resolveScalarTypeForEa(src.expr) ?? undefined;
+      if (!scalar) return false;
+      if (scalar === 'byte') {
+        if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
+        emitCodeBytes(Uint8Array.of(0x7e), inst.span.file); // ld a, (hl)
+        if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
+        emitCodeBytes(Uint8Array.of(0x77), inst.span.file); // ld (hl), a
+        return true;
+      }
+      if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
+      emitCodeBytes(Uint8Array.of(0x7e, 0x23, 0x66, 0x6f), inst.span.file);
+      if (!emitInstr('push', [{ kind: 'Reg', span: inst.span, name: 'HL' }], inst.span))
+        return false;
+      if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
+      if (!emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span))
+        return false;
+      emitCodeBytes(Uint8Array.of(0x73, 0x23, 0x72), inst.span.file);
+      return true;
     }
 
     // LD (ea), imm (imm8 for byte, imm16 for word/addr)
@@ -1447,13 +1554,16 @@ export function emitProgram(
       } else if (item.kind === 'BinDecl') {
         const bd = item as BinDeclNode;
         declaredBinNames.add(bd.name.toLowerCase());
+        rawAddressSymbols.add(bd.name.toLowerCase());
         storageTypes.set(bd.name.toLowerCase(), { kind: 'TypeName', span: bd.span, name: 'addr' });
       } else if (item.kind === 'HexDecl') {
         const hd = item as HexDeclNode;
+        rawAddressSymbols.add(hd.name.toLowerCase());
         storageTypes.set(hd.name.toLowerCase(), { kind: 'TypeName', span: hd.span, name: 'addr' });
       } else if (item.kind === 'DataBlock') {
         const db = item as DataBlockNode;
         for (const decl of db.decls) {
+          rawAddressSymbols.add(decl.name.toLowerCase());
           storageTypes.set(decl.name.toLowerCase(), decl.typeExpr);
         }
       }
@@ -2082,6 +2192,26 @@ export function emitProgram(
               return;
             }
 
+            const pushArgValueFromName = (name: string, want: 'byte' | 'word'): boolean => {
+              const scalar = resolveScalarBinding(name);
+              if (scalar) {
+                return pushMemValue(
+                  { kind: 'EaName', span: asmItem.span, name } as any,
+                  want,
+                  asmItem.span,
+                );
+              }
+              return pushEaAddress(
+                { kind: 'EaName', span: asmItem.span, name } as any,
+                asmItem.span,
+              );
+            };
+            const pushArgValueFromEa = (ea: EaExprNode, want: 'byte' | 'word'): boolean => {
+              const scalar = resolveScalarTypeForEa(ea);
+              if (scalar) return pushMemValue(ea, want, asmItem.span);
+              return pushEaAddress(ea, asmItem.span);
+            };
+
             let ok = true;
             for (let ai = args.length - 1; ai >= 0; ai--) {
               const arg = args[ai]!;
@@ -2108,10 +2238,7 @@ export function emitProgram(
                   const v = evalImmExpr(arg.expr, env, diagnostics);
                   if (v === undefined) {
                     if (arg.expr.kind === 'ImmName') {
-                      ok = pushEaAddress(
-                        { kind: 'EaName', span: asmItem.span, name: arg.expr.name } as any,
-                        asmItem.span,
-                      );
+                      ok = pushArgValueFromName(arg.expr.name, 'byte');
                       if (!ok) break;
                       continue;
                     }
@@ -2128,7 +2255,7 @@ export function emitProgram(
                   continue;
                 }
                 if (arg.kind === 'Ea') {
-                  ok = pushEaAddress(arg.expr, asmItem.span);
+                  ok = pushArgValueFromEa(arg.expr, 'byte');
                   if (!ok) break;
                   continue;
                 }
@@ -2163,10 +2290,7 @@ export function emitProgram(
                   const v = evalImmExpr(arg.expr, env, diagnostics);
                   if (v === undefined) {
                     if (arg.expr.kind === 'ImmName') {
-                      ok = pushEaAddress(
-                        { kind: 'EaName', span: asmItem.span, name: arg.expr.name } as any,
-                        asmItem.span,
-                      );
+                      ok = pushArgValueFromName(arg.expr.name, 'word');
                       if (!ok) break;
                       continue;
                     }
@@ -2183,7 +2307,7 @@ export function emitProgram(
                   continue;
                 }
                 if (arg.kind === 'Ea') {
-                  ok = pushEaAddress(arg.expr, asmItem.span);
+                  ok = pushArgValueFromEa(arg.expr, 'word');
                   if (!ok) break;
                   continue;
                 }
@@ -2798,7 +2922,12 @@ export function emitProgram(
                     : dst === 'SP'
                       ? 0x31
                       : undefined;
-            if (opcode !== undefined && srcOp.kind === 'Imm' && srcOp.expr.kind === 'ImmName') {
+            if (
+              opcode !== undefined &&
+              srcOp.kind === 'Imm' &&
+              srcOp.expr.kind === 'ImmName' &&
+              !resolveScalarBinding(srcOp.expr.name)
+            ) {
               const v = evalImmExpr(srcOp.expr, env, diagnostics);
               if (v === undefined) {
                 emitAbs16Fixup(opcode, srcOp.expr.name.toLowerCase(), 0, asmItem.span);
@@ -2809,7 +2938,8 @@ export function emitProgram(
             if (
               (dst === 'IX' || dst === 'IY') &&
               srcOp.kind === 'Imm' &&
-              srcOp.expr.kind === 'ImmName'
+              srcOp.expr.kind === 'ImmName' &&
+              !resolveScalarBinding(srcOp.expr.name)
             ) {
               const v = evalImmExpr(srcOp.expr, env, diagnostics);
               if (v === undefined) {
