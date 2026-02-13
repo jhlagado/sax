@@ -76,8 +76,8 @@ globals
   grid: Sprite[4][6]   ; 4 rows × 6 columns
 ```
 
-| Level        | Element         | Natural Size     | Padded To | Warning? |
-| ------------ | --------------- | ---------------- | --------- | -------- |
+| Level                        | Element         | Natural Size     | Padded To | Warning? |
+| ---------------------------- | --------------- | ---------------- | --------- | -------- |
 | `grid[row_index]`            | Row (6 Sprites) | 6 × 5 = 30 bytes | 64 bytes  | Yes      |
 | `grid[row_index][col_index]` | Sprite          | 5 bytes          | 8 bytes   | Yes      |
 
@@ -104,8 +104,8 @@ globals
 | `arr[HL]`, `arr[DE]`, `arr[BC]` | 16-bit register value | 16-bit (0-65535) | For large arrays                    |
 | `arr[(HL)]`                     | Byte at (HL)          | 8-bit            | Z80 pattern — indirect              |
 | `arr[(IX+d)]`                   | Byte at (IX+d)        | 8-bit            | Z80 pattern — indirect              |
-| `arr[idx_byte]`                 | Typed byte variable   | 8-bit (0-255)    | Lowered via `HL`/`DE` address path      |
-| `arr[idx_word]`                 | Typed word variable   | 16-bit (0-65535) | Lowered via `HL`/`DE` address path      |
+| `arr[idx_byte]`                 | Typed byte variable   | 8-bit (0-255)    | Lowered via `HL`/`DE` address path  |
+| `arr[idx_word]`                 | Typed word variable   | 16-bit (0-65535) | Lowered via `HL`/`DE` address path  |
 | `arr[(CONST+3) * 2]`            | Constant expression   | N/A              | Parens for grouping                 |
 | `arr[(3+5)]`                    | Constant expression   | N/A              | **Warning:** redundant outer parens |
 
@@ -321,6 +321,7 @@ LD A, (IX+2)                   ; offset for health field
 **Rationale:** Z80 instructions and external interfaces are byte-addressed (`LDIR` lengths, `IX+d` displacements, binary layouts, heap/block allocators). These operators expose required byte constants from type information, avoiding magic numbers.
 
 **v0.2 semantics:**
+
 - `sizeof(Type)` returns the **storage size** of the type (power-of-2 rounded for composites).
 - `offsetof(Type, field)` returns the byte offset of `field` from the start of `Type`, using **storage sizes** of preceding fields.
 - Both operators are compile-time constants only.
@@ -400,13 +401,13 @@ This section defines a unified addressing model for ZAX, with **value semantics*
 - **Scalar variables** (byte, word, ptr): name = value directly
 - **Composite variables** (arrays, records): name = address (arrays ARE addresses)
 
-| Declaration    | `name` means            | Notes                          |
-| -------------- | ----------------------- | ------------------------------ |
+| Declaration        | `name` means            | Notes                          |
+| ------------------ | ----------------------- | ------------------------------ |
 | `byte_count: byte` | value of byte_count     | Scalar — direct value access   |
 | `total_word: word` | value of total_word     | Scalar — direct value access   |
-| `arr: byte[N]` | address of array        | Composite — already an address |
-| `rec: Record`  | address of record       | Composite — already an address |
-| `rec.field`    | value of field (scalar) | Field access yields value      |
+| `arr: byte[N]`     | address of array        | Composite — already an address |
+| `rec: Record`      | address of record       | Composite — already an address |
+| `rec.field`        | value of field (scalar) | Field access yields value      |
 
 **Example:**
 
@@ -451,17 +452,17 @@ end
 
 Runtime array indexing generates shift sequences (per §1.1 power-of-2 constraint).
 
-| Index Form    | Element Size | Generated Code Sketch                    | Output | External Clobbers |
-| ------------- | ------------ | ---------------------------------------- | ------ | ----------------- |
-| `arr[reg8]`   | 1            | `LD L,r; LD H,0; LD DE,base; ADD HL,DE` | HL     | —                 |
-| `arr[reg8]`   | 2            | above + `ADD HL,HL`                      | HL     | —                 |
-| `arr[reg8]`   | 4            | above + `ADD HL,HL` ×2                   | HL     | —                 |
-| `arr[reg8]`   | 8            | above + `ADD HL,HL` ×3                   | HL     | —                 |
-| `arr[HL]`     | 1            | `LD DE,base; ADD HL,DE`                  | HL     | —                 |
-| `arr[HL]`     | 2            | `ADD HL,HL; LD DE,base; ADD HL,DE`       | HL     | —                 |
-| `arr[HL]`     | 4+           | `ADD HL,HL` ×N then base add             | HL     | —                 |
-| `arr[(HL)]`   | any          | `LD A,(HL); LD L,A; LD H,0; ...`         | HL     | —                 |
-| `arr[(IX+d)]` | any          | `LD A,(IX+d); LD L,A; LD H,0; ...`       | HL     | — (`IX` preserved) |
+| Index Form    | Element Size | Generated Code Sketch                   | Output | External Clobbers  |
+| ------------- | ------------ | --------------------------------------- | ------ | ------------------ |
+| `arr[reg8]`   | 1            | `LD L,r; LD H,0; LD DE,base; ADD HL,DE` | HL     | —                  |
+| `arr[reg8]`   | 2            | above + `ADD HL,HL`                     | HL     | —                  |
+| `arr[reg8]`   | 4            | above + `ADD HL,HL` ×2                  | HL     | —                  |
+| `arr[reg8]`   | 8            | above + `ADD HL,HL` ×3                  | HL     | —                  |
+| `arr[HL]`     | 1            | `LD DE,base; ADD HL,DE`                 | HL     | —                  |
+| `arr[HL]`     | 2            | `ADD HL,HL; LD DE,base; ADD HL,DE`      | HL     | —                  |
+| `arr[HL]`     | 4+           | `ADD HL,HL` ×N then base add            | HL     | —                  |
+| `arr[(HL)]`   | any          | `LD A,(HL); LD L,A; LD H,0; ...`        | HL     | —                  |
+| `arr[(IX+d)]` | any          | `LD A,(IX+d); LD L,A; LD H,0; ...`      | HL     | — (`IX` preserved) |
 
 **Key points:**
 
@@ -482,6 +483,7 @@ With v0.2 value semantics (§7.1), loading a typed variable generates a memory r
 **Rule:** Value loads are preservation-safe; only the requested destination/output register is written.
 
 Examples:
+
 - `LD A, byte_var` → `LD A, (byte_var_addr)` (direct global read)
 - `LD HL, word_var` → `LD HL, (word_var_addr)` (direct global read)
 - `LD A, arg` / `LD HL, local` lower via SP-relative stack-slot addressing (`SP+N`) with no external register clobbers.
@@ -494,9 +496,9 @@ Accessing fields of a record variable.
 
 **Rule:** Non-indexed field loads (`LD <dest>, rec.field`) are preservation-safe: only the explicit destination/output changes.
 
-| Source Code                           | Context          | Generated Code                    | Output | External Clobbers |
-| ------------------------------------- | ---------------- | --------------------------------- | ------ | ----------------- |
-| `LD A, records[item_index].field_name` | indexed + field  | index code + field offset add    | A      | —                 |
+| Source Code                            | Context         | Generated Code                | Output | External Clobbers |
+| -------------------------------------- | --------------- | ----------------------------- | ------ | ----------------- |
+| `LD A, records[item_index].field_name` | indexed + field | index code + field offset add | A      | —                 |
 
 **Indexed struct access** combines array indexing with field offset, and preserves non-output registers at the language boundary.
 
@@ -507,24 +509,27 @@ Accessing fields of a record variable.
 Function calls have defined register conventions.
 
 **Convention:** Calls are preservation-safe at the source-language boundary.
+
 - Return channel is `HL` for all non-void calls (`L` carries byte result).
 - Non-output registers/flags are preserved across the call boundary by compiler-generated save/restore as needed.
 - Arguments are pushed right-to-left; transient SP movement is balanced by compiler-generated cleanup.
 - Net SP delta at the call boundary is zero.
 
 **Argument surface (v0.2):**
+
 - Arity is strict for typed `func`/`extern func` calls.
 - Variadic calls are out of scope for v0.2 (future design, likely explicit/extern-only).
 - Keep call-site arguments simple and staged; complex computation should be done in prior instructions.
 
-| Category             | Allowed in v0.2                                                | Not allowed in v0.2                                      |
-| -------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
-| Registers            | `reg8`, `reg16`                                                | —                                                        |
-| Immediate values     | Literal, named constant, simple compile-time constant form     | Deep nested arithmetic expressions at call site          |
-| Address values (`ea`) | `name`, `name.field`, `name + const`, `name - const`, `name[const]` | Dynamic index forms (`name[idx]`, `name[(HL)]`, etc.)   |
-| Memory values (`(ea)`) | `(name)`, `(name.field)`, `(name + const)`, `(name[const])` | Dynamic/nested indexed forms (`(name[idx])`, `(a[b[c]])`) |
+| Category               | Allowed in v0.2                                                     | Not allowed in v0.2                                       |
+| ---------------------- | ------------------------------------------------------------------- | --------------------------------------------------------- |
+| Registers              | `reg8`, `reg16`                                                     | —                                                         |
+| Immediate values       | Literal, named constant, simple compile-time constant form          | Deep nested arithmetic expressions at call site           |
+| Address values (`ea`)  | `name`, `name.field`, `name + const`, `name - const`, `name[const]` | Dynamic index forms (`name[idx]`, `name[(HL)]`, etc.)     |
+| Memory values (`(ea)`) | `(name)`, `(name.field)`, `(name + const)`, `(name[const])`         | Dynamic/nested indexed forms (`(name[idx])`, `(a[b[c]])`) |
 
 **Notes:**
+
 - `name[const]` is allowed: it is fixed-offset addressing resolved at compile time.
 - Dynamic or nested indexed arguments are deferred until their lowering can be guaranteed preservation-safe with low surprise.
 - Multi-step style is preferred: compute first, then pass a simple register/slot/address argument.
@@ -535,10 +540,10 @@ Function calls have defined register conventions.
 
 Function prologue/epilogue for locals.
 
-| Operation      | Generated Code           | External Clobbers | Notes                      |
-| -------------- | ------------------------ | ----------------- | -------------------------- |
-| Frame setup    | `PUSH BC` × N            | —                 | Internal reserve for locals |
-| Frame teardown | `POP BC` × N, `RET`      | —                 | Balanced cleanup before return |
+| Operation      | Generated Code      | External Clobbers | Notes                          |
+| -------------- | ------------------- | ----------------- | ------------------------------ |
+| Frame setup    | `PUSH BC` × N       | —                 | Internal reserve for locals    |
+| Frame teardown | `POP BC` × N, `RET` | —                 | Balanced cleanup before return |
 
 **Note:** Current model is SP-only. `IX/IY` are available for indexed addressing/typed access patterns. Arg/local stack-slot addressing does not itself clobber registers; SP-management/tracking constraints still apply.
 
@@ -548,11 +553,11 @@ Function prologue/epilogue for locals.
 
 Structured control flow scaffolding generates branch/jump sequences and is preservation-safe for general-purpose registers.
 
-| Construct            | Generated Code Example | External Clobbers | Notes                                 |
-| -------------------- | ---------------------- | ----------------- | ------------------------------------- |
-| `if <cc> ... end`    | `JP <cc>, ...`         | —                 | Uses already-established flags        |
-| `while <cc> ... end` | `JP <cc>, ...`         | —                 | Re-tests current flags each iteration |
-| `repeat ... until`   | `JP <cc>, ...`         | —                 | Condition checked at `until`          |
+| Construct            | Generated Code Example | External Clobbers | Notes                                  |
+| -------------------- | ---------------------- | ----------------- | -------------------------------------- |
+| `if <cc> ... end`    | `JP <cc>, ...`         | —                 | Uses already-established flags         |
+| `while <cc> ... end` | `JP <cc>, ...`         | —                 | Re-tests current flags each iteration  |
+| `repeat ... until`   | `JP <cc>, ...`         | —                 | Condition checked at `until`           |
 | `select ...`         | Dispatch sequence      | —                 | Internal scratch preserved at boundary |
 
 **Flags semantics:** Control-flow decisions consume the currently established flags. This is semantic flag usage, not an external register-clobber contract on language scaffolding.
@@ -580,6 +585,7 @@ ZAX DOES:
 **Draft direction:** Build language lowering from small composable helpers with explicit stack effects (Forth-style), preservation by default, and stack-oriented result flow.
 
 **Helper contract:**
+
 - Each helper declares stack effect (`--`, `-- w`, `w --`, etc.).
 - Non-output registers are preserved at helper boundary.
 - Internal scratch is allowed only if restored before helper exit.
@@ -699,25 +705,26 @@ end
 
 ```
 
-| Op Name                 | Stack Effect | Purpose                               | Boundary Contract                 |
-| ----------------------- | ------------ | ------------------------------------- | --------------------------------- |
-| `push_imm16`            | `-- w`       | Push literal word                     | Preserve all registers            |
-| `push_reg8_zx`          | `-- w`       | Push zero-extended byte               | Preserve all non-output registers |
-| `push_addr`             | `-- addr`    | Push effective address                | Preserve all non-output registers |
-| `push_load8`            | `-- w`       | Push zero-extended memory byte        | Preserve all non-output registers |
-| `push_load16`           | `-- w`       | Push memory word                      | Preserve all non-output registers |
-| `index_base_scale`      | `idx -- addr`| Compute base + scaled index           | Preserve all non-output registers |
-| `pop_to_reg8(reg8)`     | `w --`       | Route low byte to `A/B/C/D/E`         | Preserve all other registers      |
-| `pop_to_reg8(L)`        | `w --`       | Route low byte to `L` (special path)  | Preserve all other registers      |
-| `pop_to_reg8(H)`        | `w --`       | Route low byte to `H` (special path)  | Preserve all other registers      |
-| `store8_ea_from_tos`    | `w --`       | Store low byte from stack             | Preserve all non-output registers |
-| `store16_ea_from_tos`   | `w --`       | Store word from stack                 | Preserve all non-output registers |
+| Op Name               | Stack Effect  | Purpose                              | Boundary Contract                 |
+| --------------------- | ------------- | ------------------------------------ | --------------------------------- |
+| `push_imm16`          | `-- w`        | Push literal word                    | Preserve all registers            |
+| `push_reg8_zx`        | `-- w`        | Push zero-extended byte              | Preserve all non-output registers |
+| `push_addr`           | `-- addr`     | Push effective address               | Preserve all non-output registers |
+| `push_load8`          | `-- w`        | Push zero-extended memory byte       | Preserve all non-output registers |
+| `push_load16`         | `-- w`        | Push memory word                     | Preserve all non-output registers |
+| `index_base_scale`    | `idx -- addr` | Compute base + scaled index          | Preserve all non-output registers |
+| `pop_to_reg8(reg8)`   | `w --`        | Route low byte to `A/B/C/D/E`        | Preserve all other registers      |
+| `pop_to_reg8(L)`      | `w --`        | Route low byte to `L` (special path) | Preserve all other registers      |
+| `pop_to_reg8(H)`      | `w --`        | Route low byte to `H` (special path) | Preserve all other registers      |
+| `store8_ea_from_tos`  | `w --`        | Store low byte from stack            | Preserve all non-output registers |
+| `store16_ea_from_tos` | `w --`        | Store word from stack                | Preserve all non-output registers |
 
 **Rule:** Do not define wrapper ops for direct machine primitives. Use raw Z80 instructions directly (`PUSH rr`, `POP rr`, `EX DE,HL`, `EX (SP),HL`).
 
 **Address form scope for `ea_simple` (v0.2 draft):** `name`, `name.field`, `name +/- const`, `name[const]`.
 
 **Preferred Z80 primitives:**
+
 - Prefer `EX DE,HL` to move values between working pairs without additional scratch registers.
 - Prefer `EX (SP),HL` for stack/HL exchange patterns (notably "restore HL while leaving computed result on top of stack").
 - Use `PUSH`/`POP` save/restore when exchange instructions cannot express the required transformation safely.
@@ -725,6 +732,7 @@ end
 **Pending:** Add worked examples for each helper and two or three composed pipelines (`arr[idx]` load, struct-field load, argument marshalling sequence).
 
 **Validation required (before promotion beyond draft):**
+
 - `push_reg8_zx` with each source register (`A/B/C/D/E/H/L`), especially `H`.
 - `push_load8` across memory forms (`(name)`, `(HL)`, `(IX+d)`, `(IY+d)`).
 - `pop_to_reg8` overload dispatch and correctness for `A/B/C/D/E/L/H`.
@@ -791,6 +799,7 @@ LD A, (IX: ^Person).name
 ```
 
 **Rules:**
+
 - Compile-time only ascription: validates type/field and computes offset; no runtime conversion.
 - Native built-in surface is intentionally minimal: typed field loads/stores through `IX/IY` only.
 - `HL/DE/BC` typed field access is not built-in; users should write explicit address math or helper `op`s.
@@ -804,6 +813,7 @@ LD A, (IX: ^Person).name
 **Decision:** ✅ **Adopt process** — Build features as `op`s first, then promote selected patterns to builtins.
 
 **Process:**
+
 - Start with a small core `op` library for addressing/preservation patterns.
 - Use those `op`s in docs, examples, and fixtures first.
 - Track repeated usage and friction points.
@@ -868,6 +878,7 @@ LD B, 1           ; ⚠ Warning: inconsistent case, expected 'ld'
 **Naming convention for examples:** Avoid single-letter parameter/local names that can be mistaken for register tokens (`A`, `B`, `C`, `D`, `E`, `H`, `L`). Use descriptive names.
 
 **Pending cleanup (appendix candidate):** Add an "Example Hygiene Checklist" appendix and run a repo-wide sweep across docs, examples, and test fixtures.
+
 - Use UPPERCASE for Z80 keywords.
 - Avoid single-letter parameter/local names that can be confused with registers.
 - Keep examples aligned with current v0.2 semantics (no legacy scalar-paren patterns).

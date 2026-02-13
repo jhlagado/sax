@@ -2192,10 +2192,7 @@ export function emitProgram(
               return;
             }
 
-            const pushArgValueFromName = (
-              name: string,
-              want: 'byte' | 'word',
-            ): boolean => {
+            const pushArgValueFromName = (name: string, want: 'byte' | 'word'): boolean => {
               const scalar = resolveScalarBinding(name);
               if (scalar) {
                 return pushMemValue(
