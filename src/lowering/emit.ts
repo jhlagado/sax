@@ -2563,15 +2563,6 @@ export function emitProgram(
                     expr: { kind: 'EaName', span: operand.expr.span, name: bound.expr.name },
                   };
                 }
-                if (bound?.kind === 'Ea') {
-                  const enumName = flattenEaDottedName(bound.expr);
-                  if (enumName && env.enums.has(enumName)) {
-                    return {
-                      ...operand,
-                      expr: { kind: 'EaName', span: operand.expr.span, name: enumName },
-                    };
-                  }
-                }
                 return cloneOperand(operand);
               }
               return cloneOperand(operand);
