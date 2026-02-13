@@ -185,6 +185,41 @@ describe('PR12 calls (extern + func)', () => {
     expect(bin!.bytes).toEqual(expected);
   });
 
+  it('supports ea indexing with HL as 16-bit index register', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr261_call_ea_index_reg16hl.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+
+    const code = Uint8Array.of(
+      0x21,
+      0x02,
+      0x00, // ld hl, 2
+      ...callVoidPrefix,
+      0x11,
+      0x80,
+      0x00, // ld de, $0080
+      0x19, // add hl, de
+      0xe5, // push hl
+      0xcd,
+      0x34,
+      0x12, // call $1234
+      0xc1, // pop bc
+      ...callVoidSuffix,
+      0xc9, // ret
+    );
+    const gap = new Uint8Array(0x80 - code.length);
+    const data = Uint8Array.of(0x01, 0x02, 0x03, 0x04);
+    const expected = new Uint8Array(code.length + gap.length + data.length);
+    expected.set(code, 0);
+    expected.set(gap, code.length);
+    expected.set(data, code.length + gap.length);
+
+    expect(bin!.bytes).toEqual(expected);
+  });
+
   it('supports ea indexing with (HL) (byte read from memory at HL)', async () => {
     const entry = join(__dirname, 'fixtures', 'pr13_call_ea_index_memhl.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

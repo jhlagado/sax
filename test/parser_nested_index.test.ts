@@ -39,4 +39,34 @@ end
     expect(diagnostics.length).toBeGreaterThan(0);
     expect(diagnostics[0]!.message).toContain('Invalid imm expression');
   });
+
+  it('distinguishes arr[HL] (reg16 index) from arr[(HL)] (indirect byte index)', () => {
+    const source = `
+export func main(): void
+    ld a, arr[HL]
+    ld b, arr[(HL)]
+end
+`;
+    const diagnostics: Diagnostic[] = [];
+    const program = parseProgram('index-forms.zax', source, diagnostics);
+    expect(diagnostics).toEqual([]);
+
+    const func = program.files[0]?.items.find(
+      (item): item is FuncDeclNode => item.kind === 'FuncDecl',
+    );
+    expect(func).toBeDefined();
+
+    const first = func!.asm.items[0] as AsmInstructionNode;
+    const second = func!.asm.items[1] as AsmInstructionNode;
+
+    const firstSrc = first.operands[1];
+    expect(firstSrc?.kind).toBe('Ea');
+    if (!firstSrc || firstSrc.kind !== 'Ea' || firstSrc.expr.kind !== 'EaIndex') return;
+    expect(firstSrc.expr.index.kind).toBe('IndexReg16');
+
+    const secondSrc = second.operands[1];
+    expect(secondSrc?.kind).toBe('Ea');
+    if (!secondSrc || secondSrc.kind !== 'Ea' || secondSrc.expr.kind !== 'EaIndex') return;
+    expect(secondSrc.expr.index.kind).toBe('IndexMemHL');
+  });
 });
