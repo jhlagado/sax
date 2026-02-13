@@ -1,6 +1,8 @@
-# ZAX v0.1 Scope Decisions
+# ZAX v0.2 Scope Decisions (from v0.1 Baseline)
 
 This document lists features requiring decisions about their future in ZAX.
+
+This draft captures v0.2 decisions, including intentional breaking changes from v0.1 where required for a consistent higher-level model.
 
 ---
 
@@ -816,7 +818,52 @@ end
 - Prefer `EX (SP),HL` for stack/HL exchange patterns (notably "restore HL while leaving computed result on top of stack").
 - Use `PUSH`/`POP` save/restore when exchange instructions cannot express the required transformation safely.
 
-**Pending:** Add worked examples for each helper and two or three composed pipelines (`arr[idx]` load, struct-field load, argument marshalling sequence).
+#### 7.3.10 Worked Pipelines (Draft)
+
+These examples show helper composition plus raw machine primitives at the same boundary contract used by language lowering.
+
+**Example A: Runtime indexed byte load to `A` with `HL` preservation**
+
+```zax
+; Goal: LD A, arr[index]
+; Input: index in B
+; Output: A
+
+PUSH HL
+push_reg8_zx B
+index_base_scale arr, 0
+POP HL
+LD A, (HL)
+POP HL
+```
+
+**Example B: Store register byte into compile-time `ea`**
+
+```zax
+; Goal: store C to counter + 1
+; Output: none
+
+push_reg8_zx C
+store8_ea_from_tos counter + 1
+```
+
+**Example C: Argument marshalling and cleanup (two word args)**
+
+```zax
+; func sum_words(left_value: word, right_value: word): word
+; Assume arguments are pre-staged in registers:
+; left_value in BC, right_value in DE.
+; Right-to-left argument order: right_value first, then left_value.
+
+PUSH DE
+PUSH BC
+CALL sum_words
+INC SP
+INC SP
+INC SP
+INC SP
+; Return channel: HL
+```
 
 **Validation required (before promotion beyond draft):**
 
