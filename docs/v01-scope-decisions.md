@@ -28,6 +28,9 @@ This document lists features requiring decisions about their future in ZAX.
 - **Storage sizes are power-of-2.** Composite types (arrays, records, unions) are rounded up to the next power-of-2 size.
 - **Runtime indexing uses shift sequences only.** Index scaling is always `ADD HL,HL` × N where N = `log2(sizeof(element))`.
 - **Padding is storage-visible.** A non-power-of-2 type occupies the padded size everywhere (layout, `sizeof`, and indexing).
+- **No dual-size model in v0.2.** There is no separate packed-size vs stride-size concept in this scope.
+
+**Compatibility note:** This is an intentional v0.2 breaking change from v0.1 packed layout semantics.
 
 **Warning message:**
 
@@ -78,7 +81,7 @@ globals
 
 | Level        | Element         | Natural Size     | Padded To | Warning? |
 | ------------ | --------------- | ---------------- | --------- | -------- |
-| `grid[row_index]`            | Row (6 Sprites) | 6 × 5 = 30 bytes | 64 bytes  | Yes      |
+| `grid[row_index]`            | Row (6 Sprites) | 6 × 8 = 48 bytes | 64 bytes  | Yes      |
 | `grid[row_index][col_index]` | Sprite          | 5 bytes          | 8 bytes   | Yes      |
 
 **Memory impact:** Padding compounds. A `Sprite[4][6]` array naturally uses 120 bytes but with padding uses 4 × 64 = 256 bytes total.
@@ -110,6 +113,8 @@ globals
 | `arr[(3+5)]`                    | Constant expression   | N/A              | **Warning:** redundant outer parens |
 
 **Key change:** In `[]`, parentheses around Z80 indirect patterns = indirect; other parens = grouping. Redundant parens (no symbols/registers) trigger a lint warning.
+
+**Compatibility note:** This is an intentional v0.2 breaking change. `arr[HL]` means 16-bit index; indirect byte-at-HL is written as `arr[(HL)]`.
 
 **Allowed (documented lowering):** Typed scalar variables can be used directly as indices:
 
@@ -313,10 +318,10 @@ LD A, (IX+2)                   ; offset for health field
 
 ### 3.3 `sizeof`/`offsetof` Built-ins
 
-**Current:** Not implemented; use explicit `const` values.
+**Current:** `sizeof` exists in v0.1 and reflects packed layout sizing; `offsetof` is not implemented.
 **Spec:** Section 4.2
 
-**Decision:** ✅ **v0.2 delivery** — Implement as compile-time built-ins for byte-addressed boundaries.
+**Decision:** ✅ **v0.2 delivery** — Implement as compile-time built-ins for byte-addressed boundaries, aligned to v0.2 power-of-2 storage sizing.
 
 **Rationale:** Z80 instructions and external interfaces are byte-addressed (`LDIR` lengths, `IX+d` displacements, binary layouts, heap/block allocators). These operators expose required byte constants from type information, avoiding magic numbers.
 
@@ -324,6 +329,15 @@ LD A, (IX+2)                   ; offset for health field
 - `sizeof(Type)` returns the **storage size** of the type (power-of-2 rounded for composites).
 - `offsetof(Type, field)` returns the byte offset of `field` from the start of `Type`, using **storage sizes** of preceding fields.
 - Both operators are compile-time constants only.
+
+**`offsetof` rules (v0.2):**
+- Records: `offsetof(RecordType, field_path)` is allowed.
+- Nested records/arrays: field paths with constant array indices are allowed (`offsetof(Scene, sprites[3].x)`).
+- Unions: direct union member offsets are always `0`.
+- Paths through a union member are allowed only when the member is explicit (`offsetof(Node, payload.asSprite.x)`), and the union contribution to offset is `0`.
+- Non-constant indices in `offsetof` are compile errors.
+
+**Implementation scope note:** `sizeof` already exists and must be migrated from packed-size semantics to v0.2 storage-size semantics. `offsetof` requires new parser/semantic support for field-path operands and constant-index validation.
 
 **Usage guidance:** Prefer typed field/index access by default. Use `sizeof`/`offsetof` at byte-level boundaries: bulk copy lengths, allocation sizes, explicit indexed displacements, and binary/hardware/protocol layouts.
 
@@ -389,7 +403,7 @@ This section defines a unified addressing model for ZAX, with **value semantics*
 
 ### 7.1 Value Semantics for Typed Variables (v0.2)
 
-**Current:** Typed scalar variables use value semantics — `arg` yields the value directly.
+**Current:** v0.1 uses address-oriented semantics for typed scalar names in many contexts (`(name)` forms to load values).
 
 **Decision:** ✅ **v0.2 delivery** — Typed scalar variables use value semantics.
 
@@ -407,6 +421,8 @@ This section defines a unified addressing model for ZAX, with **value semantics*
 | `arr: byte[N]` | address of array        | Composite — already an address |
 | `rec: Record`  | address of record       | Composite — already an address |
 | `rec.field`    | value of field (scalar) | Field access yields value      |
+
+**Compatibility note:** This is an intentional v0.2 breaking semantic change from v0.1-era examples/tests that relied on scalar paren-dereference forms.
 
 **Example:**
 
@@ -529,9 +545,74 @@ Function calls have defined register conventions.
 - Dynamic or nested indexed arguments are deferred until their lowering can be guaranteed preservation-safe with low surprise.
 - Multi-step style is preferred: compute first, then pass a simple register/slot/address argument.
 
+**Full-call stage clobber model (v0.2 draft):**
+
+| Stage | Typical internal sequence | Boundary-visible clobbers | Contract |
+| ----- | ------------------------- | ------------------------- | -------- |
+| 1. Argument evaluation | Helper ops / simple loads | — | Internal scratch must be restored before stage exit |
+| 2. Argument marshalling | Right-to-left `PUSH` of evaluated args | — | Transient SP movement allowed; net effect carried as argument block |
+| 3. Call transfer | `CALL target` | — | Control transfer only; no register contract change by itself |
+| 4. Callee prologue | Save required regs/flags, reserve locals | — | Any internal save/slot setup is hidden from caller boundary |
+| 5. Callee body | User instructions + hidden lowering | — (until return channel write) | Hidden lowering preserves non-output state at boundary |
+| 6. Return channel write | Place result in `HL` (`L` for byte) | `HL` (non-void only) | `HL` is the only standard non-void output channel |
+| 7. Callee epilogue | Restore saved regs/flags, release locals, `RET` | `HL` (non-void only) | Leaves call boundary in preserved state except output |
+| 8. Caller arg cleanup | Drop argument block from stack | `HL` (non-void only) | Net call-boundary SP delta is zero |
+
+**Net boundary rule for typed calls (this draft):**
+- `void` call: no external register/flag clobbers.
+- Non-void call: only `HL` is externally changed (return channel).
+- All other register/flag changes are internal and must be restored before boundary exit.
+- `extern` integrations are separate and should be treated with explicit ABI/clobber declarations.
+
+#### 7.3.5 Full-Call Preservation Plan (Draft)
+
+**Status:** Design-in-progress. This section is the working contract for implementing call lowering without exposing hidden clobbers.
+
+**Goal:** A typed call behaves like one high-level operation with a stable boundary contract, even if internal lowering uses many pushes/pops and scratch registers.
+
+**Scope (v0.2):**
+- Applies to typed internal `func` calls.
+- `extern` calls are explicitly ABI-scoped and may have separate clobber declarations.
+- Variadics remain out of scope in v0.2.
+
+**Compatibility note:** This is an intentional ABI-contract change for typed calls in v0.2 (from clobber-permitted to preservation-safe boundary semantics).
+
+**Boundary invariants:**
+- Net SP delta at the full call boundary is zero.
+- `void` calls preserve all registers/flags.
+- Non-void calls expose only `HL` as output channel.
+- Any temporary register/flag use in argument lowering, call glue, prologue/epilogue, and cleanup must be restored before boundary exit.
+
+**Lowering phases to implement as one envelope:**
+| Phase | Required behavior |
+| ----- | ----------------- |
+| Evaluate args | Use preservation-safe helpers; stage complex forms before marshalling |
+| Marshal args | Push right-to-left; no boundary-visible clobbers |
+| Transfer | Emit `CALL` target |
+| Callee setup | Reserve locals / save internals as needed |
+| Callee body | Hidden lowering may use scratch, but must restore non-outputs |
+| Return publish | Write return channel (`HL`, or `L` within `HL`) |
+| Callee teardown | Restore internals and return |
+| Caller cleanup | Remove argument block; preserve boundary contract |
+
+**Open design decisions (must be fixed before implementation):**
+- Internal-call envelope ownership: exact split of preservation duties between caller wrapper and callee generated prologue/epilogue.
+- Cleanup primitive choice: canonical argument cleanup sequence(s) with minimal side effects.
+- Flags policy: preserve flags across typed calls by default vs. explicit opt-out modes.
+- Tail-call interaction: whether tail-call lowering is permitted under strict preservation guarantees.
+
+**Validation matrix (required):**
+- 0-arg, 1-arg, multi-arg calls with mixed arg categories (`reg`, `imm`, `ea`, `(ea)`).
+- Calls returning `void`, `byte`, and `word`.
+- Nested calls inside structured control (`if/while/repeat/select`).
+- Calls with locals on both caller and callee sides.
+- Regression checks proving boundary preservation and net-zero SP for each case.
+
+**Note:** This section is intentionally implementation-facing. It defines what must be true at the boundary, not which internal scratch sequence is preferred.
+
 ---
 
-#### 7.3.5 Stack Frame Operations
+#### 7.3.6 Stack Frame Operations
 
 Function prologue/epilogue for locals.
 
@@ -544,7 +625,7 @@ Function prologue/epilogue for locals.
 
 ---
 
-#### 7.3.6 Control Flow
+#### 7.3.7 Control Flow
 
 Structured control flow scaffolding generates branch/jump sequences and is preservation-safe for general-purpose registers.
 
@@ -559,7 +640,7 @@ Structured control flow scaffolding generates branch/jump sequences and is prese
 
 ---
 
-#### 7.3.7 Design Principle
+#### 7.3.8 Design Principle
 
 ZAX does NOT:
 
@@ -575,7 +656,7 @@ ZAX DOES:
 
 ---
 
-#### 7.3.8 Composable Preservation Helpers (Draft)
+#### 7.3.9 Composable Preservation Helpers (Draft)
 
 **Draft direction:** Build language lowering from small composable helpers with explicit stack effects (Forth-style), preservation by default, and stack-oriented result flow.
 
@@ -878,7 +959,7 @@ LD B, 1           ; ⚠ Warning: inconsistent case, expected 'ld'
 
 | Feature                            | Decision         | Complexity | Section |
 | ---------------------------------- | ---------------- | ---------- | ------- |
-| Non-constant indexing (power-of-2) | ✅ v0.2 delivery | Low        | §1.1    |
+| Non-constant indexing (power-of-2) | ✅ v0.2 delivery | Medium     | §1.1    |
 | Nested `grid[row][col]`            | ✅ v0.2 delivery | High       | §1.2    |
 | Array index semantics              | ✅ v0.2 delivery | Medium     | §1.3    |
 | 16-bit register indexing           | ✅ v0.2 delivery | Low        | §1.4    |
@@ -888,14 +969,14 @@ LD B, 1           ; ⚠ Warning: inconsistent case, expected 'ld'
 | Condition-code matchers (`cc`)     | ✅ v0.2 delivery | Medium     | §2.4    |
 | Typed pointers (`^Type`)           | ⏸️ v0.3 deferred | Medium     | §3.1    |
 | Qualified enum `Mode.Read`         | ✅ v0.2 delivery | Low        | §3.2    |
-| `sizeof`/`offsetof`                | ✅ v0.2 delivery | Low        | §3.3    |
+| `sizeof`/`offsetof`                | ✅ v0.2 delivery | High       | §3.3    |
 | Function overloading               | ❌ Never         | —          | §4.1    |
 | Extended HEX (>64KB)               | ❌ Never         | —          | §5.1    |
 | Source-level listing               | ⏸️ v0.3 deferred | Medium     | §5.2    |
 | Signed integers                    | ❌ Never         | —          | §6.1    |
 | **Value semantics for variables**  | ✅ v0.2 delivery | Medium     | §7.1    |
 | **Index pattern recognition**      | ✅ v0.2 delivery | Low        | §7.2    |
-| **Hidden code gen & preservation** | ✅ v0.2 delivery | Low        | §7.3    |
+| **Hidden code gen & preservation** | ✅ v0.2 delivery | High       | §7.3    |
 | `^` dereference operator           | ⏸️ v0.3 deferred | Medium     | §7.5    |
 | `@` address-of operator            | ⏸️ v0.3 deferred | Low        | §7.5    |
 | Typed register field access        | ⏸️ v0.3 deferred | Medium     | §7.6    |
