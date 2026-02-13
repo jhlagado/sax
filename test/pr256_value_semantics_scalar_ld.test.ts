@@ -43,10 +43,12 @@ describe('PR256: value semantics for scalar variables in ld', () => {
         0x00, // ld hl, 2
         0x39, // add hl, sp
         0x7e, // ld a, (hl)
+        0xf5, // push af (preserve source A across address materialization)
         0x21,
-        0x02,
-        0x00, // ld hl, 2
+        0x04,
+        0x00, // ld hl, 4 (arg slot while AF is pushed)
         0x39, // add hl, sp
+        0xf1, // pop af
         0x77, // ld (hl), a
         0xc9, // ret
       ),

@@ -1326,7 +1326,28 @@ export function emitProgram(
       }
       const s8 = reg8Code.get(src.name.toUpperCase());
       if (s8 !== undefined) {
-        if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
+        const preserveA = src.name.toUpperCase() === 'A';
+        if (
+          preserveA &&
+          !emitInstr('push', [{ kind: 'Reg', span: inst.span, name: 'AF' }], inst.span)
+        ) {
+          return false;
+        }
+        if (!materializeEaAddressToHL(dst.expr, inst.span)) {
+          if (
+            preserveA &&
+            !emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'AF' }], inst.span)
+          ) {
+            return false;
+          }
+          return false;
+        }
+        if (
+          preserveA &&
+          !emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'AF' }], inst.span)
+        ) {
+          return false;
+        }
         emitCodeBytes(Uint8Array.of(0x70 + s8), inst.span.file);
         return true;
       }
