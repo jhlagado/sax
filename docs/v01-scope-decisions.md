@@ -513,6 +513,23 @@ Function calls have defined register conventions.
 - Arguments are pushed right-to-left; transient SP movement is balanced by compiler-generated cleanup.
 - Net SP delta at the call boundary is zero.
 
+**Argument surface (v0.2):**
+- Arity is strict for typed `func`/`extern func` calls.
+- Variadic calls are out of scope for v0.2 (future design, likely explicit/extern-only).
+- Keep call-site arguments simple and staged; complex computation should be done in prior instructions.
+
+| Category             | Allowed in v0.2                                                | Not allowed in v0.2                                      |
+| -------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| Registers            | `reg8`, `reg16`                                                | —                                                        |
+| Immediate values     | Literal, named constant, simple compile-time constant form     | Deep nested arithmetic expressions at call site          |
+| Address values (`ea`) | `name`, `name.field`, `name + const`, `name - const`, `name[const]` | Dynamic index forms (`name[idx]`, `name[(HL)]`, etc.)   |
+| Memory values (`(ea)`) | `(name)`, `(name.field)`, `(name + const)`, `(name[const])` | Dynamic/nested indexed forms (`(name[idx])`, `(a[b[c]])`) |
+
+**Notes:**
+- `name[const]` is allowed: it is fixed-offset addressing resolved at compile time.
+- Dynamic or nested indexed arguments are deferred until their lowering can be guaranteed preservation-safe with low surprise.
+- Multi-step style is preferred: compute first, then pass a simple register/slot/address argument.
+
 ---
 
 #### 7.3.5 Stack Frame Operations
@@ -556,6 +573,163 @@ ZAX DOES:
 - Treat hidden scratch/save-restore as compiler responsibility
 - Keep net SP effects balanced at feature boundaries
 - Document generated lowering and boundary-visible effects
+
+---
+
+#### 7.3.8 Composable Preservation Helpers (Draft)
+
+**Draft direction:** Build language lowering from small composable helpers with explicit stack effects (Forth-style), preservation by default, and stack-oriented result flow.
+
+**Helper contract:**
+- Each helper declares stack effect (`--`, `-- w`, `w --`, etc.).
+- Non-output registers are preserved at helper boundary.
+- Internal scratch is allowed only if restored before helper exit.
+- Result values default to stack output unless helper explicitly targets a destination register.
+- Net stack effect must match the declared helper contract exactly.
+
+**v0.2 helper surface as `op` declarations (draft):**
+
+```zax
+; Stack effects are documented in comments.
+; Matcher names follow current op-system forms (`reg8`, `reg16`, `imm8`, `imm16`, `ea`, `mem8`, `mem16`).
+
+op push_imm16(value: imm16)               ; -- w
+  PUSH HL
+  LD HL, value
+  EX (SP), HL
+end
+
+op push_reg8_zx(value: reg8)              ; -- w
+  ; Universal form (handles value = H/L safely), preserves HL/AF.
+  PUSH AF
+  PUSH HL
+  LD A, value
+  LD H, 0
+  LD L, A
+  EX (SP), HL
+  POP AF
+end
+
+op push_addr(addr_expr: ea)               ; -- addr
+  ; Same preservation template as push_imm16, but input matcher is `ea`.
+  PUSH HL
+  LD HL, addr_expr
+  EX (SP), HL
+end
+
+op push_load8(source: mem8)               ; -- w
+  ; Universal mem8 load path: LD A,source is broadly encodable; HL/AF preserved.
+  PUSH AF
+  PUSH HL
+  LD A, source
+  LD H, 0
+  LD L, A
+  EX (SP), HL
+  POP AF
+end
+
+op push_load16(source: mem16)             ; -- w
+  PUSH HL
+  LD HL, source
+  EX (SP), HL
+end
+
+op index_base_scale(base_addr: imm16, shift_count: imm8) ; idx -- addr
+  ; TOS contains idx on entry.
+  EX (SP), HL
+  PUSH DE
+  PUSH AF
+  LD DE, base_addr
+  LD A, shift_count
+  OR A
+  while NZ
+    ADD HL, HL
+    DEC A
+  end
+  ADD HL, DE
+  POP AF
+  POP DE
+  EX (SP), HL
+end
+
+op pop_to_reg8(target: reg8)              ; w --   (target must not be H/L)
+  ; Fast path for A/B/C/D/E.
+  EX (SP), HL
+  LD target, L
+  POP HL
+end
+
+op pop_to_reg8(target: L)                 ; w --
+  ; H and A preserved; routes low byte from TOS into L.
+  LD L, A
+  LD A, H
+  EX (SP), HL
+  LD H, A
+  EX (SP), HL
+  LD A, L
+  POP HL
+end
+
+op pop_to_reg8(target: H)                 ; w --
+  ; L and A preserved; routes low byte from TOS into H.
+  LD H, A
+  LD A, L
+  EX (SP), HL
+  LD H, L
+  LD L, A
+  EX (SP), HL
+  LD A, H
+  POP HL
+end
+
+op store8_ea_from_tos(dest: ea)           ; w --
+  ; Store low byte of TOS word into dest, consume TOS, preserve HL/AF.
+  EX (SP), HL
+  PUSH AF
+  LD A, L
+  LD dest, A
+  POP AF
+  POP HL
+end
+
+op store16_ea_from_tos(dest: ea)          ; w --
+  EX (SP), HL
+  LD dest, HL
+  POP HL
+end
+
+```
+
+| Op Name                 | Stack Effect | Purpose                               | Boundary Contract                 |
+| ----------------------- | ------------ | ------------------------------------- | --------------------------------- |
+| `push_imm16`            | `-- w`       | Push literal word                     | Preserve all registers            |
+| `push_reg8_zx`          | `-- w`       | Push zero-extended byte               | Preserve all non-output registers |
+| `push_addr`             | `-- addr`    | Push effective address                | Preserve all non-output registers |
+| `push_load8`            | `-- w`       | Push zero-extended memory byte        | Preserve all non-output registers |
+| `push_load16`           | `-- w`       | Push memory word                      | Preserve all non-output registers |
+| `index_base_scale`      | `idx -- addr`| Compute base + scaled index           | Preserve all non-output registers |
+| `pop_to_reg8(reg8)`     | `w --`       | Route low byte to `A/B/C/D/E`         | Preserve all other registers      |
+| `pop_to_reg8(L)`        | `w --`       | Route low byte to `L` (special path)  | Preserve all other registers      |
+| `pop_to_reg8(H)`        | `w --`       | Route low byte to `H` (special path)  | Preserve all other registers      |
+| `store8_ea_from_tos`    | `w --`       | Store low byte from stack             | Preserve all non-output registers |
+| `store16_ea_from_tos`   | `w --`       | Store word from stack                 | Preserve all non-output registers |
+
+**Rule:** Do not define wrapper ops for direct machine primitives. Use raw Z80 instructions directly (`PUSH rr`, `POP rr`, `EX DE,HL`, `EX (SP),HL`).
+
+**Address form scope for `ea_simple` (v0.2 draft):** `name`, `name.field`, `name +/- const`, `name[const]`.
+
+**Preferred Z80 primitives:**
+- Prefer `EX DE,HL` to move values between working pairs without additional scratch registers.
+- Prefer `EX (SP),HL` for stack/HL exchange patterns (notably "restore HL while leaving computed result on top of stack").
+- Use `PUSH`/`POP` save/restore when exchange instructions cannot express the required transformation safely.
+
+**Pending:** Add worked examples for each helper and two or three composed pipelines (`arr[idx]` load, struct-field load, argument marshalling sequence).
+
+**Validation required (before promotion beyond draft):**
+- `push_reg8_zx` with each source register (`A/B/C/D/E/H/L`), especially `H`.
+- `push_load8` across memory forms (`(name)`, `(HL)`, `(IX+d)`, `(IY+d)`).
+- `pop_to_reg8` overload dispatch and correctness for `A/B/C/D/E/L/H`.
+- End-to-end stack-effect proof (`-- w`, `w --`, `idx -- addr`) in nested op compositions.
 
 ---
 
