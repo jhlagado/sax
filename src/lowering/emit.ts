@@ -465,6 +465,12 @@ export function emitProgram(
       const scratch: Diagnostic[] = [];
       return evalImmExpr(expr, env, scratch);
     };
+    const isIxIyIndexedMem = (op: AsmOperandNode): boolean =>
+      op.kind === 'Mem' &&
+      ((op.expr.kind === 'EaName' && /^(IX|IY)$/i.test(op.expr.name)) ||
+        ((op.expr.kind === 'EaAdd' || op.expr.kind === 'EaSub') &&
+          op.expr.base.kind === 'EaName' &&
+          /^(IX|IY)$/i.test(op.expr.base.name)));
     const inferMemWidth = (op: AsmOperandNode): number | undefined => {
       if (op.kind !== 'Mem') return undefined;
       const resolved = resolveEa(op.expr, op.span);
@@ -483,6 +489,12 @@ export function emitProgram(
             operand.name.toUpperCase() === 'HL' ||
             operand.name.toUpperCase() === 'SP')
         );
+      case 'MatcherIdx16':
+        return isIxIyIndexedMem(operand);
+      case 'MatcherCc': {
+        const token = normalizeFixedToken(operand);
+        return token !== undefined && conditionOpcodeFromName(token) !== undefined;
+      }
       case 'MatcherImm8': {
         if (operand.kind !== 'Imm') return false;
         const v = evalImmNoDiag(operand.expr);

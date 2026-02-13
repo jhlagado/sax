@@ -272,6 +272,8 @@ export interface OpParamNode extends BaseNode {
 export type OpMatcherNode =
   | { kind: 'MatcherReg8'; span: SourceSpan }
   | { kind: 'MatcherReg16'; span: SourceSpan }
+  | { kind: 'MatcherIdx16'; span: SourceSpan }
+  | { kind: 'MatcherCc'; span: SourceSpan }
   | { kind: 'MatcherImm8'; span: SourceSpan }
   | { kind: 'MatcherImm16'; span: SourceSpan }
   | { kind: 'MatcherEa'; span: SourceSpan }
