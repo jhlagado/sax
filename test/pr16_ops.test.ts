@@ -130,6 +130,16 @@ describe('PR16 op declarations and expansion', () => {
     expect(res.diagnostics.some((d) => d.message.includes('No matching op overload'))).toBe(true);
   });
 
+  it('keeps dotted field operands as ea for matcher resolution', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr259_op_ea_dotted_field.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
+
   it('substitutes nested ea expressions inside op bodies', async () => {
     const entry = join(__dirname, 'fixtures', 'pr188_op_ea_nested_substitution.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

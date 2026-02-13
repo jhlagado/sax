@@ -24,9 +24,21 @@ function diag(
   });
 }
 
+function flattenEaDottedName(ea: EaExprNode): string | undefined {
+  if (ea.kind === 'EaName') return ea.name;
+  if (ea.kind === 'EaField') {
+    const base = flattenEaDottedName(ea.base);
+    return base ? `${base}.${ea.field}` : undefined;
+  }
+  return undefined;
+}
+
 function immValue(op: AsmOperandNode, env: CompileEnv): number | undefined {
-  if (op.kind !== 'Imm') return undefined;
-  return evalImmExpr(op.expr, env);
+  if (op.kind === 'Imm') return evalImmExpr(op.expr, env);
+  if (op.kind !== 'Ea') return undefined;
+  const dotted = flattenEaDottedName(op.expr);
+  if (!dotted || !env.enums.has(dotted)) return undefined;
+  return evalImmExpr({ kind: 'ImmName', span: op.span, name: dotted }, env);
 }
 
 function portImmValue(op: AsmOperandNode, env: CompileEnv): number | undefined {

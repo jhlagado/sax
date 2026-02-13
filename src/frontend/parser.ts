@@ -643,12 +643,6 @@ function parseAsmOperand(
     const ea = parseEaExprFromText(filePath, inner, operandSpan, diagnostics);
     if (ea) return { kind: 'Mem', span: operandSpan, expr: ea };
   }
-  if (t.includes('.') && !t.includes('[')) {
-    const enumExpr = parseImmExprFromText(filePath, t, operandSpan, diagnostics, false);
-    if (enumExpr?.kind === 'ImmName' && enumExpr.name.includes('.')) {
-      return { kind: 'Imm', span: operandSpan, expr: enumExpr };
-    }
-  }
   if (t.includes('.') || t.includes('[')) {
     const ea = parseEaExprFromText(filePath, t, operandSpan, diagnostics);
     if (ea) return { kind: 'Ea', span: operandSpan, expr: ea };

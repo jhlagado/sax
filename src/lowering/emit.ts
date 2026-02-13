@@ -448,6 +448,23 @@ export function emitProgram(
     }
   };
 
+  const flattenEaDottedName = (ea: EaExprNode): string | undefined => {
+    if (ea.kind === 'EaName') return ea.name;
+    if (ea.kind === 'EaField') {
+      const base = flattenEaDottedName(ea.base);
+      return base ? `${base}.${ea.field}` : undefined;
+    }
+    return undefined;
+  };
+
+  const enumImmExprFromOperand = (op: AsmOperandNode): ImmExprNode | undefined => {
+    if (op.kind === 'Imm') return op.expr;
+    if (op.kind !== 'Ea') return undefined;
+    const name = flattenEaDottedName(op.expr);
+    if (!name || !env.enums.has(name)) return undefined;
+    return { kind: 'ImmName', span: op.span, name };
+  };
+
   const normalizeFixedToken = (op: AsmOperandNode): string | undefined => {
     switch (op.kind) {
       case 'Reg':
@@ -455,6 +472,10 @@ export function emitProgram(
       case 'Imm':
         if (op.expr.kind === 'ImmName') return op.expr.name.toUpperCase();
         return undefined;
+      case 'Ea': {
+        const enumExpr = enumImmExprFromOperand(op);
+        return enumExpr?.kind === 'ImmName' ? enumExpr.name.toUpperCase() : undefined;
+      }
       default:
         return undefined;
     }
@@ -496,13 +517,15 @@ export function emitProgram(
         return token !== undefined && conditionOpcodeFromName(token) !== undefined;
       }
       case 'MatcherImm8': {
-        if (operand.kind !== 'Imm') return false;
-        const v = evalImmNoDiag(operand.expr);
+        const expr = enumImmExprFromOperand(operand);
+        if (!expr) return false;
+        const v = evalImmNoDiag(expr);
         return v !== undefined && v >= 0 && v <= 0xff;
       }
       case 'MatcherImm16': {
-        if (operand.kind !== 'Imm') return false;
-        const v = evalImmNoDiag(operand.expr);
+        const expr = enumImmExprFromOperand(operand);
+        if (!expr) return false;
+        const v = evalImmNoDiag(expr);
         return v !== undefined && v >= 0 && v <= 0xffff;
       }
       case 'MatcherEa':
@@ -2239,6 +2262,11 @@ export function emitProgram(
               if (scalar) return pushMemValue(ea, want, asmItem.span);
               return pushEaAddress(ea, asmItem.span);
             };
+            const enumValueFromEa = (ea: EaExprNode): number | undefined => {
+              const name = flattenEaDottedName(ea);
+              if (!name) return undefined;
+              return env.enums.get(name);
+            };
             const restorePreservedRegs = (): boolean => {
               for (let ri = preservedRegs.length - 1; ri >= 0; ri--) {
                 if (
@@ -2308,6 +2336,13 @@ export function emitProgram(
                   continue;
                 }
                 if (arg.kind === 'Ea') {
+                  const enumVal = enumValueFromEa(arg.expr);
+                  if (enumVal !== undefined) {
+                    ok = pushImm16(enumVal & 0xff, asmItem.span);
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
                   ok = pushArgValueFromEa(arg.expr, 'byte');
                   if (!ok) break;
                   pushedArgWords++;
@@ -2366,6 +2401,13 @@ export function emitProgram(
                   continue;
                 }
                 if (arg.kind === 'Ea') {
+                  const enumVal = enumValueFromEa(arg.expr);
+                  if (enumVal !== undefined) {
+                    ok = pushImm16(enumVal & 0xffff, asmItem.span);
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
                   ok = pushArgValueFromEa(arg.expr, 'word');
                   if (!ok) break;
                   pushedArgWords++;
@@ -2453,6 +2495,18 @@ export function emitProgram(
               bindings.set(opDecl.params[idx]!.name.toLowerCase(), asmItem.operands[idx]!);
             }
 
+            const bindingAsImmExpr = (
+              bound: AsmOperandNode | undefined,
+              span: SourceSpan,
+            ): ImmExprNode | undefined => {
+              if (!bound) return undefined;
+              if (bound.kind === 'Imm') return cloneImmExpr(bound.expr);
+              if (bound.kind !== 'Ea') return undefined;
+              const name = flattenEaDottedName(bound.expr);
+              if (!name || !env.enums.has(name)) return undefined;
+              return { kind: 'ImmName', span, name };
+            };
+
             const substituteImm = (expr: ImmExprNode): ImmExprNode => {
               const substituteOffsetofPath = (path: any): any => ({
                 ...path,
@@ -2464,7 +2518,8 @@ export function emitProgram(
               });
               if (expr.kind === 'ImmName') {
                 const bound = bindings.get(expr.name.toLowerCase());
-                if (bound && bound.kind === 'Imm') return cloneImmExpr(bound.expr);
+                const immBound = bindingAsImmExpr(bound, expr.span);
+                if (immBound) return immBound;
                 return { ...expr };
               }
               if (expr.kind === 'ImmOffsetof') {
@@ -2484,6 +2539,8 @@ export function emitProgram(
             const substituteOperand = (operand: AsmOperandNode): AsmOperandNode => {
               if (operand.kind === 'Imm' && operand.expr.kind === 'ImmName') {
                 const bound = bindings.get(operand.expr.name.toLowerCase());
+                const immBound = bindingAsImmExpr(bound, operand.span);
+                if (immBound) return { kind: 'Imm', span: operand.span, expr: immBound };
                 if (bound) return cloneOperand(bound);
                 return { ...operand, expr: substituteImm(operand.expr) };
               }
@@ -2505,6 +2562,15 @@ export function emitProgram(
                     ...operand,
                     expr: { kind: 'EaName', span: operand.expr.span, name: bound.expr.name },
                   };
+                }
+                if (bound?.kind === 'Ea') {
+                  const enumName = flattenEaDottedName(bound.expr);
+                  if (enumName && env.enums.has(enumName)) {
+                    return {
+                      ...operand,
+                      expr: { kind: 'EaName', span: operand.expr.span, name: enumName },
+                    };
+                  }
                 }
                 return cloneOperand(operand);
               }
@@ -2536,7 +2602,8 @@ export function emitProgram(
                 });
                 if (expr.kind === 'ImmName') {
                   const bound = bindings.get(expr.name.toLowerCase());
-                  if (bound && bound.kind === 'Imm') return cloneImmExpr(bound.expr);
+                  const immBound = bindingAsImmExpr(bound, expr.span);
+                  if (immBound) return immBound;
                   const mapped = localLabelMap.get(expr.name.toLowerCase());
                   if (mapped) return { kind: 'ImmName', span: expr.span, name: mapped };
                   return { ...expr };
@@ -2599,6 +2666,8 @@ export function emitProgram(
                 if (operand.kind === 'Imm') {
                   if (operand.expr.kind === 'ImmName') {
                     const bound = bindings.get(operand.expr.name.toLowerCase());
+                    const immBound = bindingAsImmExpr(bound, operand.span);
+                    if (immBound) return { kind: 'Imm', span: operand.span, expr: immBound };
                     if (bound) return cloneOperand(bound);
                   }
                   return { ...operand, expr: substituteImmWithOpLabels(operand.expr) };
