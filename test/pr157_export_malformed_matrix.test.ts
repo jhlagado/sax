@@ -23,7 +23,7 @@ describe('PR157 parser: malformed export matrix', () => {
       'export not supported on type declarations',
       'export not supported on union declarations',
       'export not supported on globals declarations',
-      'export not supported on var declarations',
+      'export not supported on legacy "var" declarations (use "globals")',
       'export not supported on section directives',
       'export not supported on align directives',
       'export not supported on extern declarations',

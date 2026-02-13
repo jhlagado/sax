@@ -105,7 +105,11 @@ describe('PR227 parser top-level malformed header span matrix', () => {
       { message: 'export not supported on type declarations', line: 5, column: 1 },
       { message: 'export not supported on union declarations', line: 6, column: 1 },
       { message: 'export not supported on globals declarations', line: 7, column: 1 },
-      { message: 'export not supported on var declarations', line: 8, column: 1 },
+      {
+        message: 'export not supported on legacy "var" declarations (use "globals")',
+        line: 8,
+        column: 1,
+      },
       { message: 'export not supported on section directives', line: 9, column: 1 },
       { message: 'export not supported on align directives', line: 10, column: 1 },
       { message: 'export not supported on extern declarations', line: 11, column: 1 },

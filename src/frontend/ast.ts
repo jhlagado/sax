@@ -312,6 +312,8 @@ export interface AsmInstructionNode extends BaseNode {
 
 /**
  * Structured control-flow keywords inside an `asm` stream.
+ *
+ * Condition-code fields (`cc`) are canonical lower-case tokens.
  */
 export type AsmControlNode =
   | { kind: 'If'; span: SourceSpan; cc: string }
