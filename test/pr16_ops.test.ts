@@ -103,6 +103,33 @@ describe('PR16 op declarations and expansion', () => {
     expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
   });
 
+  it('supports idx16 matcher for IX/IY indexed memory operands', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr258_op_idx16_matcher.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes).toEqual(Uint8Array.of(0xdd, 0x7e, 0x02, 0xfd, 0x46, 0x00, 0xc9));
+  });
+
+  it('supports cc matcher for op-body structured control substitution', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr258_op_cc_matcher.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes[bin!.bytes.length - 1]).toBe(0xc9);
+  });
+
+  it('diagnoses non-condition operands for cc matcher', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr258_op_cc_matcher_invalid.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.artifacts).toEqual([]);
+    expect(res.diagnostics.some((d) => d.message.includes('No matching op overload'))).toBe(true);
+  });
+
   it('substitutes nested ea expressions inside op bodies', async () => {
     const entry = join(__dirname, 'fixtures', 'pr188_op_ea_nested_substitution.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

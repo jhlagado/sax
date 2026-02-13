@@ -1230,6 +1230,10 @@ function parseOpMatcherFromText(matcherText: string, matcherSpan: SourceSpan): O
       return { kind: 'MatcherReg8', span: matcherSpan };
     case 'reg16':
       return { kind: 'MatcherReg16', span: matcherSpan };
+    case 'idx16':
+      return { kind: 'MatcherIdx16', span: matcherSpan };
+    case 'cc':
+      return { kind: 'MatcherCc', span: matcherSpan };
     case 'imm8':
       return { kind: 'MatcherImm8', span: matcherSpan };
     case 'imm16':
