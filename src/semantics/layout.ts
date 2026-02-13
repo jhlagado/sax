@@ -15,6 +15,12 @@ export function sizeOfTypeExpr(
   env: CompileEnv,
   diagnostics?: Diagnostic[],
 ): number | undefined {
+  const nextPow2 = (value: number): number => {
+    if (value <= 1) return value;
+    let pow = 1;
+    while (pow < value) pow <<= 1;
+    return pow;
+  };
   const visiting = new Set<string>();
   const memo = new Map<string, number>();
 
@@ -43,7 +49,7 @@ export function sizeOfTypeExpr(
         if (fs === undefined) return undefined;
         if (fs > max) max = fs;
       }
-      return max;
+      return nextPow2(max);
     }
 
     const te = decl.typeExpr;
@@ -54,7 +60,7 @@ export function sizeOfTypeExpr(
         if (fs === undefined) return undefined;
         sum += fs;
       }
-      return sum;
+      return nextPow2(sum);
     }
     return sizeOf(te);
   };
@@ -96,7 +102,7 @@ export function sizeOfTypeExpr(
           );
           return undefined;
         }
-        return es * te.length;
+        return nextPow2(es * te.length);
       }
       case 'RecordType': {
         let sum = 0;
@@ -105,7 +111,7 @@ export function sizeOfTypeExpr(
           if (fs === undefined) return undefined;
           sum += fs;
         }
-        return sum;
+        return nextPow2(sum);
       }
     }
   };

@@ -282,9 +282,11 @@ Type sizes (v0.1):
 - `sizeof(word)` = 2
 - `sizeof(addr)` = 2
 - `sizeof(ptr)` = 2
-- `sizeof(T[n])` = `n * sizeof(T)`
-- `sizeof(record)` = sum of field sizes (packed)
-- `sizeof(union)` = maximum of field sizes (overlay)
+- Composite storage sizes are rounded up to the next power of two.
+  - `pow2(n)` = smallest power of two ≥ `n` (and `pow2(0) = 0`).
+- `sizeof(T[n])` = `pow2(n * sizeof(T))`
+- `sizeof(record)` = `pow2(sum of field sizes)`
+- `sizeof(union)` = `pow2(max field size)`
 
 ### 4.2 Type Aliases
 
@@ -380,7 +382,8 @@ Indexing:
 Layout:
 
 - Arrays are contiguous, row-major (C style).
-- `a[r][c]` addresses `base + (r*COLS + c) * sizeof(T)`.
+- `a[i]` addresses `base + i * sizeof(T)`.
+- `a[r][c]` addresses `base + r * sizeof(T[c]) + c * sizeof(T)` (row stride is `sizeof(T[c])`).
 
 Index forms (v0.1):
 
@@ -393,7 +396,7 @@ Notes (v0.1):
 - The index grammar is intentionally small. Parenthesized expressions are not permitted inside `[]`; `(HL)` is a special-case index form.
 - `arr[i]` is an effective address (an `ea`), not a dereference. Use parentheses to read/write memory: `ld a, (arr[i])`.
 
-### 5.2 Records (Packed Structs)
+### 5.2 Records (Power-of-2 Sized)
 
 Record types are layout descriptions:
 
@@ -413,7 +416,8 @@ Layout rules:
 
 - Records must contain at least one field (empty records are a compile error in v0.1).
 - Fields are laid out in source order.
-- Default layout is packed (no implicit padding).
+- Each field occupies its full storage size (`sizeof(fieldType)`), which is power-of-2 rounded.
+- The record's total storage size is `pow2(sum of field sizes)`.
 - `byte` fields are 1 byte; `word` fields are 2 bytes.
 - `addr` and `ptr` fields are 2 bytes (same as `word`).
 
@@ -452,8 +456,7 @@ Layout rules (v0.1):
 - Unions must contain at least one field (empty unions are a compile error in v0.1).
 - Union declarations are module-scope only.
 - All union fields start at offset 0 (overlay).
-- Union size is the maximum field size: `sizeof(union) = max(sizeof(fieldType))`.
-- Default layout is packed (no implicit padding).
+- Union size is the maximum field size, rounded up to power-of-2: `sizeof(union) = pow2(max(sizeof(fieldType)))`.
 
 Field access:
 

@@ -35,7 +35,7 @@ describe('PR3 module var layout', () => {
       expect.arrayContaining([
         expect.objectContaining({ name: 'msg', kind: 'data', address: 2 }),
         expect.objectContaining({ name: 'p', kind: 'var', address: 4, size: 4 }),
-        expect.objectContaining({ name: 'xs', kind: 'var', address: 8, size: 3 }),
+        expect.objectContaining({ name: 'xs', kind: 'var', address: 8, size: 4 }),
       ]),
     );
   });

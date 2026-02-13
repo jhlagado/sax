@@ -702,24 +702,23 @@ export function emitProgram(
       }
       const elemSize = sizeOfTypeExpr(base.typeExpr.element, env, diagnostics);
       if (elemSize === undefined) return false;
-      if (elemSize !== 1 && elemSize !== 2) {
+      if (elemSize <= 0 || (elemSize & (elemSize - 1)) !== 0) {
         diagAt(
           diagnostics,
           span,
-          `Non-constant indexing is supported only for element sizes 1 and 2 (got ${elemSize}).`,
+          `Non-constant indexing requires power-of-2 element size (got ${elemSize}).`,
         );
         return false;
       }
+      const shiftCount = elemSize <= 1 ? 0 : Math.log2(elemSize);
       if (ea.index.kind === 'IndexEa') {
         return false;
       }
 
-      // If the index is sourced from (HL), read it before clobbering HL with the base address.
+      // If the index is sourced from (HL), read it before clobbering HL.
       if (ea.index.kind === 'IndexMemHL') {
         emitCodeBytes(Uint8Array.of(0x7e), span.file); // ld a, (hl)
       }
-
-      emitAbs16Fixup(0x21, base.baseLower, base.addend, span); // ld hl, base
 
       if (ea.index.kind === 'IndexReg8') {
         const r8 = ea.index.reg.toUpperCase();
@@ -727,57 +726,49 @@ export function emitProgram(
           diagAt(diagnostics, span, `Invalid reg8 index "${ea.index.reg}".`);
           return false;
         }
-        if (elemSize === 2) {
-          if (
-            !emitInstr(
-              'ld',
-              [
-                { kind: 'Reg', span, name: 'A' },
-                { kind: 'Reg', span, name: r8 },
-              ],
-              span,
-            )
-          ) {
-            return false;
-          }
-          emitCodeBytes(Uint8Array.of(0x87), span.file); // add a, a
-          if (
-            !emitInstr(
-              'ld',
-              [
-                { kind: 'Reg', span, name: 'E' },
-                { kind: 'Reg', span, name: 'A' },
-              ],
-              span,
-            )
-          ) {
-            return false;
-          }
-        } else {
-          if (
-            !emitInstr(
-              'ld',
-              [
-                { kind: 'Reg', span, name: 'E' },
-                { kind: 'Reg', span, name: r8 },
-              ],
-              span,
-            )
-          ) {
-            return false;
-          }
-        }
-      } else if (ea.index.kind === 'IndexMemHL') {
-        // Index already in A from `ld a,(hl)` above.
-        if (elemSize === 2) {
-          emitCodeBytes(Uint8Array.of(0x87), span.file); // add a, a
+        if (
+          !emitInstr(
+            'ld',
+            [
+              { kind: 'Reg', span, name: 'L' },
+              { kind: 'Reg', span, name: r8 },
+            ],
+            span,
+          )
+        ) {
+          return false;
         }
         if (
           !emitInstr(
             'ld',
             [
-              { kind: 'Reg', span, name: 'E' },
+              { kind: 'Reg', span, name: 'H' },
+              { kind: 'Imm', span, expr: { kind: 'ImmLiteral', span, value: 0 } },
+            ],
+            span,
+          )
+        ) {
+          return false;
+        }
+      } else if (ea.index.kind === 'IndexMemHL') {
+        if (
+          !emitInstr(
+            'ld',
+            [
+              { kind: 'Reg', span, name: 'L' },
               { kind: 'Reg', span, name: 'A' },
+            ],
+            span,
+          )
+        ) {
+          return false;
+        }
+        if (
+          !emitInstr(
+            'ld',
+            [
+              { kind: 'Reg', span, name: 'H' },
+              { kind: 'Imm', span, expr: { kind: 'ImmLiteral', span, value: 0 } },
             ],
             span,
           )
@@ -789,18 +780,22 @@ export function emitProgram(
         return false;
       }
 
-      if (
-        !emitInstr(
-          'ld',
-          [
-            { kind: 'Reg', span, name: 'D' },
-            { kind: 'Imm', span, expr: { kind: 'ImmLiteral', span, value: 0 } },
-          ],
-          span,
-        )
-      ) {
-        return false;
+      for (let i = 0; i < shiftCount; i++) {
+        if (
+          !emitInstr(
+            'add',
+            [
+              { kind: 'Reg', span, name: 'HL' },
+              { kind: 'Reg', span, name: 'HL' },
+            ],
+            span,
+          )
+        ) {
+          return false;
+        }
       }
+
+      emitAbs16Fixup(0x11, base.baseLower, base.addend, span); // ld de, base
       if (
         !emitInstr(
           'add',
@@ -3238,6 +3233,12 @@ export function emitProgram(
             emitByte(w & 0xff);
             emitByte((w >> 8) & 0xff);
           };
+          const nextPow2 = (value: number): number => {
+            if (value <= 1) return value;
+            let pow = 1;
+            while (pow < value) pow <<= 1;
+            return pow;
+          };
 
           const elementType =
             type.kind === 'ArrayType'
@@ -3262,7 +3263,8 @@ export function emitProgram(
             continue;
           }
 
-          const length = type.kind === 'ArrayType' ? type.length : 1;
+          const declaredLength = type.kind === 'ArrayType' ? type.length : 1;
+          let actualLength = declaredLength ?? 0;
 
           if (init.kind === 'InitString') {
             if (elementSize !== 1) {
@@ -3273,12 +3275,18 @@ export function emitProgram(
               );
               continue;
             }
-            if (length !== undefined && init.value.length !== length) {
+            if (declaredLength !== undefined && init.value.length !== declaredLength) {
               diag(diagnostics, decl.span.file, `String length mismatch for "${decl.name}".`);
               continue;
             }
             for (let idx = 0; idx < init.value.length; idx++) {
               emitByte(init.value.charCodeAt(idx));
+            }
+            actualLength = init.value.length;
+            if (type.kind === 'ArrayType') {
+              const emittedBytes = actualLength * elementSize;
+              const storageBytes = nextPow2(emittedBytes);
+              for (let pad = emittedBytes; pad < storageBytes; pad++) emitByte(0);
             }
             continue;
           }
@@ -3297,7 +3305,7 @@ export function emitProgram(
             values.push(v);
           }
 
-          if (length !== undefined && values.length !== length) {
+          if (declaredLength !== undefined && values.length !== declaredLength) {
             diag(diagnostics, decl.span.file, `Initializer length mismatch for "${decl.name}".`);
             continue;
           }
@@ -3305,6 +3313,12 @@ export function emitProgram(
           for (const v of values) {
             if (elementSize === 1) emitByte(v);
             else emitWord(v);
+          }
+          actualLength = type.kind === 'ArrayType' ? values.length : 1;
+          if (type.kind === 'ArrayType') {
+            const emittedBytes = actualLength * elementSize;
+            const storageBytes = nextPow2(emittedBytes);
+            for (let pad = emittedBytes; pad < storageBytes; pad++) emitByte(0);
           }
         }
         continue;

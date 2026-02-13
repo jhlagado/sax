@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 describe('PR2 const + data', () => {
-  it('evaluates consts and emits packed data', async () => {
+  it('evaluates consts and emits padded data', async () => {
     const entry = join(__dirname, 'fixtures', 'pr2_const_data.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.diagnostics).toEqual([]);
@@ -20,7 +20,9 @@ describe('PR2 const + data', () => {
     expect(bin).toBeDefined();
     expect(d8m).toBeDefined();
 
-    expect(bin!.bytes).toEqual(Uint8Array.of(0x3e, 0x05, 0xc9, 0x00, 0x48, 0x45, 0x4c, 0x4c, 0x4f));
+    expect(bin!.bytes).toEqual(
+      Uint8Array.of(0x3e, 0x05, 0xc9, 0x00, 0x48, 0x45, 0x4c, 0x4c, 0x4f, 0x00, 0x00, 0x00),
+    );
 
     const symbols = d8m!.json['symbols'] as unknown as Array<{
       name: string;

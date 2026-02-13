@@ -11,7 +11,7 @@ This document lists features requiring decisions about their future in ZAX.
 **Current:** Compile error for runtime indices when element size > 2 bytes.
 **Diagnostic:** `Non-constant array indices are not supported yet.`
 
-**Decision:** ✅ **v0.2 delivery** — Support runtime indexing for **power-of-2 element sizes only** (1, 2, 4, 8, 16...).
+**Decision:** ✅ **v0.2 delivery** — Adopt **power-of-2 storage sizing** for all composite types so runtime indexing is always shift-based (no multiply).
 
 **Rationale:** An assembler should not generate hidden, bloated code. Arbitrary element sizes require multiplication routines (20+ bytes inlined per access, or subroutine call overhead). Power-of-2 sizes use simple shift sequences:
 
@@ -25,19 +25,19 @@ This document lists features requiring decisions about their future in ZAX.
 
 **The Rule:**
 
-- **Constant indices:** Any element size works (computed at compile time)
-- **Runtime indices:** Element size auto-padded to nearest power-of-2
-- **Non-power-of-2 runtime:** Warning emitted, automatic padding applied
+- **Storage sizes are power-of-2.** Composite types (arrays, records, unions) are rounded up to the next power-of-2 size.
+- **Runtime indexing uses shift sequences only.** Index scaling is always `ADD HL,HL` × N where N = `log2(sizeof(element))`.
+- **Padding is storage-visible.** A non-power-of-2 type occupies the padded size everywhere (layout, `sizeof`, and indexing).
 
 **Warning message:**
 
 ```
-Warning: Element size 5 padded to 8 for runtime indexing.
-  Array 'sprites' will use 8 bytes per element (3 bytes padding).
+Warning: Type Sprite size 5 padded to 8.
+  Storage uses 8 bytes per element (3 bytes padding).
   Hint: Explicitly pad your type to suppress this warning.
 ```
 
-**Behavior:** A 5-byte struct is automatically treated as 8 bytes for indexing purposes. The compiler pads each element, ensuring shift-based addressing works. User is informed but code compiles.
+**Behavior:** A 5-byte struct occupies 8 bytes in storage. This is not just for indexing; it is the actual size of the type. The compiler pads each element, ensuring shift-based addressing works. User is informed but code compiles.
 
 **To suppress warning:** Explicitly pad the struct to a power-of-2 size:
 
@@ -62,7 +62,7 @@ end
 
 **Decision:** ✅ **v0.2 delivery** — requires address computation chain; inherits power-of-2 behavior from §1.1.
 
-**Power-of-2 at each level:** The auto-padding rule applies independently at each nesting level:
+**Power-of-2 at each level:** Storage sizing is power-of-2 at each nesting level:
 
 ```zax
 type Sprite       ; 5 bytes → padded to 8
@@ -78,12 +78,12 @@ globals
 
 | Level        | Element         | Natural Size     | Padded To | Warning? |
 | ------------ | --------------- | ---------------- | --------- | -------- |
-| `grid[row_index]`            | Row (6 Sprites) | 6 × 5 = 30 bytes | 32 bytes  | Yes      |
+| `grid[row_index]`            | Row (6 Sprites) | 6 × 5 = 30 bytes | 64 bytes  | Yes      |
 | `grid[row_index][col_index]` | Sprite          | 5 bytes          | 8 bytes   | Yes      |
 
-**Memory impact:** Padding compounds. A `Sprite[4][6]` array naturally uses 120 bytes but with padding uses 4 × 32 = 128 bytes for rows + internal sprite padding.
+**Memory impact:** Padding compounds. A `Sprite[4][6]` array naturally uses 120 bytes but with padding uses 4 × 64 = 256 bytes total.
 
-**To suppress warnings:** Design types with power-of-2 sizes from the start. Padding is automatic and unavoidable for runtime indexing — the warning simply informs you it's happening. If you don't want warnings, structure your data in powers of 2.
+**To suppress warnings:** Design types with power-of-2 sizes from the start. Padding is automatic and unavoidable — the warning simply informs you it's happening. If you don't want warnings, structure your data in powers of 2.
 
 **v0.1 Workaround:** Manual address arithmetic or helper ops.
 
@@ -321,9 +321,8 @@ LD A, (IX+2)                   ; offset for health field
 **Rationale:** Z80 instructions and external interfaces are byte-addressed (`LDIR` lengths, `IX+d` displacements, binary layouts, heap/block allocators). These operators expose required byte constants from type information, avoiding magic numbers.
 
 **v0.2 semantics:**
-- `sizeof(Type)` returns the effective storage size used for addressing stride.
-- For non-power-of-2 record sizes, `sizeof(Type)` returns the auto-padded power-of-2 size (consistent with runtime indexing rules in §1.1).
-- `offsetof(Type, field)` returns the byte offset of `field` from the start of `Type`.
+- `sizeof(Type)` returns the **storage size** of the type (power-of-2 rounded for composites).
+- `offsetof(Type, field)` returns the byte offset of `field` from the start of `Type`, using **storage sizes** of preceding fields.
 - Both operators are compile-time constants only.
 
 **Usage guidance:** Prefer typed field/index access by default. Use `sizeof`/`offsetof` at byte-level boundaries: bulk copy lengths, allocation sizes, explicit indexed displacements, and binary/hardware/protocol layouts.
