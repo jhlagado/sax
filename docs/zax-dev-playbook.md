@@ -64,6 +64,7 @@ Use one of the following tags on every scoped issue/PR:
 - `op` bodies are inline; stack/register discipline is developer-managed.
 - Hidden lowering should stay bounded and predictable.
 - D8M emission includes source-attributed per-file segments; op-expanded instruction ranges are tagged as `macro` and attributed to op call-site lines.
+- Compiler API exposes optional `opStackPolicy` (`off`/`warn`/`error`) for static op-body stack-risk diagnostics at invocation sites in stack-slot functions.
 
 ### 1.4 Rollout Waves
 
