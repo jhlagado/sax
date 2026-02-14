@@ -1,6 +1,6 @@
-name: "v0.2 Change Task"
-description: "Plan and track a scoped v0.2 change with clear acceptance criteria."
-title: "[v0.2] "
+name: 'v0.2 Change Task'
+description: 'Plan and track a scoped v0.2 change with clear acceptance criteria.'
+title: '[v0.2] '
 labels:
   - v0.2
 body:
@@ -15,7 +15,7 @@ body:
     attributes:
       label: Summary
       description: One short paragraph describing the change.
-      placeholder: "Implement X behavior for Y syntax in v0.2."
+      placeholder: 'Implement X behavior for Y syntax in v0.2.'
     validations:
       required: true
 
@@ -24,7 +24,7 @@ body:
     attributes:
       label: Problem Statement
       description: What user pain or spec gap does this fix?
-      placeholder: "Current behavior is ...; expected behavior is ..."
+      placeholder: 'Current behavior is ...; expected behavior is ...'
     validations:
       required: true
 
@@ -88,7 +88,7 @@ body:
     attributes:
       label: Merge Risk Notes
       description: Note likely conflict files or sequencing risks with main.
-      placeholder: "Likely conflicts in docs/zax-spec.md section ... / src/lowering/emit.ts ..."
+      placeholder: 'Likely conflicts in docs/zax-spec.md section ... / src/lowering/emit.ts ...'
 
   - type: textarea
     id: out_of_scope

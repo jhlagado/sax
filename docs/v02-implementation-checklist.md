@@ -13,22 +13,22 @@ Normative language behavior is defined in `docs/zax-spec.md`.
 
 ## Active Queue
 
-| Area | Change | Issue | Status | PR |
-| --- | --- | --- | --- | --- |
-| docs | Runtime-atom model and single-expression budget | — | In progress | [#219](https://github.com/jhlagado/ZAX/pull/219) |
-| semantics/lowering | Enforce runtime-atom quota for source-level `ea` expressions | [#221](https://github.com/jhlagado/ZAX/issues/221) | Planned | — |
-| semantics/lowering | Enforce runtime-atom-free direct `ea`/`(ea)` call-site args | [#222](https://github.com/jhlagado/ZAX/issues/222) | Planned | — |
-| lowering/spec-alignment | Resolve op stack-policy mismatch (docs vs implementation) | [#223](https://github.com/jhlagado/ZAX/issues/223) | Planned | — |
+| Area                    | Change                                                       | Issue                                              | Status      | PR                                               |
+| ----------------------- | ------------------------------------------------------------ | -------------------------------------------------- | ----------- | ------------------------------------------------ |
+| docs                    | Runtime-atom model and single-expression budget              | —                                                  | In progress | [#219](https://github.com/jhlagado/ZAX/pull/219) |
+| semantics/lowering      | Enforce runtime-atom quota for source-level `ea` expressions | [#221](https://github.com/jhlagado/ZAX/issues/221) | Planned     | —                                                |
+| semantics/lowering      | Enforce runtime-atom-free direct `ea`/`(ea)` call-site args  | [#222](https://github.com/jhlagado/ZAX/issues/222) | Planned     | —                                                |
+| lowering/spec-alignment | Resolve op stack-policy mismatch (docs vs implementation)    | [#223](https://github.com/jhlagado/ZAX/issues/223) | Planned     | —                                                |
 
 ## Rollout Schedule (Spec-First, Implementation Catch-Up)
 
 This section makes implementation lag explicit so contributors can plan work against v0.2 normative direction.
 
-| Wave | Target | Scope | Tracking |
-| --- | --- | --- | --- |
-| Wave 1 | Runtime-atom enforcement in `ea` expressions | Implement quota checks + user-friendly diagnostics + fixture updates | [#221](https://github.com/jhlagado/ZAX/issues/221) |
-| Wave 2 | Runtime-atom-free direct call-site `ea`/`(ea)` args | Enforce staged-arg model + diagnostics + fixture updates | [#222](https://github.com/jhlagado/ZAX/issues/222) |
-| Wave 3 | Op stack-policy alignment | Finalize one policy and align docs/implementation/tests | [#223](https://github.com/jhlagado/ZAX/issues/223) |
+| Wave   | Target                                              | Scope                                                                | Tracking                                           |
+| ------ | --------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------- |
+| Wave 1 | Runtime-atom enforcement in `ea` expressions        | Implement quota checks + user-friendly diagnostics + fixture updates | [#221](https://github.com/jhlagado/ZAX/issues/221) |
+| Wave 2 | Runtime-atom-free direct call-site `ea`/`(ea)` args | Enforce staged-arg model + diagnostics + fixture updates             | [#222](https://github.com/jhlagado/ZAX/issues/222) |
+| Wave 3 | Op stack-policy alignment                           | Finalize one policy and align docs/implementation/tests              | [#223](https://github.com/jhlagado/ZAX/issues/223) |
 
 ## Team Signal
 

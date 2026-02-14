@@ -197,13 +197,13 @@ LD arr[idx], A
 
 **Common confusion quick-check (v0.2):**
 
-| Form | Atoms | Allowed |
-| --- | --- | --- |
-| `arr[CONST1 + CONST2 * 4][idx]` | 1 | Yes |
-| `arr[idx][0]` | 1 | Yes |
-| `arr[idx].name` | 1 | Yes |
-| `arr[idx_a + idx_b]` | 2 | No |
-| `grid[row][col]` | 2 | No |
+| Form                            | Atoms | Allowed |
+| ------------------------------- | ----- | ------- |
+| `arr[CONST1 + CONST2 * 4][idx]` | 1     | Yes     |
+| `arr[idx][0]`                   | 1     | Yes     |
+| `arr[idx].name`                 | 1     | Yes     |
+| `arr[idx_a + idx_b]`            | 2     | No      |
+| `grid[row][col]`                | 2     | No      |
 
 **Staged pattern (preferred):**
 

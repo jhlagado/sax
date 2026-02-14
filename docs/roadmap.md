@@ -42,11 +42,11 @@ What moves the needle fastest:
 
 The current docs-first direction introduces intentional near-term implementation lag in three areas. These are not open-ended; they are scheduled and tracked.
 
-| Priority | Constraint | Issue | Delivery intent |
-| --- | --- | --- | --- |
-| 1 | Enforce runtime-atom quota for source-level `ea` expressions | [#221](https://github.com/jhlagado/ZAX/issues/221) | Next lowering/diagnostics tranche |
-| 2 | Enforce runtime-atom-free direct call-site `ea`/`(ea)` args | [#222](https://github.com/jhlagado/ZAX/issues/222) | Immediately after #221 |
-| 3 | Resolve op stack-policy mismatch (docs vs implementation) | [#223](https://github.com/jhlagado/ZAX/issues/223) | After #221/#222 policy stabilization |
+| Priority | Constraint                                                   | Issue                                              | Delivery intent                      |
+| -------- | ------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------ |
+| 1        | Enforce runtime-atom quota for source-level `ea` expressions | [#221](https://github.com/jhlagado/ZAX/issues/221) | Next lowering/diagnostics tranche    |
+| 2        | Enforce runtime-atom-free direct call-site `ea`/`(ea)` args  | [#222](https://github.com/jhlagado/ZAX/issues/222) | Immediately after #221               |
+| 3        | Resolve op stack-policy mismatch (docs vs implementation)    | [#223](https://github.com/jhlagado/ZAX/issues/223) | After #221/#222 policy stabilization |
 
 Team rule for in-flight work:
 

@@ -1469,3 +1469,4 @@ Compilers and tooling should keep migration diagnostics explicit and actionable.
 - `docs/v02-transition-decisions.md` remains a non-normative transition artifact while active migration work is being integrated.
 - Once migration work is fully folded into this spec, `docs/v02-transition-decisions.md` should be archived.
 - The legacy path `docs/v01-scope-decisions.md` is retained only as a pointer for compatibility during transition.
+````
