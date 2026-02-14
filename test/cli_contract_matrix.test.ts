@@ -47,7 +47,7 @@ describe('cli contract matrix', () => {
     await rm(work, { recursive: true, force: true });
   });
 
-  it('rejects missing values for --output/--type/--include/--case-style', async () => {
+  it('rejects missing values for --output/--type/--include/--case-style/--op-stack-policy', async () => {
     const outMissing = await runCli(['--output']);
     expect(outMissing.code).toBe(2);
     expect(outMissing.stderr).toContain('--output expects a value');
@@ -63,6 +63,10 @@ describe('cli contract matrix', () => {
     const caseStyleMissing = await runCli(['--case-style']);
     expect(caseStyleMissing.code).toBe(2);
     expect(caseStyleMissing.stderr).toContain('--case-style expects a value');
+
+    const opStackPolicyMissing = await runCli(['--op-stack-policy']);
+    expect(opStackPolicyMissing.code).toBe(2);
+    expect(opStackPolicyMissing.stderr).toContain('--op-stack-policy expects a value');
   });
 
   it('rejects unsupported type tokens and output/type extension mismatches', async () => {
@@ -84,6 +88,33 @@ describe('cli contract matrix', () => {
 
     await rm(work, { recursive: true, force: true });
   });
+
+  it('rejects unsupported --op-stack-policy mode tokens', async () => {
+    const fixture = join(__dirname, 'fixtures', 'pr271_op_stack_policy_delta_warn.zax');
+    const res = await runCli(['--op-stack-policy=strict', fixture]);
+
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain('Unsupported --op-stack-policy "strict"');
+  });
+
+  it('forwards --op-stack-policy to compile (warn keeps exit 0, error upgrades to exit 1)', async () => {
+    const fixture = join(__dirname, 'fixtures', 'pr271_op_stack_policy_delta_warn.zax');
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-op-stack-policy-'));
+    const warnOut = join(work, 'warn.hex');
+    const errorOut = join(work, 'error.hex');
+
+    const warnRes = await runCli(['--op-stack-policy=warn', '--output', warnOut, fixture]);
+    expect(warnRes.code).toBe(0);
+    expect(warnRes.stderr).toContain('warning: [ZAX315]');
+    expect(await exists(warnOut)).toBe(true);
+
+    const errorRes = await runCli(['--op-stack-policy=error', '--output', errorOut, fixture]);
+    expect(errorRes.code).toBe(1);
+    expect(errorRes.stderr).toContain('error: [ZAX315]');
+    expect(await exists(errorOut)).toBe(false);
+
+    await rm(work, { recursive: true, force: true });
+  }, 20_000);
 
   it('rejects suppression of the selected primary output type', async () => {
     const work = await mkdtemp(join(tmpdir(), 'zax-cli-primary-suppress-'));

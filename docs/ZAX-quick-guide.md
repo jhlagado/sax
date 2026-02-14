@@ -73,6 +73,11 @@ Common outputs:
 - `.d8dbg.json`
 - `.lst`
 
+Useful contract options:
+
+- `--case-style <m>` (`off|upper|lower|consistent`) for case-style linting
+- `--op-stack-policy <m>` (`off|warn|error`) for optional op stack-policy diagnostics at typed call boundaries
+
 ## Chapter 2 - Storage Model
 
 ### 2.1 Scalar Types

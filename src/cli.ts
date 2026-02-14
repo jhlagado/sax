@@ -9,7 +9,7 @@ import { compile } from './compile.js';
 import type { Diagnostic } from './diagnostics/types.js';
 import { defaultFormatWriters } from './formats/index.js';
 import type { Artifact } from './formats/types.js';
-import type { CaseStyleMode } from './pipeline.js';
+import type { CaseStyleMode, OpStackPolicyMode } from './pipeline.js';
 
 type CliExit = { code: number };
 
@@ -22,6 +22,7 @@ type CliOptions = {
   emitD8m: boolean;
   emitListing: boolean;
   caseStyle: CaseStyleMode;
+  opStackPolicy: OpStackPolicyMode;
   includeDirs: string[];
 };
 
@@ -37,6 +38,7 @@ function usage(): string {
     '      --nohex           Suppress .hex',
     '      --nod8m           Suppress .d8dbg.json',
     '      --case-style <m>  Case-style lint mode: off|upper|lower|consistent',
+    '      --op-stack-policy <m> Op stack-policy mode: off|warn|error',
     '  -I, --include <dir>   Add import search path (repeatable)',
     '  -V, --version         Print version',
     '  -h, --help            Show help',
@@ -60,6 +62,7 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
   let emitD8m = true;
   let emitListing = true;
   let caseStyle: CaseStyleMode = 'off';
+  let opStackPolicy: OpStackPolicyMode = 'off';
   const includeDirs: string[] = [];
   let entryFile: string | undefined;
 
@@ -131,6 +134,17 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
       caseStyle = v;
       continue;
     }
+    if (a === '--op-stack-policy' || a.startsWith('--op-stack-policy=')) {
+      const v = a.startsWith('--op-stack-policy=')
+        ? a.slice('--op-stack-policy='.length)
+        : ((argv[++i] ?? '') as string);
+      if (!v) fail(`--op-stack-policy expects a value`);
+      if (v !== 'off' && v !== 'warn' && v !== 'error') {
+        fail(`Unsupported --op-stack-policy "${v}" (expected off|warn|error)`);
+      }
+      opStackPolicy = v;
+      continue;
+    }
     if (a === '-I' || a === '--include' || a.startsWith('--include=')) {
       if (a.startsWith('--include=')) {
         const v = a.slice('--include='.length);
@@ -179,6 +193,7 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
     emitD8m,
     emitListing,
     caseStyle,
+    opStackPolicy,
     includeDirs,
   };
 }
@@ -285,6 +300,7 @@ export async function runCli(argv: string[]): Promise<number> {
         emitD8m: parsed.emitD8m,
         emitListing: parsed.emitListing,
         caseStyle: parsed.caseStyle,
+        opStackPolicy: parsed.opStackPolicy,
         includeDirs: parsed.includeDirs,
       },
       { formats: defaultFormatWriters },
