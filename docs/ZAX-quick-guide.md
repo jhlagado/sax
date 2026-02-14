@@ -262,6 +262,9 @@ end
 
 Keep call-site arguments simple; stage dynamic address/value work first.
 
+- Scalar value-semantic arguments (`var`, `rec.field`, `arr[idx]`) may use the normal source `ea` runtime-atom rule (max one runtime atom).
+- Direct address arguments (`ea`/`(ea)` as address-style call-site forms) remain runtime-atom-free in v0.2.
+
 ## Chapter 7 - The `op` System
 
 ### 7.1 What `op` Is

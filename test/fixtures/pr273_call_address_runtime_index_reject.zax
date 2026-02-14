@@ -1,0 +1,15 @@
+section code at $0000
+section data at $0080
+section var at $1000
+
+globals
+  idx: byte
+
+extern func takeAddr(p: word): void at $1234
+
+data
+  arr: byte[4] = [ 1, 2, 3, 4 ]
+
+export func main(): void
+  takeAddr arr[idx]
+end

@@ -1,0 +1,14 @@
+section code at $0000
+section var at $1000
+
+globals
+  idx: byte
+  arr: byte[16]
+
+export func sink(v: byte): void
+  ret
+end
+
+export func main(): void
+  sink arr[idx]
+end
