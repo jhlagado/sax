@@ -411,6 +411,71 @@ export function emitProgram(
     );
   };
 
+  const loadImm16ToDE = (n: number, span: any): boolean => {
+    return emitInstr(
+      'ld',
+      [
+        { kind: 'Reg', span, name: 'DE' },
+        { kind: 'Imm', span, expr: { kind: 'ImmLiteral', span, value: n } },
+      ],
+      span,
+    );
+  };
+
+  const negateHL = (span: SourceSpan): boolean => {
+    if (
+      !emitInstr(
+        'ld',
+        [
+          { kind: 'Reg', span, name: 'A' },
+          { kind: 'Reg', span, name: 'H' },
+        ],
+        span,
+      )
+    ) {
+      return false;
+    }
+    if (!emitInstr('cpl', [], span)) return false;
+    if (
+      !emitInstr(
+        'ld',
+        [
+          { kind: 'Reg', span, name: 'H' },
+          { kind: 'Reg', span, name: 'A' },
+        ],
+        span,
+      )
+    ) {
+      return false;
+    }
+    if (
+      !emitInstr(
+        'ld',
+        [
+          { kind: 'Reg', span, name: 'A' },
+          { kind: 'Reg', span, name: 'L' },
+        ],
+        span,
+      )
+    ) {
+      return false;
+    }
+    if (!emitInstr('cpl', [], span)) return false;
+    if (
+      !emitInstr(
+        'ld',
+        [
+          { kind: 'Reg', span, name: 'L' },
+          { kind: 'Reg', span, name: 'A' },
+        ],
+        span,
+      )
+    ) {
+      return false;
+    }
+    return emitInstr('inc', [{ kind: 'Reg', span, name: 'HL' }], span);
+  };
+
   const pushZeroExtendedReg8 = (r: string, span: any): boolean => {
     if (
       !emitInstr(
@@ -1303,11 +1368,8 @@ export function emitProgram(
         case 'EaSub': {
           const base = go(expr.base);
           if (!base) return undefined;
-          const v = evalImmExpr(expr.offset, env, diagnostics);
-          if (v === undefined) {
-            diagAt(diagnostics, span, `Failed to evaluate EA offset.`);
-            return undefined;
-          }
+          const v = evalImmNoDiag(expr.offset);
+          if (v === undefined) return undefined;
           const delta = expr.kind === 'EaAdd' ? v : -v;
           if (base.kind === 'abs') return { ...base, addend: base.addend + delta };
           return { ...base, offsetFromStartSp: base.offsetFromStartSp + delta };
@@ -1400,9 +1462,237 @@ export function emitProgram(
   const pushEaAddress = (ea: EaExprNode, span: SourceSpan): boolean => {
     const r = resolveEa(ea, span);
     if (!r) {
-      // Fallback: support runtime indexing by register/memory/scalar variable
-      // by computing the address into HL.
-      if (ea.kind !== 'EaIndex') return false;
+      type RuntimeLinear = {
+        constTerm: number;
+        atomName?: string;
+        atomKind?: 'byte' | 'word' | 'addr';
+        coeff: number;
+      };
+      const mkRuntimeLinear = (
+        constTerm: number,
+        coeff: number,
+        atom?: { name: string; kind: 'byte' | 'word' | 'addr' },
+      ): RuntimeLinear =>
+        atom
+          ? { constTerm, coeff, atomName: atom.name, atomKind: atom.kind }
+          : { constTerm, coeff };
+
+      const isPowerOfTwo = (n: number): boolean => n > 0 && (n & (n - 1)) === 0;
+
+      const combineRuntimeLinear = (
+        left: RuntimeLinear | undefined,
+        right: RuntimeLinear | undefined,
+        op: '+' | '-',
+      ): RuntimeLinear | undefined => {
+        if (!left || !right) return undefined;
+        const rightCoeff = op === '+' ? right.coeff : -right.coeff;
+        const rightConst = op === '+' ? right.constTerm : -right.constTerm;
+        if (!left.atomName && !right.atomName) {
+          return mkRuntimeLinear(left.constTerm + rightConst, 0);
+        }
+        if (!left.atomName) {
+          if (!right.atomName || !right.atomKind) return undefined;
+          return mkRuntimeLinear(left.constTerm + rightConst, rightCoeff, {
+            name: right.atomName,
+            kind: right.atomKind,
+          });
+        }
+        if (!right.atomName) {
+          if (!left.atomKind) return undefined;
+          return mkRuntimeLinear(left.constTerm + rightConst, left.coeff, {
+            name: left.atomName,
+            kind: left.atomKind,
+          });
+        }
+        if (left.atomName !== right.atomName) return undefined;
+        if (!left.atomKind) return undefined;
+        return mkRuntimeLinear(left.constTerm + rightConst, left.coeff + rightCoeff, {
+          name: left.atomName,
+          kind: left.atomKind,
+        });
+      };
+
+      const runtimeLinearFromImm = (expr: ImmExprNode): RuntimeLinear | undefined => {
+        const imm = evalImmNoDiag(expr);
+        if (imm !== undefined) return mkRuntimeLinear(imm, 0);
+
+        switch (expr.kind) {
+          case 'ImmLiteral':
+          case 'ImmSizeof':
+          case 'ImmOffsetof':
+            return mkRuntimeLinear(evalImmExpr(expr, env, diagnostics) ?? 0, 0);
+          case 'ImmName': {
+            const scalar = resolveScalarBinding(expr.name);
+            if (!scalar) return undefined;
+            return mkRuntimeLinear(0, 1, { name: expr.name, kind: scalar });
+          }
+          case 'ImmUnary': {
+            const inner = runtimeLinearFromImm(expr.expr);
+            if (!inner) return undefined;
+            if (expr.op === '+') return inner;
+            if (expr.op === '-') {
+              return inner.atomName && inner.atomKind
+                ? mkRuntimeLinear(-inner.constTerm, -inner.coeff, {
+                    name: inner.atomName,
+                    kind: inner.atomKind,
+                  })
+                : mkRuntimeLinear(-inner.constTerm, -inner.coeff);
+            }
+            return undefined;
+          }
+          case 'ImmBinary': {
+            const left = runtimeLinearFromImm(expr.left);
+            const right = runtimeLinearFromImm(expr.right);
+            if (!left || !right) return undefined;
+            switch (expr.op) {
+              case '+':
+              case '-':
+                return combineRuntimeLinear(left, right, expr.op);
+              case '*': {
+                const leftConstOnly = !left.atomName;
+                const rightConstOnly = !right.atomName;
+                if (leftConstOnly && rightConstOnly) {
+                  return mkRuntimeLinear(left.constTerm * right.constTerm, 0);
+                }
+                if (leftConstOnly && right.atomName) {
+                  if (!right.atomKind) return undefined;
+                  return mkRuntimeLinear(
+                    right.constTerm * left.constTerm,
+                    right.coeff * left.constTerm,
+                    {
+                      name: right.atomName,
+                      kind: right.atomKind,
+                    },
+                  );
+                }
+                if (rightConstOnly && left.atomName) {
+                  if (!left.atomKind) return undefined;
+                  return mkRuntimeLinear(
+                    left.constTerm * right.constTerm,
+                    left.coeff * right.constTerm,
+                    {
+                      name: left.atomName,
+                      kind: left.atomKind,
+                    },
+                  );
+                }
+                return undefined;
+              }
+              case '<<': {
+                if (right.atomName) return undefined;
+                const shift = right.constTerm;
+                if (!Number.isInteger(shift) || shift < 0 || shift > 15) return undefined;
+                const factor = 1 << shift;
+                return left.atomName && left.atomKind
+                  ? mkRuntimeLinear(left.constTerm * factor, left.coeff * factor, {
+                      name: left.atomName,
+                      kind: left.atomKind,
+                    })
+                  : mkRuntimeLinear(left.constTerm * factor, left.coeff * factor);
+              }
+              default:
+                return undefined;
+            }
+          }
+        }
+      };
+
+      const materializeRuntimeImmToHL = (expr: ImmExprNode, context: string): boolean => {
+        const imm = evalImmExpr(expr, env, diagnostics);
+        if (imm !== undefined) return loadImm16ToHL(imm & 0xffff, span);
+
+        const linear = runtimeLinearFromImm(expr);
+        if (!linear) {
+          diagAt(
+            diagnostics,
+            span,
+            `${context} is unsupported. Use a single scalar runtime atom with +, -, *, << and constants (no /, %, &, |, ^, >> on runtime atoms).`,
+          );
+          return false;
+        }
+
+        if (!linear.atomName || !linear.atomKind || linear.coeff === 0) {
+          return loadImm16ToHL(linear.constTerm & 0xffff, span);
+        }
+
+        const coeffSign = linear.coeff < 0 ? -1 : 1;
+        const coeffAbs = Math.abs(linear.coeff);
+        if (!isPowerOfTwo(coeffAbs)) {
+          diagAt(
+            diagnostics,
+            span,
+            `${context} runtime multiplier must be a power-of-2; found ${linear.coeff}.`,
+          );
+          return false;
+        }
+
+        const atomEa: EaExprNode = { kind: 'EaName', span, name: linear.atomName };
+        const want = linear.atomKind === 'byte' ? 'byte' : 'word';
+        if (!pushMemValue(atomEa, want, span)) return false;
+        if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
+
+        const shiftCount = coeffAbs <= 1 ? 0 : Math.log2(coeffAbs);
+        for (let i = 0; i < shiftCount; i++) {
+          if (
+            !emitInstr(
+              'add',
+              [
+                { kind: 'Reg', span, name: 'HL' },
+                { kind: 'Reg', span, name: 'HL' },
+              ],
+              span,
+            )
+          ) {
+            return false;
+          }
+        }
+
+        if (coeffSign < 0 && !negateHL(span)) return false;
+
+        const addend = linear.constTerm & 0xffff;
+        if (addend !== 0) {
+          if (!loadImm16ToDE(addend, span)) return false;
+          if (
+            !emitInstr(
+              'add',
+              [
+                { kind: 'Reg', span, name: 'HL' },
+                { kind: 'Reg', span, name: 'DE' },
+              ],
+              span,
+            )
+          ) {
+            return false;
+          }
+        }
+        return true;
+      };
+
+      // Fallback: support runtime indexing and runtime ea offsets by
+      // computing dynamic portions into HL and then combining with base.
+      if (ea.kind !== 'EaIndex' && ea.kind !== 'EaAdd' && ea.kind !== 'EaSub') return false;
+      if (ea.kind === 'EaAdd' || ea.kind === 'EaSub') {
+        if (!pushEaAddress(ea.base, span)) return false;
+        if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
+        if (!emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
+        if (!materializeRuntimeImmToHL(ea.offset, 'Runtime EA offset expression')) return false;
+        if (ea.kind === 'EaSub' && !negateHL(span)) return false;
+        if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'DE' }], span)) return false;
+        if (
+          !emitInstr(
+            'add',
+            [
+              { kind: 'Reg', span, name: 'HL' },
+              { kind: 'Reg', span, name: 'DE' },
+            ],
+            span,
+          )
+        ) {
+          return false;
+        }
+        return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
+      }
+
       const baseType = resolveEaTypeExpr(ea.base);
       if (!baseType || baseType.kind !== 'ArrayType') {
         diagAt(diagnostics, span, `Unsupported ea argument: cannot lower indexed address.`);
@@ -1449,37 +1739,7 @@ export function emitProgram(
       }
 
       if (ea.index.kind === 'IndexImm') {
-        const v = evalImmExpr(ea.index.value, env, diagnostics);
-        if (v !== undefined) {
-          if (!loadImm16ToHL(v & 0xffff, span)) return false;
-        } else if (ea.index.value.kind === 'ImmName') {
-          const scalar = resolveScalarBinding(ea.index.value.name);
-          if (scalar === 'byte' || scalar === 'word' || scalar === 'addr') {
-            const want = scalar === 'byte' ? 'byte' : 'word';
-            if (
-              !pushMemValue(
-                { kind: 'EaName', span, name: ea.index.value.name } as EaExprNode,
-                want,
-                span,
-              )
-            ) {
-              return false;
-            }
-            if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
-          } else {
-            diagAt(
-              diagnostics,
-              span,
-              `Non-constant array index expression is unsupported; use a byte/word typed scalar or register index.`,
-            );
-            return false;
-          }
-        } else {
-          diagAt(
-            diagnostics,
-            span,
-            `Non-constant array index expression is unsupported; use a byte/word typed scalar or register index.`,
-          );
+        if (!materializeRuntimeImmToHL(ea.index.value, 'Runtime array index expression')) {
           return false;
         }
       } else if (ea.index.kind === 'IndexEa') {
