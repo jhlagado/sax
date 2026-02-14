@@ -27,8 +27,18 @@ describe('PR16 op declarations and expansion', () => {
     expect(res.diagnostics.some((d) => d.message.includes('No matching op overload'))).toBe(true);
   });
 
-  it('diagnoses ambiguous op overload resolution', async () => {
+  it('selects fixed-token overloads over class matchers', async () => {
     const entry = join(__dirname, 'fixtures', 'pr16_op_ambiguous.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes).toEqual(Uint8Array.of(0x06, 0x02, 0xc9));
+  });
+
+  it('diagnoses ambiguous overloads when candidates are incomparable', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr267_op_ambiguous_incomparable.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
     expect(res.artifacts).toEqual([]);
     expect(res.diagnostics.some((d) => d.message.includes('Ambiguous op overload'))).toBe(true);
@@ -62,6 +72,26 @@ describe('PR16 op declarations and expansion', () => {
     expect([...bin!.bytes]).toContain(0x2a); // ld hl,(nn) fast-path for absolute EA
     expect([...bin!.bytes]).toContain(0x34); // data low byte of $1234
     expect([...bin!.bytes]).toContain(0x12); // data high byte of $1234
+  });
+
+  it('selects imm8 overloads over imm16 for small immediates', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr267_op_specific_imm_width.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes).toEqual(Uint8Array.of(0x06, 0x02, 0xc9));
+  });
+
+  it('selects mem overloads over ea when call-site uses dereference operands', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr267_op_specific_mem_vs_ea.zax');
+    const res = await compile(entry, {}, { formats: defaultFormatWriters });
+    expect(res.diagnostics).toEqual([]);
+
+    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
+    expect(bin).toBeDefined();
+    expect(bin!.bytes).toEqual(Uint8Array.of(0x06, 0x02, 0xc9));
   });
 
   it('avoids spurious imm-evaluation diagnostics during overload matching', async () => {

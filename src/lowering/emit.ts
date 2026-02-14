@@ -504,26 +504,26 @@ export function emitProgram(
     }
   };
 
-  const matcherMatchesOperand = (matcher: OpMatcherNode, operand: AsmOperandNode): boolean => {
-    const fitsImm8 = (value: number): boolean => value >= -0x80 && value <= 0xff;
-    const fitsImm16 = (value: number): boolean => value >= -0x8000 && value <= 0xffff;
-    const evalImmNoDiag = (expr: ImmExprNode): number | undefined => {
-      const scratch: Diagnostic[] = [];
-      return evalImmExpr(expr, env, scratch);
-    };
-    const isIxIyIndexedMem = (op: AsmOperandNode): boolean =>
-      op.kind === 'Mem' &&
-      ((op.expr.kind === 'EaName' && /^(IX|IY)$/i.test(op.expr.name)) ||
-        ((op.expr.kind === 'EaAdd' || op.expr.kind === 'EaSub') &&
-          op.expr.base.kind === 'EaName' &&
-          /^(IX|IY)$/i.test(op.expr.base.name)));
-    const inferMemWidth = (op: AsmOperandNode): number | undefined => {
-      if (op.kind !== 'Mem') return undefined;
-      const resolved = resolveEa(op.expr, op.span);
-      if (!resolved?.typeExpr) return undefined;
-      return sizeOfTypeExpr(resolved.typeExpr, env, diagnostics);
-    };
+  const fitsImm8 = (value: number): boolean => value >= -0x80 && value <= 0xff;
+  const fitsImm16 = (value: number): boolean => value >= -0x8000 && value <= 0xffff;
+  const evalImmNoDiag = (expr: ImmExprNode): number | undefined => {
+    const scratch: Diagnostic[] = [];
+    return evalImmExpr(expr, env, scratch);
+  };
+  const isIxIyIndexedMem = (op: AsmOperandNode): boolean =>
+    op.kind === 'Mem' &&
+    ((op.expr.kind === 'EaName' && /^(IX|IY)$/i.test(op.expr.name)) ||
+      ((op.expr.kind === 'EaAdd' || op.expr.kind === 'EaSub') &&
+        op.expr.base.kind === 'EaName' &&
+        /^(IX|IY)$/i.test(op.expr.base.name)));
+  const inferMemWidth = (op: AsmOperandNode): number | undefined => {
+    if (op.kind !== 'Mem') return undefined;
+    const resolved = resolveEa(op.expr, op.span);
+    if (!resolved?.typeExpr) return undefined;
+    return sizeOfTypeExpr(resolved.typeExpr, env, diagnostics);
+  };
 
+  const matcherMatchesOperand = (matcher: OpMatcherNode, operand: AsmOperandNode): boolean => {
     switch (matcher.kind) {
       case 'MatcherReg8':
         return operand.kind === 'Reg' && reg8.has(operand.name.toUpperCase());
@@ -554,7 +554,7 @@ export function emitProgram(
         return v !== undefined && fitsImm16(v);
       }
       case 'MatcherEa':
-        return operand.kind === 'Ea';
+        return operand.kind === 'Ea' || operand.kind === 'Mem';
       case 'MatcherMem8': {
         if (operand.kind !== 'Mem') return false;
         const width = inferMemWidth(operand);
@@ -572,6 +572,141 @@ export function emitProgram(
       default:
         return false;
     }
+  };
+
+  const fixedTokenBeatsClassMatcher = (
+    fixed: Extract<OpMatcherNode, { kind: 'MatcherFixed' }>,
+    other: OpMatcherNode,
+    operand: AsmOperandNode,
+  ): boolean => {
+    const fixedToken = fixed.token.toUpperCase();
+    switch (other.kind) {
+      case 'MatcherReg8':
+        return (
+          operand.kind === 'Reg' &&
+          operand.name.toUpperCase() === fixedToken &&
+          reg8.has(fixedToken)
+        );
+      case 'MatcherReg16':
+        return (
+          operand.kind === 'Reg' &&
+          operand.name.toUpperCase() === fixedToken &&
+          (fixedToken === 'BC' || fixedToken === 'DE' || fixedToken === 'HL' || fixedToken === 'SP')
+        );
+      case 'MatcherCc':
+        return conditionOpcodeFromName(fixedToken) !== undefined;
+      default:
+        return false;
+    }
+  };
+
+  type MatcherSpecificity = 'x_more_specific' | 'y_more_specific' | 'equal';
+
+  const compareMatcherSpecificity = (
+    matcherX: OpMatcherNode,
+    matcherY: OpMatcherNode,
+    operand: AsmOperandNode,
+  ): MatcherSpecificity => {
+    if (matcherX.kind === matcherY.kind) {
+      if (matcherX.kind === 'MatcherFixed' && matcherY.kind === 'MatcherFixed') {
+        return matcherX.token.toUpperCase() === matcherY.token.toUpperCase() ? 'equal' : 'equal';
+      }
+      return 'equal';
+    }
+
+    if (
+      matcherX.kind === 'MatcherFixed' &&
+      fixedTokenBeatsClassMatcher(matcherX, matcherY, operand)
+    ) {
+      return 'x_more_specific';
+    }
+    if (
+      matcherY.kind === 'MatcherFixed' &&
+      fixedTokenBeatsClassMatcher(matcherY, matcherX, operand)
+    ) {
+      return 'y_more_specific';
+    }
+
+    if (matcherX.kind === 'MatcherImm8' && matcherY.kind === 'MatcherImm16') {
+      const expr = enumImmExprFromOperand(operand);
+      if (!expr) return 'equal';
+      const value = evalImmNoDiag(expr);
+      return value !== undefined && fitsImm8(value) ? 'x_more_specific' : 'equal';
+    }
+    if (matcherX.kind === 'MatcherImm16' && matcherY.kind === 'MatcherImm8') {
+      const expr = enumImmExprFromOperand(operand);
+      if (!expr) return 'equal';
+      const value = evalImmNoDiag(expr);
+      return value !== undefined && fitsImm8(value) ? 'y_more_specific' : 'equal';
+    }
+
+    if (
+      (matcherX.kind === 'MatcherMem8' || matcherX.kind === 'MatcherMem16') &&
+      matcherY.kind === 'MatcherEa' &&
+      operand.kind === 'Mem'
+    ) {
+      return 'x_more_specific';
+    }
+    if (
+      matcherX.kind === 'MatcherEa' &&
+      (matcherY.kind === 'MatcherMem8' || matcherY.kind === 'MatcherMem16') &&
+      operand.kind === 'Mem'
+    ) {
+      return 'y_more_specific';
+    }
+
+    if (
+      (matcherX.kind === 'MatcherMem8' && matcherY.kind === 'MatcherMem16') ||
+      (matcherX.kind === 'MatcherMem16' && matcherY.kind === 'MatcherMem8')
+    ) {
+      return 'equal';
+    }
+
+    return 'equal';
+  };
+
+  type OverloadSpecificity = 'x_wins' | 'y_wins' | 'equal' | 'incomparable';
+
+  const compareOpOverloadSpecificity = (
+    overloadX: OpDeclNode,
+    overloadY: OpDeclNode,
+    operands: AsmOperandNode[],
+  ): OverloadSpecificity => {
+    let xBetter = 0;
+    let yBetter = 0;
+    for (let i = 0; i < operands.length; i++) {
+      const xMatcher = overloadX.params[i]!.matcher;
+      const yMatcher = overloadY.params[i]!.matcher;
+      const cmp = compareMatcherSpecificity(xMatcher, yMatcher, operands[i]!);
+      if (cmp === 'x_more_specific') xBetter++;
+      if (cmp === 'y_more_specific') yBetter++;
+    }
+    if (xBetter > 0 && yBetter === 0) return 'x_wins';
+    if (yBetter > 0 && xBetter === 0) return 'y_wins';
+    if (xBetter === 0 && yBetter === 0) return 'equal';
+    return 'incomparable';
+  };
+
+  const selectMostSpecificOpOverload = (
+    candidates: OpDeclNode[],
+    operands: AsmOperandNode[],
+  ): OpDeclNode | undefined => {
+    if (candidates.length === 0) return undefined;
+    if (candidates.length === 1) return candidates[0]!;
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i]!;
+      let beatsAll = true;
+      for (let j = 0; j < candidates.length; j++) {
+        if (i === j) continue;
+        const cmp = compareOpOverloadSpecificity(candidate, candidates[j]!, operands);
+        if (cmp !== 'x_wins') {
+          beatsAll = false;
+          break;
+        }
+      }
+      if (beatsAll) return candidate;
+    }
+    return undefined;
   };
 
   const cloneImmExpr = (expr: ImmExprNode): ImmExprNode => {
@@ -2706,7 +2841,8 @@ export function emitProgram(
               );
               return;
             }
-            if (matches.length > 1) {
+            const selected = selectMostSpecificOpOverload(matches, asmItem.operands);
+            if (!selected) {
               diagAt(
                 diagnostics,
                 asmItem.span,
@@ -2714,7 +2850,7 @@ export function emitProgram(
               );
               return;
             }
-            const opDecl = matches[0]!;
+            const opDecl = selected;
             const opKey = opDecl.name.toLowerCase();
             if (opExpansionStack.includes(opKey)) {
               diagAt(
