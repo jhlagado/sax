@@ -289,6 +289,22 @@ export const compile: CompileFn = async (
     return { diagnostics, artifacts: [] };
   }
 
+  const hasNonImportDeclaration = program.files.some((moduleFile) =>
+    moduleFile.items.some((item) => item.kind !== 'Import'),
+  );
+  if (!hasNonImportDeclaration) {
+    diagnostics.push({
+      id: DiagnosticIds.SemanticsError,
+      severity: 'error',
+      message: 'Program contains no declarations or instruction streams.',
+      file: program.entryFile,
+      ...(program.span?.start
+        ? { line: program.span.start.line, column: program.span.start.column }
+        : {}),
+    });
+    return { diagnostics, artifacts: [] };
+  }
+
   lintCaseStyle(program, sourceTexts, options.caseStyle ?? 'off', diagnostics);
 
   const env = buildEnv(program, diagnostics);

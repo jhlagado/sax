@@ -144,6 +144,74 @@ describe('cli failure contract matrix', () => {
     await rm(work, { recursive: true, force: true });
   });
 
+  it('returns code 1 for encoder diagnostics and writes no artifacts', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-encode-error-'));
+    const entry = join(work, 'encode-error.zax');
+    const outHex = join(work, 'out.hex');
+    const base = join(work, 'out');
+    await writeFile(entry, 'func main(): void\n  ld a, 300\nend\n', 'utf8');
+
+    const res = await runCli(['-o', outHex, entry]);
+
+    expect(res.code).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('[ZAX200]');
+    expect(res.stderr).toContain('ld A, n expects imm8');
+    expect(res.stderr).not.toContain('zax [options] <entry.zax>');
+    await expectNoArtifacts(base);
+
+    await rm(work, { recursive: true, force: true });
+  });
+
+  it('returns code 1 for emit/lowering diagnostics and writes no artifacts', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-emit-error-'));
+    const entry = join(work, 'emit-error.zax');
+    const outHex = join(work, 'out.hex');
+    const base = join(work, 'out');
+    await writeFile(
+      entry,
+      [
+        'section code at $8000',
+        'section code at $8100',
+        'func main(): void',
+        '  ret',
+        'end',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+
+    const res = await runCli(['-o', outHex, entry]);
+
+    expect(res.code).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('[ZAX300]');
+    expect(res.stderr).toContain('Section "code" base address may be set at most once.');
+    expect(res.stderr).not.toContain('zax [options] <entry.zax>');
+    await expectNoArtifacts(base);
+
+    await rm(work, { recursive: true, force: true });
+  });
+
+  it('returns code 1 for empty entry modules and writes no artifacts', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-empty-entry-'));
+    const entry = join(work, 'empty.zax');
+    const outHex = join(work, 'out.hex');
+    const base = join(work, 'out');
+    await writeFile(entry, '', 'utf8');
+
+    const res = await runCli(['-o', outHex, entry]);
+
+    expect(res.code).toBe(1);
+    expect(res.stdout).toBe('');
+    expect(res.stderr).toContain('[ZAX400]');
+    expect(res.stderr).toContain('Program contains no declarations or instruction streams.');
+    expect(res.stderr).not.toContain('zax [options] <entry.zax>');
+    await expectNoArtifacts(base);
+
+    await rm(work, { recursive: true, force: true });
+  });
+
   it('emits compile diagnostics in deterministic sorted order across files', async () => {
     const work = await mkdtemp(join(tmpdir(), 'zax-cli-diagnostic-order-'));
     const entry = join(work, 'main.zax');
