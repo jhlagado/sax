@@ -10,9 +10,18 @@ ZAX aims to make assembly code easier to read and refactor by providing:
 - structured control flow inside function/op instruction streams (`if`/`while`/`repeat`/`select`)
 - `op`: inline “macro-instructions” with operand matching
 
-Normative status for v0.2: this document is the sole normative language source. `docs/v01-scope-decisions.md` is a non-normative transition record and does not override this specification.
+Normative status for v0.2: this document is the sole normative language source. `docs/v02-transition-decisions.md` is a non-normative transition record and does not override this specification.
 
 Anything not defined here is undefined behavior or a compile error in v0.2.
+
+---
+
+## Authority (Normative)
+
+- `docs/zax-spec.md` is the only normative language authority.
+- Supporting documents (`docs/zax-op-system-spec.md`, `docs/zax-cli.md`, `docs/roadmap.md`, `docs/zax-ai-team-prompt.md`) are non-normative and must not introduce conflicting language rules.
+- `docs/v02-transition-decisions.md` captures transition rationale and sequencing. It is not a second normative source.
+- If supporting text conflicts with this document, this document wins.
 
 ---
 
@@ -392,18 +401,70 @@ Layout:
 - `a[i]` addresses `base + i * sizeof(T)`.
 - `a[r][c]` addresses `base + r * sizeof(T[c]) + c * sizeof(T)` (row stride is `sizeof(T[c])`).
 
-Index forms (v0.1):
+Index forms (v0.2):
 
-- constant immediate
+- constant immediate or constant `imm` expression
 - 8-bit register (`A B C D E H L`)
 - 16-bit register (`HL DE BC`)
 - `(HL)` (byte read from memory at `HL`) for indirect index
 - `(IX±d)` / `(IY±d)` (byte read from indexed address) for indirect index
+- typed scalar index variable (`byte`/`word`)
 
-Notes (v0.1):
+Notes (v0.2):
 
 - Parentheses inside `[]` are permitted only for Z80 indirect index patterns.
 - `arr[i]` is an effective address (`ea`). Use parentheses for explicit dereference, or rely on value semantics in `LD` when the element type is scalar.
+
+Runtime-atom budget (v0.2):
+
+- A **runtime atom** is one runtime-varying source used in address computation:
+  - a scalar variable (`idx`)
+  - a register index source (`A`..`L`, `HL`/`DE`/`BC`)
+  - an indirect byte index source (`(HL)`, `(IX±d)`, `(IY±d)`)
+- Constant-only arithmetic contributes zero runtime atoms.
+- `.field` and `[const_expr]` path segments contribute zero runtime atoms.
+- A single source-level `ea` expression **MUST** contain at most **one** runtime atom.
+- If an `ea` expression contains more than one runtime atom, the compiler **MUST** emit a compile error.
+- Programmers **SHOULD** stage higher-complexity dynamic addressing across multiple lines.
+
+Examples (v0.2):
+
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4]`
+- Allowed (`1` atom): `arr[CONST1 + CONST2 * 4][i]`
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4][0]`
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4].name`
+- Rejected (`2` atoms): `arr[i][j]`
+- Rejected (`2` atoms): `arr[i + j]`
+
+Rule of thumb (informative):
+
+- One moving part per expression.
+- A moving part is one runtime-varying source (a runtime atom).
+- Constants may be nested freely.
+
+Common confusion matrix (v0.2):
+
+| Form | Runtime atoms | Allowed? | Why |
+| --- | --- | --- | --- |
+| `arr[CONST1 + CONST2 * 4]` | 0 | Yes | Constant-only index expression |
+| `arr[CONST1 + CONST2 * 4][i]` | 1 | Yes | One dynamic source (`i`) |
+| `arr[i][0]` | 1 | Yes | One dynamic source plus constant segment |
+| `arr[i].name` | 1 | Yes | One dynamic source plus constant field path |
+| `arr[i + 1]` | 1 | Yes | One dynamic source plus constant arithmetic |
+| `arr[i + j]` | 2 | No | Two dynamic sources in one expression |
+| `grid[row][col]` | 2 | No | Two dynamic sources in one expression |
+
+Staged style (informative):
+
+```zax
+; Rejected (2 runtime atoms in one expression):
+LD A, grid[row][col]
+
+; Preferred staged style:
+LD HL, grid[row]    ; 1 runtime atom
+; ... explicit second-step addressing on following line(s) ...
+; ... then final load/store ...
+```
 
 ### 5.2 Records (Power-of-2 Sized)
 
@@ -538,7 +599,7 @@ Lowering guarantees and rejected patterns (v0.1):
 - The compiler guarantees lowering for loads/stores whose memory operand is an `ea` expression of the following forms:
   - `LD r8, (ea)` and `LD (ea), r8`
   - `LD r16, (ea)` and `LD (ea), r16`
-    where `ea` is a local/arg slot, a module-scope storage address (`globals`/`data`/`bin`), `rec.field`, `arr[i]`, or `ea +/- imm`.
+    where `ea` is a local/arg slot, a module-scope storage address (`globals`/`data`/`bin`), `rec.field`, `arr[i]`, or `ea +/- imm` (subject to the runtime-atom budget in 5.1).
 - The compiler rejects source forms that are not meaningful on Z80 and do not have a well-defined lowering under the preservation constraints, including:
   - memory-to-memory forms (e.g., `LD (ea1), (ea2)`).
   - instructions where both operands require lowering and a correct sequence cannot be produced without clobbering non-destination registers or flags that must be preserved.
@@ -741,7 +802,7 @@ Integer semantics (v0.1):
 - storage symbols: `globals` names, `data` names, `bin` base names
 - function-scope symbols: argument names and local `var` names (as SP-relative stack slots)
 - field access: `rec.field`
-- indexing: `arr[i]` and nested `arr[r][c]` (index forms as defined above)
+- indexing: `arr[i]` and nested `arr[r][c]` (index forms as defined above; runtime-atom budget from 5.1 applies)
 - address arithmetic: `ea + imm`, `ea - imm`
 
 Conceptually, an `ea` is a base address plus a sequence of **address-path** segments: `.field` selects a record field, and `[index]` selects an array element. Both forms produce an address; dereference requires parentheses as described in 6.1.
@@ -832,6 +893,28 @@ Argument values (v0.1):
 - `ea` expression: passed as the 16-bit address value.
 - `(ea)` dereference: reads from memory and passes the loaded value (word or byte depending on the parameter type; `byte` is zero-extended).
 
+Call-site complexity budget (v0.2):
+
+- Call-site arguments **SHOULD** be simple and staged.
+- Direct `ea`/`(ea)` call-site forms are limited to runtime-atom-free addressing:
+  - `name`, `name.field`, `name +/- const`, `name[const]`
+  - `(name)`, `(name.field)`, `(name +/- const)`, `(name[const])`
+- Runtime-indexed argument forms are compile errors at call sites in v0.2.
+  - Examples: `fn arr[idx]`, `fn (arr[idx])`, `fn grid[row][col]`
+- The compiler **MUST** reject call-site `ea`/`(ea)` forms with one or more runtime atoms.
+- To pass a runtime-indexed value or address, compute it first and pass a simple register argument.
+
+Staged call-site style (informative):
+
+```zax
+; Rejected:
+process_byte (arr[idx])
+
+; Preferred:
+LD A, arr[idx]
+process_byte A
+```
+
 Calls follow the calling convention in 8.2 (compiler emits the required pushes, call, and any temporary saves/restores).
 
 Parsing and name resolution (v0.2):
@@ -912,7 +995,7 @@ Stack-depth constraints (v0.1):
 - At any structured-control-flow join (end of `if`/`else`, loop back-edges, and loop exits), stack depth must match across all paths.
   - Paths that terminate (e.g., `ret`, or an unconditional `jp`/`jr` that exits the construct) do not participate in join stack-depth matching.
 - The end of a `select ... end` is also a join point: stack depth must match across all `case`/`else` arms that reach `end`.
-- The net stack delta of an `op` expansion must be 0.
+- `op` expansions are inline instruction sequences; any stack use inside an `op` is developer-managed and validated only through normal function-stream stack rules at joins/call boundaries.
 
 ---
 
@@ -1308,30 +1391,82 @@ Recommended (non-normative) policy for a ZAX compiler:
 }
 ```
 
-## Appendix C: v0.1 -> v0.2 Migration (Consolidation Skeleton)
+## Appendix C: v0.1 -> v0.2 Migration (Normative Mapping)
 
-This appendix is a migration scaffold. Normative behavior remains in Sections 1-10. Items listed here track the required v0.1 -> v0.2 change set that must be fully represented by normative text in this specification.
+This appendix is migration-focused but normative where it describes required source updates for v0.2 behavior.
 
-### C.1 Breaking Changes Checklist
+### C.1 Breaking Changes Map
 
-- [ ] Composite storage semantics are power-of-2 for arrays/records/unions; padding is storage-visible for layout, `sizeof`, and indexing.
-- [ ] Runtime index scaling is shift-only (`ADD HL,HL` chains); no multiply-based lowering for indexed composite access.
-- [ ] `arr[HL]` is a 16-bit direct index; indirect byte-at-HL indexing uses `arr[(HL)]`.
-- [ ] Typed scalar variables use value semantics; legacy scalar paren-dereference examples are removed from normative guidance.
-- [ ] Enum members require qualification (`EnumType.Member`); unqualified members are compile errors.
-- [ ] `sizeof` semantics are storage-size semantics (including composite padding), replacing v0.1 packed-oriented behavior.
-- [ ] `offsetof` rules are fully specified (records, nested constant-index paths, and union-member path behavior).
-- [ ] Typed internal call boundaries are preservation-safe: `void` exposes no boundary-visible clobbers; non-void exposes only `HL`.
+| Topic | v0.1 baseline | v0.2 behavior | Required migration |
+| --- | --- | --- | --- |
+| Composite storage size | Packed-oriented assumptions were common in examples | Composite storage is power-of-2 rounded; padding is storage-visible | Re-check layout-sensitive code and constants using `sizeof`/offset assumptions |
+| Runtime index scaling | General runtime indexing for larger elements was constrained | Runtime index scaling is shift-only (`ADD HL,HL` chains) under power-of-2 storage | Adjust data layout where needed so element sizes remain power-of-2 |
+| `arr[HL]` meaning | Historically ambiguous with indirect interpretation | `arr[HL]` is 16-bit direct index; indirect is `arr[(HL)]` | Rewrite indirect-meaning uses of `arr[HL]` to `arr[(HL)]` |
+| Address-expression complexity | Dynamic complexity limits were not explicit | One runtime atom max per source-level `ea` expression | Split multi-dynamic expressions into staged multi-line sequences |
+| Scalar variable semantics | Legacy patterns often used scalar paren-dereference style | Typed scalar variables are value-semantic in typed contexts | Replace legacy scalar-dereference-style examples with direct scalar usage |
+| Enum member access | Unqualified member usage existed in older material | Enum members require qualification | Replace `Read` with `Mode.Read`-style qualified members |
+| `sizeof` behavior | Existing behavior was packed-oriented | `sizeof` uses v0.2 storage-size semantics | Recompute constants that depended on packed-size assumptions |
+| `offsetof` availability/rules | Not fully available in v0.1 baseline | Available with record/nested-constant-path rules | Replace manual byte constants with `offsetof` where appropriate |
+| Typed call boundaries | Hidden clobber expectations were looser | `void`: no boundary-visible clobbers; non-void: only `HL` output | Remove assumptions that typed calls clobber caller-visible registers/flags |
 
-### C.2 Migration Guidance Skeleton
+### C.2 Required Source Updates (Examples)
 
-- [ ] Add a normative migration subsection that maps each breaking change to required source updates.
-- [ ] Add before/after examples for the highest-impact syntax and semantic changes (`arr[HL]`, `sizeof`, scalar value semantics, call-boundary expectations).
-- [ ] Add diagnostics guidance for common v0.1 -> v0.2 upgrade failures.
+`arr[HL]` reinterpretation:
 
-### C.3 Transition-Record Retirement Criteria
+```zax
+; v0.1-era intent (indirect byte-at-HL index):
+LD A, arr[HL]
 
-- [ ] Every C.1 item is covered by normative language in this file.
-- [ ] `docs/v01-scope-decisions.md` is explicitly marked archival-only.
-- [ ] `docs/README.md` continues to identify this file as the sole canonical source.
+; v0.2:
+LD A, arr[(HL)]
+```
+
+Dynamic-expression staging:
+
+```zax
+; Rejected in v0.2 (2 runtime atoms):
+LD A, grid[row][col]
+
+; Preferred staged form:
+LD HL, grid[row]
+; ... explicit second-step addressing ...
+; ... final load/store ...
+```
+
+Call-site argument staging:
+
+```zax
+; Rejected:
+process_byte (arr[idx])
+
+; Preferred:
+LD A, arr[idx]
+process_byte A
+```
+
+Enum qualification:
+
+```zax
+; v0.1-era style:
+case Read
+
+; v0.2:
+case Mode.Read
+```
+
+### C.3 Diagnostic Guidance for Migration
+
+Compilers and tooling should keep migration diagnostics explicit and actionable. At minimum:
+
+- Runtime-atom over-budget errors should report the quota and observed count.
+- Call-site dynamic `ea`/`(ea)` errors should indicate that staged register passing is the v0.2 path.
+- Index-semantics errors should distinguish `arr[HL]` (direct) from `arr[(HL)]` (indirect).
+- Enum diagnostics should point directly to required qualified form (`Type.Member`).
+- `sizeof`/layout-related diagnostics should mention v0.2 storage-size semantics when relevant.
+
+### C.4 Transition-Record Lifecycle
+
+- `docs/v02-transition-decisions.md` remains a non-normative transition artifact while active migration work is being integrated.
+- Once migration work is fully folded into this spec, `docs/v02-transition-decisions.md` should be archived.
+- The legacy path `docs/v01-scope-decisions.md` is retained only as a pointer for compatibility during transition.
 ````

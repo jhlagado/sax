@@ -20,6 +20,7 @@ The document addresses both by stating normative rules precisely while also expl
 
 **Version:** This specification corresponds to ZAX v0.2 on `main`.
 Normative precedence: `docs/zax-spec.md` governs language behavior; this document expands op-specific details and must not introduce conflicting normative rules.
+Authority constraint: if behavior is required by this document but not required by `docs/zax-spec.md`, treat it as implementation guidance until promoted into `docs/zax-spec.md`.
 
 **Related documents:**
 
@@ -206,6 +207,10 @@ end
 
 **`ea`** matches an effective-address expression as defined in Section 7.2 of the spec: storage symbols (`globals`/`data`/`bin` names), function-local names (as SP-relative slots), field access (`rec.field`), array indexing (`arr[i]`), and address arithmetic (`ea + imm`, `ea - imm`). When substituted, the parameter carries the address expression _without_ implicit parentheses — it names a location, not its contents.
 
+The main spec's runtime-atom expression budget applies to `ea` matching. In v0.2, matcher acceptance does not bypass that budget: if a call-site `ea` contains too many runtime atoms, the invocation is rejected before or during semantic validation.
+
+User-facing rule of thumb (informative): one moving part per expression. If an op call-site needs multiple runtime-varying address components, stage the address over multiple lines first, then pass a simpler operand.
+
 **`mem8`** and **`mem16`** match dereference operands: call-site operands written as `(ea)` with an implied width of 8 or 16 bits respectively. These matchers are necessary because in raw Z80 mnemonics, the width of a memory dereference is implied by the instruction form (the destination or source register determines whether you're reading a byte or a word). But in an op parameter list, you may need to explicitly declare whether a memory operand carries a byte-width or word-width dereference.
 
 When a `mem8` or `mem16` parameter is substituted into the op body, the full dereference operand — including the parentheses — is substituted. This is a critical distinction from `ea`:
@@ -347,11 +352,6 @@ function expand_op(call_site, op_name, operands):
     for each instruction in expanded_body:
         if instruction is op_invocation:
             replace instruction with expand_op(instruction.site, ...)
-
-    // 6. Stack delta check
-    delta = compute_stack_delta(expanded_body)
-    if delta != 0:
-        error("op expansion has non-zero stack delta", call_site)
 
     expansion_stack.pop()
     return expanded_body
@@ -535,39 +535,31 @@ If you want register-effect reporting (e.g., "this op clobbers `HL` and flags"),
 
 Op bodies may contain structured control flow (`if`/`while`/`repeat`/`select`). The same rules apply as in function instruction streams (Section 10 of the main spec):
 
-- Stack depth must match at control-flow joins
 - Condition codes test flags that the programmer establishes
 - The compiler expands structured control flow without introducing programmer-defined labels
 
-**Stack depth in control flow.** Each control-flow arm must have the same stack depth at joins:
+**Stack usage discipline.** Stack behavior in op bodies is developer-managed. Authors should keep structured-control-flow arms stack-balanced to avoid downstream function-stream stack diagnostics.
 
 ```
-; INVALID: mismatched stack depth
-op bad_stack(r: reg8)
+; Caution example: stack use inside one arm only
+op caution_stack(r: reg8)
   or a
   if Z
     push bc        ; +2
-  end              ; ERROR: stack depth differs between paths
+  end              ; risky unless balanced elsewhere
 end
 ```
 
-The compiler reports this as a stack-depth mismatch error within the op body.
-
 ### 6.2 SP Tracking During Op Expansion
 
-When an op is expanded inside a function that has local variables, the function's SP tracking must remain valid. The key rules:
+When an op is expanded inside a function that has local variables, the function's SP tracking must remain valid for surrounding code. The key rules:
 
 1. **Op expansion is inline.** The expanded instructions become part of the function instruction stream.
 2. **SP deltas accumulate.** Each `push`/`pop` in the op body updates the function's SP tracking.
-3. **Net delta = 0.** After the complete expansion, the SP offset returns to its pre-expansion value.
-4. **Local access remains valid.** Because net delta = 0, local variable offsets computed before the op invocation remain correct after it.
+3. **No op-local preservation contract.** The op system does not impose a net-stack rule for individual ops.
+4. **Developer responsibility.** If an op leaves the enclosing function in an invalid stack state at a join/call boundary, diagnostics come from the normal function-stream stack rules.
 
-**(impl)** The compiler must:
-
-- Record SP offset before expanding the op
-- Track SP changes through the expansion
-- Verify SP offset matches after expansion
-- Report error if mismatch
+**(impl)** The compiler should attribute stack-related failures to the op call site when possible, but enforcement remains the same as for any inline instruction sequence.
 
 ---
 
@@ -738,25 +730,7 @@ note: expansion chain:
   3. op_c (src/ops.zax:50) invokes op_a  <-- cycle
 ```
 
-### 8.5 Stack Delta Violation
-
-If the instructions in an op body (after expansion of any nested ops) have a net stack delta that is not zero, the compiler reports an error.
-
-**Example diagnostic:**
-
-```
-error: op expansion has non-zero stack delta
-  --> src/game.zax:80:5
-   |
-80 |     leaky_op HL
-   |     ^^^^^^^^^^^
-   |
-note: op body has net stack delta of +2 (push without matching pop)
-note: op 'leaky_op' defined at src/ops.zax:60
-help: ensure all push instructions have matching pop instructions
-```
-
-### 8.6 Other Error Conditions
+### 8.5 Other Error Conditions
 
 **Undefined op.** If an op invocation references a name that is not defined as an op:
 
@@ -803,7 +777,7 @@ The decision to make ops operate on parsed AST nodes rather than raw text was dr
 
 **Overload resolution.** Text-level macros have no notion of operand types, so they cannot support overloading or specificity-based dispatch. The op system's matcher types enable a principled overload mechanism that is predictable and explainable.
 
-**Compiler integration.** Because the compiler understands the op's parameter types and body structure, it can validate substitutions, check stack deltas, and produce meaningful diagnostics. None of this is possible with text substitution.
+**Compiler integration.** Because the compiler understands the op's parameter types and body structure, it can validate substitutions and produce meaningful diagnostics. None of this is possible with text substitution.
 
 ### 9.2 What v0.2 Intentionally Omits
 
@@ -814,6 +788,8 @@ Several features that would be natural extensions of the op system are intention
 **Typed pointer/array matchers.** Matching on the _type_ of an `ea` (e.g., "this must be an address of a `Sprite` record") would enable safer ops but requires deeper type system integration than v0.2 currently supports.
 
 **Guard expressions.** Allowing overloads to specify additional constraints beyond matcher types (e.g., "only when `imm8` value is non-zero") would increase expressiveness but adds complexity to the resolution algorithm.
+
+**Unbounded single-expression dynamic addressing.** v0.2 intentionally caps source-level addressing complexity via the runtime-atom budget. Deep dynamic addressing is expected to be staged across multiple lines (or helper-op compositions), not packed into one expression.
 
 These omissions are deliberate scope boundaries, not oversights. They represent a natural extension path for future versions of the spec.
 
@@ -829,7 +805,7 @@ Parameters use matcher types: `reg8`, `reg16`, fixed-register matchers (`A`, `HL
 
 Overload resolution filters candidates by matcher compatibility, then ranks by specificity. Fixed beats class, `imm8` beats `imm16` for small values, `mem8`/`mem16` beat `ea`. No match is an error. Ambiguous match is an error.
 
-Op expansions are inline; register/flag effects are the effects of the emitted instructions. Net stack delta of an expansion must be zero. Cyclic expansion is a compile error.
+Op expansions are inline; register/flag effects are the effects of the emitted instructions. Stack effects are developer-managed and evaluated only by normal enclosing function-stream rules. Cyclic expansion is a compile error.
 
 ---
 
@@ -882,7 +858,7 @@ Ops do not appear in the symbol table as callable addresses (since they have no 
 Ops are expanded inline within the enclosing function instruction stream. This means:
 
 - The function's local variables remain accessible during op expansion (as SP-relative slots)
-- The function's stack frame is not modified by the op (net stack delta = 0)
+- The op may modify stack depth; correctness is judged at enclosing function joins/call boundaries
 - The function's SP tracking is updated by any `push`/`pop` in the op body
 
 ### 12.2 Function Calls Inside Op Bodies
@@ -919,13 +895,13 @@ op temp_storage_example(dst: reg16)
 end
 ```
 
-This is permitted, but the net stack delta must still be zero. Any save/restore is explicitly authored in the op body.
+This is permitted. Any save/restore discipline is explicitly authored in the op body.
 
 ### 12.4 Calling Ops from Functions vs Calling Functions from Ops
 
 | Scenario                | Effect                                                                              |
 | ----------------------- | ----------------------------------------------------------------------------------- |
-| Function calls op       | Op expands inline; function's frame unaffected                                      |
+| Function calls op       | Op expands inline; stack/register effects are exactly those of the emitted sequence |
 | Op calls function       | Full call sequence generated; typed call boundary remains preservation-safe in v0.2 |
 | Op calls op             | Nested inline expansion; no call overhead                                           |
 | Function calls function | Normal call/ret; stack frame management                                             |
@@ -985,12 +961,12 @@ This checklist is for compiler implementers. It covers the essential components 
 - [ ] (Optional tooling) Analyze emitted instructions to report registers/flags written
 - [ ] (Optional tooling) Surface effects in documentation or lint diagnostics
 
-### A.8 Stack Delta Verification
+### A.8 Stack-Effect Tooling (Optional)
 
-- [ ] Track stack delta through op body
-- [ ] Handle `push`, `pop`, `call`, `ret`, `inc sp`, `dec sp`
-- [ ] Verify net delta = 0 after expansion
-- [ ] Report violation with clear diagnostic
+- [ ] (Optional tooling) Track stack effects through expanded op bodies
+- [ ] (Optional tooling) Handle `push`, `pop`, `call`, `ret`, `inc sp`, `dec sp`
+- [ ] (Optional tooling) Surface likely stack-discipline risks in lint/docs output
+- [ ] Keep core op expansion semantics independent of stack-effect tooling
 
 ### A.9 Code Emission
 
@@ -1096,13 +1072,14 @@ op cycle_b(r: reg16)
 end
 ```
 
-### B.6 Stack Delta Violation
+### B.6 Stack-Discipline Example (Developer Managed)
 
 ```
-; Test: should report stack delta error
-op leaky(r: reg16)
-  push hl          ; +2
-  ; missing pop    ; net delta +2, ERROR
+; Test: demonstrate explicit stack discipline by authoring balanced save/restore
+op scoped_temp(r: reg16)
+  push hl
+  ; ... use HL as scratch ...
+  pop hl
 end
 ```
 

@@ -2,14 +2,14 @@
 
 This roadmap replaces optimistic status tracking with a risk-first plan.
 
-Normative behavior is defined by `docs/zax-spec.md`. `docs/v01-scope-decisions.md` is transition rationale only. This roadmap is execution planning, not a language authority.
+Normative behavior is defined by `docs/zax-spec.md`. `docs/v02-transition-decisions.md` is transition rationale only. This roadmap is execution planning, not a language authority.
 
 Core policy:
 
 - Build a fully working assembler first.
 - Defer Debug80 integration until assembler completion gates are met.
 
-**Last updated:** 2026-02-12
+**Last updated:** 2026-02-14
 
 Progress snapshot (rough, assembler-first):
 
@@ -37,6 +37,22 @@ What moves the needle fastest:
 - Make the CLI/output gate real: implement `docs/zax-cli.md` options in code, and add contract tests that verify the artifact set and naming rules.
 - Expand ISA coverage with fixtures + negative tests until every instruction needed by `examples/*.zax` and the active spec is supported (or explicitly rejected).
 - Add hardening gates that are difficult to game: examples compile (already exists) plus determinism checks and broad negative fixture classes.
+
+## v0.2 Spec-First Rollout Constraints
+
+The current docs-first direction introduces intentional near-term implementation lag in three areas. These are not open-ended; they are scheduled and tracked.
+
+| Priority | Constraint                                                   | Issue                                              | Delivery intent                      |
+| -------- | ------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------ |
+| 1        | Enforce runtime-atom quota for source-level `ea` expressions | [#221](https://github.com/jhlagado/ZAX/issues/221) | Next lowering/diagnostics tranche    |
+| 2        | Enforce runtime-atom-free direct call-site `ea`/`(ea)` args  | [#222](https://github.com/jhlagado/ZAX/issues/222) | Immediately after #221               |
+| 3        | Resolve op stack-policy mismatch (docs vs implementation)    | [#223](https://github.com/jhlagado/ZAX/issues/223) | After #221/#222 policy stabilization |
+
+Team rule for in-flight work:
+
+- If a PR touches addressing/call lowering/op semantics, it must reference one of these issues or explicitly state why it is unrelated.
+- Feature additions in these areas should not bypass the rollout order above.
+- `docs/v02-implementation-checklist.md` is the canonical execution board for this rollout.
 
 ---
 
