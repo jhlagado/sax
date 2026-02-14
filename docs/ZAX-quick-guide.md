@@ -17,7 +17,7 @@ This guide is instructional, not normative. Canonical language behavior is defin
 - [Chapter 9 - Records and Unions](#chapter-9---records-and-unions)
 - [Chapter 10 - Modules and Imports](#chapter-10---modules-and-imports)
 - [Chapter 11 - Binary Layout and Hardware Mapping](#chapter-11---binary-layout-and-hardware-mapping)
-- [Chapter 12 - Design Patterns](#chapter-12---design-patterns)
+- [Chapter 12 - Design Patterns and Structured Systems](#chapter-12---design-patterns-and-structured-systems)
 
 ## Chapter 1 - Overview and Toolchain
 
@@ -374,9 +374,13 @@ hex bios from "rom/bios.hex"
 extern func bios_putc(ch: byte): void at $F003
 ```
 
-## Chapter 12 - Design Patterns
+## Chapter 12 - Design Patterns and Structured Systems
 
-### 12.1 State Machine with `enum` + `select`
+### 12.1 Introduction
+
+This chapter combines structured control flow, typed layout, inline `op` expansion, and explicit function boundaries into reusable system-level patterns.
+
+### 12.2 Pattern 1 - State Machine with `enum` + `select`
 
 ```zax
 enum DeviceState
@@ -389,8 +393,10 @@ globals
   state: byte
 end
 
-func step(): void
-  select state
+export func main(): void
+loop:
+  ld a, state
+  select A
   case DeviceState.Idle:
     ld state, DeviceState.Busy
   case DeviceState.Busy:
@@ -398,24 +404,146 @@ func step(): void
   case DeviceState.Error:
     ld state, DeviceState.Idle
   end
+  jr loop
+end
+```
+
+Behavior:
+
+- state transitions stay explicit in source
+- enum qualification keeps state names unambiguous
+- lowering stays bounded to direct compare/branch dispatch
+
+### 12.3 Pattern 2 - Hardware Driver Skeleton
+
+```zax
+type UART
+  status: byte
+  control: byte
+  data: byte
+end
+
+section var at $A000
+globals
+  uart: UART
+end
+
+op wait_ready
+wait:
+  ld a, uart.status
+  cp 1
+  jr NZ, wait
+end
+
+func uart_send(value: byte): void
+  wait_ready
+  ld uart.data, value
   ret
 end
 ```
 
-### 12.2 Driver Layering Pattern
+Behavior:
+
+- register offsets are resolved from typed layout at compile time
+- `op` expansion is inline (no function-call boundary for `wait_ready`)
+- polling loop remains visible and reviewable in emitted flow
+
+### 12.4 Pattern 3 - Structured Command Dispatch
+
+```zax
+enum Command
+  CmdRead
+  CmdWrite
+  CmdReset
+end
+
+func handle_command(cmd: byte): void
+  select cmd
+  case Command.CmdRead:
+    ; read handler
+  case Command.CmdWrite:
+    ; write handler
+  case Command.CmdReset:
+    ; reset handler
+  end
+  ret
+end
+```
+
+Behavior:
+
+- dispatch intent is explicit at one site
+- enum-qualified cases avoid ambiguous integer literals
+- manual compare-chain duplication is avoided in source
+
+### 12.5 Pattern 4 - Layered Abstraction
+
+Use this layering model:
 
 - `op` for local micro-sequences
-- `func` for call boundaries
-- typed records for mapped registers
-- explicit state transitions via enums
+- `func` for boundary-safe callable units
+- `enum` for symbolic state and command domains
+- records/unions for deterministic binary layout
 
-### 12.3 Final Checklist
+### 12.6 Maintaining Predictability
+
+- Keep composite types power-of-two aligned.
+- Keep each address expression within runtime-atom budget.
+- Stage multi-step dynamic addressing over multiple lines.
+- Keep `op` bodies small and mechanical.
+- Use `sizeof` and `offsetof` instead of manual layout math.
+- Use qualified enum names everywhere.
+
+### 12.7 Mini Firmware Loop Example
+
+```zax
+enum Mode
+  Normal
+  Panic
+end
+
+globals
+  mode: byte
+  fault_latched: byte
+end
+
+export func main(): void
+main_loop:
+  ld a, fault_latched
+  or a
+  if NZ
+    ld mode, Mode.Panic
+  end
+
+  ld a, mode
+  select A
+  case Mode.Normal:
+    ; normal work
+  case Mode.Panic:
+    ; safe mode
+  end
+
+  jr main_loop
+end
+```
+
+Execution model:
+
+- flags are established explicitly before `if`
+- state transitions remain value-visible in typed scalars
+- no hidden scheduler or runtime is introduced
+
+### 12.8 Final Checklist
 
 - Prefer constants and compile-time layout queries.
 - Keep addressing expressions within runtime-atom budget.
-- Keep `op` bodies mechanical and small.
-- Use qualified enum names everywhere.
+- Keep `op` bodies mechanical and reviewable.
+- Keep function boundaries explicit and typed.
 - Treat `docs/zax-spec.md` as final authority.
+
+### 12.9 Summary
+
+These patterns keep large Z80 systems maintainable while preserving assembler-level control and predictable lowering.
 
 ---
 
