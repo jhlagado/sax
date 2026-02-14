@@ -147,6 +147,7 @@ arr[(HL)]
 
 - `arr[HL]` means direct 16-bit index from `HL`
 - `arr[(HL)]` means index comes from byte at memory address `(HL)`
+- `arr[(3+5)]` is valid but warns as redundant grouping (same as `arr[3+5]`)
 
 ### 3.3 Runtime Atom Rule
 

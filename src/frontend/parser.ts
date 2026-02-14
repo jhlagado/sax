@@ -540,6 +540,20 @@ function parseEaIndexFromText(
       }
       return { kind: 'IndexMemIxIy', span: indexSpan, base, ...(disp ? { disp } : {}) };
     }
+    // Lint warning only for constant-only grouped index forms like arr[(3+5)].
+    if (!/[A-Za-z_]/.test(inner)) {
+      const grouped = parseImmExprFromText(filePath, inner, indexSpan, diagnostics, false);
+      if (grouped) {
+        diagnostics.push({
+          id: DiagnosticIds.IndexParenRedundant,
+          severity: 'warning',
+          message: `Redundant outer parentheses in constant index expression "${t}".`,
+          file: indexSpan.file,
+          line: indexSpan.start.line,
+          column: indexSpan.start.column,
+        });
+      }
+    }
   }
   if (/^(HL|DE|BC)$/i.test(t)) {
     return { kind: 'IndexReg16', span: indexSpan, reg: canonicalRegisterToken(t) };

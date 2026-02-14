@@ -86,6 +86,9 @@ export const DiagnosticIds = {
 
   /** Case-style lint warning for keyword/register casing policy. */
   CaseStyleLint: 'ZAX500',
+
+  /** Redundant outer parentheses in a constant-only array index expression. */
+  IndexParenRedundant: 'ZAX501',
 } as const;
 
 /**
