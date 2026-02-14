@@ -325,7 +325,7 @@ ZAX v0.2 is built around these invariants:
    end
    _
    size = sizeof(Sprite)
-   sprite*size = 8
+   sprite\*size = 8
    Compile-Time Example
    export func main(): void
    ld hl, sizeof(Sprite)
@@ -364,64 +364,63 @@ ZAX v0.2 is built around these invariants:
    const
    offset
    end
-   *
-   flags = offsetof(Sprite, flags)
-   Given layout:
-   Field Offset
-   x 0
-   y 1
-   tile 2
-   flags 3
-   offset_flags = 3
-   Padding after flags ensures total size = 8.
-   2.12 Nested Layout
-   For nested types:
-   type Scene
-   sprites: Sprite[4]
-   end
-   Each Sprite = 8 bytes
-   sprite[0] at offset 0
-   sprite[1] at offset 8
-   sprite[2] at offset 16
-   sprite[3] at offset 24
-   Total Scene storage = 32 bytes
-   2.13 Important Points to Note
-   ●
-   ●
-   ●
-   ●
-   ●
-   ●
-   ●
-   Composite storage sizes are always powers of two.
-   Padding is storage-visible.
-   sizeof returns padded size.
-   offsetof returns byte offsets.
-   There is no packed-layout mode.
-   Signedness is not encoded in storage.
-   Layout is deterministic and mechanical.
-   2.14 Summary
-   ZAX storage is:
-   ●
-   ●
-   ●
-   ●
-   ●
-   Width-based
-   Deterministic
-   Power-of-two aligned
-   Shift-scalable
-   Visible in sizeof and indexing
-   This storage model exists to guarantee bounded lowering for address computation.
-   Excellent.
-   Now we enter the chapter that defines ZAX’s identity.
-   Following the Pascal Quick Guide pattern:
-   Concept framing
-   Formal syntax
-   Reference tables
-   Clear examples
-   “When compiled and executed…
-   ” demonstrations
+   - flags = offsetof(Sprite, flags)
+     Given layout:
+     Field Offset
+     x 0
+     y 1
+     tile 2
+     flags 3
+     offset_flags = 3
+     Padding after flags ensures total size = 8.
+     2.12 Nested Layout
+     For nested types:
+     type Scene
+     sprites: Sprite[4]
+     end
+     Each Sprite = 8 bytes
+     sprite[0] at offset 0
+     sprite[1] at offset 8
+     sprite[2] at offset 16
+     sprite[3] at offset 24
+     Total Scene storage = 32 bytes
+     2.13 Important Points to Note
+     ●
+     ●
+     ●
+     ●
+     ●
+     ●
+     ●
+     Composite storage sizes are always powers of two.
+     Padding is storage-visible.
+     sizeof returns padded size.
+     offsetof returns byte offsets.
+     There is no packed-layout mode.
+     Signedness is not encoded in storage.
+     Layout is deterministic and mechanical.
+     2.14 Summary
+     ZAX storage is:
+     ●
+     ●
+     ●
+     ●
+     ●
+     Width-based
+     Deterministic
+     Power-of-two aligned
+     Shift-scalable
+     Visible in sizeof and indexing
+     This storage model exists to guarantee bounded lowering for address computation.
+     Excellent.
+     Now we enter the chapter that defines ZAX’s identity.
+     Following the Pascal Quick Guide pattern:
+     Concept framing
+     Formal syntax
+     Reference tables
+     Clear examples
+     “When compiled and executed…
+     ” demonstrations
 
 ---
 
@@ -759,7 +758,7 @@ Operator Meaning
   > > Example
   > > const
   > > mask = (1 << 3)
-  > > value = (5 + 2) _ 4
+  > > value = (5 + 2) \_ 4
   > > end
   > > mask = 8
   > > value = 28
@@ -773,74 +772,70 @@ Operator Meaning
   > > const
   > > point
   > > end
-  > > *
-  > > size = sizeof(Point)
-  > > point_size = 2
-  > > Example with Padding
-  > > type Sprite
-  > > x: byte
-  > > y: byte
-  > > tile: byte
-  > > flags: word
-  > > end
-  > > const
-  > > sprite
-  > > end
-  > > *
-  > > size = sizeof(Sprite)
-  > > Natural size = 5
-  > > Storage size = 8
-  > > sprite*size = 8
-  > > 4.6 offsetof
-  > > Returns byte offset of a field within a record.
-  > > General Form
-  > > offsetof(Type, field
-  > > \_path)
-  > > Example
-  > > const
-  > > offset
-  > > offset
-  > > end
-  > > *
-  > > tile = offsetof(Sprite, tile)
-  > > *
-  > > flags = offsetof(Sprite, flags)
-  > > Layout:
-  > > Field Offset
-  > > x 0
-  > > y 1
-  > > tile 2
-  > > flags 3
-  > > Offsets reflect natural layout order.
-  > > Total size still rounded to 8.
-  > > 4.7 Nested offsetof
-  > > Allowed when indices are constant:
-  > > type Scene
-  > > sprites: Sprite[4]
-  > > end
-  > > const
-  > > second
-  > > end
-  > > *
-  > > sprite
-  > > \_
-  > > offset = offsetof(Scene, sprites[1])
-  > > second_sprite_offset = 8
-  > > (Each Sprite occupies 8 bytes.)
-  > > 4.8 Atom Interaction with Expressions
-  > > Compile-time arithmetic does not contribute runtime atoms.
-  > > Example:
-  > > ld a, table[CONST1 + CONST2 _ 4]
-  > > Atom count = 0
-  > > Fully resolved at compile time.
-  > > Rejected Example
-  > > ld a, table[i + j]
-  > > Atom count = 2
-  > > Compile error.
-  > > Diagnostic:
-  > > Error: Address expression contains more than one runtime atom.
-  > > 4.9 Grouping Parentheses
-  > > Parentheses inside [] may mean:
+  > >
+  > > - size = sizeof(Point)
+  > >   point_size = 2
+  > >   Example with Padding
+  > >   type Sprite
+  > >   x: byte
+  > >   y: byte
+  > >   tile: byte
+  > >   flags: word
+  > >   end
+  > >   const
+  > >   sprite
+  > >   end
+  > > - size = sizeof(Sprite)
+  > >   Natural size = 5
+  > >   Storage size = 8
+  > >   sprite\*size = 8
+  > >   4.6 offsetof
+  > >   Returns byte offset of a field within a record.
+  > >   General Form
+  > >   offsetof(Type, field
+  > >   \_path)
+  > >   Example
+  > >   const
+  > >   offset
+  > >   offset
+  > >   end
+  > > - tile = offsetof(Sprite, tile)
+  > > - flags = offsetof(Sprite, flags)
+  > >   Layout:
+  > >   Field Offset
+  > >   x 0
+  > >   y 1
+  > >   tile 2
+  > >   flags 3
+  > >   Offsets reflect natural layout order.
+  > >   Total size still rounded to 8.
+  > >   4.7 Nested offsetof
+  > >   Allowed when indices are constant:
+  > >   type Scene
+  > >   sprites: Sprite[4]
+  > >   end
+  > >   const
+  > >   second
+  > >   end
+  > > - sprite
+  > >   \_
+  > >   offset = offsetof(Scene, sprites[1])
+  > >   second*sprite_offset = 8
+  > >   (Each Sprite occupies 8 bytes.)
+  > >   4.8 Atom Interaction with Expressions
+  > >   Compile-time arithmetic does not contribute runtime atoms.
+  > >   Example:
+  > >   ld a, table[CONST1 + CONST2 * 4]
+  > >   Atom count = 0
+  > >   Fully resolved at compile time.
+  > >   Rejected Example
+  > >   ld a, table[i + j]
+  > >   Atom count = 2
+  > >   Compile error.
+  > >   Diagnostic:
+  > >   Error: Address expression contains more than one runtime atom.
+  > >   4.9 Grouping Parentheses
+  > >   Parentheses inside [] may mean:
 
 1. Z80 indirect form (HL)
 2. Expression grouping (3+5)
@@ -1867,29 +1862,29 @@ Total size = 32 bytes
 9.6 Nested Records
 Records may contain other records.
 type Rectangle
-top*
+top\*
 left: Point
 bottom
-*
-right: Point
-end
-Layout
-Point size = 2
-Natural total = 4
-Storage size = 4 (already power-of-two)
 
----
+- right: Point
+  end
+  Layout
+  Point size = 2
+  Natural total = 4
+  Storage size = 4 (already power-of-two)
 
-9.7 Unions
-A union overlays multiple fields at offset 0.
-General Form
-type TypeName union
-field1: type
-field2: type
-end
-All fields share the same base address.
+  ***
 
----
+  9.7 Unions
+  A union overlays multiple fields at offset 0.
+  General Form
+  type TypeName union
+  field1: type
+  field2: type
+  end
+  All fields share the same base address.
+
+  ***
 
 Example
 type Data union
