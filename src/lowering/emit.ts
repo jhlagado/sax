@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { Diagnostic, DiagnosticId } from '../diagnostics/types.js';
 import { DiagnosticIds } from '../diagnostics/types.js';
-import type { EmittedByteMap, SymbolEntry } from '../formats/types.js';
+import type { EmittedByteMap, EmittedSourceSegment, SymbolEntry } from '../formats/types.js';
 import type {
   AlignDirectiveNode,
   AsmItemNode,
@@ -107,6 +107,9 @@ export function emitProgram(
   const codeBytes = new Map<number, number>();
   const dataBytes = new Map<number, number>();
   const hexBytes = new Map<number, number>();
+  type SourceSegmentTag = Omit<EmittedSourceSegment, 'start' | 'end'>;
+  const codeSourceSegments: EmittedSourceSegment[] = [];
+  let currentCodeSegmentTag: SourceSegmentTag | undefined;
   const absoluteSymbols: SymbolEntry[] = [];
   const symbols: SymbolEntry[] = [];
   const pending: PendingSymbol[] = [];
@@ -200,11 +203,30 @@ export function emitProgram(
     | { kind: 'abs'; baseLower: string; addend: number; typeExpr?: TypeExprNode }
     | { kind: 'stack'; offsetFromStartSp: number; typeExpr?: TypeExprNode };
 
+  const sameSourceTag = (x: SourceSegmentTag, y: SourceSegmentTag): boolean =>
+    x.file === y.file &&
+    x.line === y.line &&
+    x.column === y.column &&
+    x.kind === y.kind &&
+    x.confidence === y.confidence;
+
+  const recordCodeSourceRange = (start: number, end: number): void => {
+    if (!currentCodeSegmentTag || end <= start) return;
+    const last = codeSourceSegments[codeSourceSegments.length - 1];
+    if (last && last.end === start && sameSourceTag(last, currentCodeSegmentTag)) {
+      last.end = end;
+      return;
+    }
+    codeSourceSegments.push({ ...currentCodeSegmentTag, start, end });
+  };
+
   const emitCodeBytes = (bs: Uint8Array, file: string) => {
+    const start = codeOffset;
     for (const b of bs) {
       codeBytes.set(codeOffset, b);
       codeOffset++;
     }
+    recordCodeSourceRange(start, codeOffset);
   };
 
   const applySpTracking = (headRaw: string, operands: AsmOperandNode[]) => {
@@ -314,6 +336,7 @@ export function emitProgram(
     codeBytes.set(codeOffset++, opcode);
     codeBytes.set(codeOffset++, 0x00);
     codeBytes.set(codeOffset++, 0x00);
+    recordCodeSourceRange(start, codeOffset);
     fixups.push({ offset: start + 1, baseLower, addend, file: span.file });
   };
 
@@ -328,6 +351,7 @@ export function emitProgram(
     codeBytes.set(codeOffset++, opcode2);
     codeBytes.set(codeOffset++, 0x00);
     codeBytes.set(codeOffset++, 0x00);
+    recordCodeSourceRange(start, codeOffset);
     fixups.push({ offset: start + 2, baseLower, addend, file: span.file });
   };
 
@@ -343,6 +367,7 @@ export function emitProgram(
     codeBytes.set(codeOffset++, opcode2);
     codeBytes.set(codeOffset++, 0x00);
     codeBytes.set(codeOffset++, 0x00);
+    recordCodeSourceRange(start, codeOffset);
     fixups.push({ offset: start + 2, baseLower, addend, file: span.file });
   };
 
@@ -356,6 +381,7 @@ export function emitProgram(
     const start = codeOffset;
     codeBytes.set(codeOffset++, opcode);
     codeBytes.set(codeOffset++, 0x00);
+    recordCodeSourceRange(start, codeOffset);
     rel8Fixups.push({
       offset: start + 1,
       origin: start + 2,
@@ -2508,10 +2534,22 @@ export function emitProgram(
         }
 
         if (frameSize > 0) {
+          const prevTag = currentCodeSegmentTag;
+          currentCodeSegmentTag = {
+            file: item.span.file,
+            line: item.span.start.line,
+            column: item.span.start.column,
+            kind: 'code',
+            confidence: 'high',
+          };
           // Reserve local frame: stack space is uninitialized, so push BC words is acceptable.
-          for (let k = 0; k < frameSize / 2; k++) {
-            if (!emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span))
-              break;
+          try {
+            for (let k = 0; k < frameSize / 2; k++) {
+              if (!emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span))
+                break;
+            }
+          } finally {
+            currentCodeSegmentTag = prevTag;
           }
         }
         // Track SP deltas relative to the start of user asm, after prologue reservation.
@@ -2535,8 +2573,31 @@ export function emitProgram(
           key: string;
           name: string;
           declSpan: SourceSpan;
+          callSiteSpan: SourceSpan;
         };
         const opExpansionStack: OpExpansionFrame[] = [];
+        const currentMacroCallSiteSpan = (): SourceSpan | undefined =>
+          opExpansionStack.length > 0 ? opExpansionStack[0]?.callSiteSpan : undefined;
+        const sourceTagForSpan = (span: SourceSpan): SourceSegmentTag => {
+          const macroCallSite = currentMacroCallSiteSpan();
+          const taggedSpan = macroCallSite ?? span;
+          return {
+            file: taggedSpan.file,
+            line: taggedSpan.start.line,
+            column: taggedSpan.start.column,
+            kind: macroCallSite ? 'macro' : 'code',
+            confidence: 'high',
+          };
+        };
+        const withCodeSourceTag = <T>(tag: SourceSegmentTag, fn: () => T): T => {
+          const prev = currentCodeSegmentTag;
+          currentCodeSegmentTag = tag;
+          try {
+            return fn();
+          } finally {
+            currentCodeSegmentTag = prev;
+          }
+        };
 
         const syncFromFlow = (): void => {
           spDeltaTracked = flow.spDelta;
@@ -2732,478 +2793,402 @@ export function emitProgram(
         };
 
         const emitAsmInstruction = (asmItem: AsmInstructionNode): void => {
-          for (const operand of asmItem.operands) {
-            if (!enforceEaRuntimeAtomBudget(operand, 'Source ea expression')) return;
-          }
-
-          const diagIfRetStackImbalanced = (mnemonic = 'ret'): void => {
-            if (spTrackingValid && spDeltaTracked !== 0) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `${mnemonic} with non-zero tracked stack delta (${spDeltaTracked}); function stack is imbalanced.`,
-              );
-              return;
-            }
-            if (!spTrackingValid && spTrackingInvalidatedByMutation && hasStackSlots) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `${mnemonic} reached after untracked SP mutation; cannot verify function stack balance.`,
-              );
-              return;
-            }
-            if (!spTrackingValid && hasStackSlots) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `${mnemonic} reached with unknown stack depth; cannot verify function stack balance.`,
-              );
-            }
-          };
-          const diagIfCallStackUnverifiable = (mnemonic = 'call'): void => {
-            if (hasStackSlots && spTrackingValid && spDeltaTracked > 0) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `${mnemonic} reached with positive tracked stack delta (${spDeltaTracked}); cannot verify callee stack contract.`,
-              );
-              return;
-            }
-            if (hasStackSlots && !spTrackingValid && spTrackingInvalidatedByMutation) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `${mnemonic} reached after untracked SP mutation; cannot verify callee stack contract.`,
-              );
-              return;
-            }
-            if (hasStackSlots && !spTrackingValid) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `${mnemonic} reached with unknown stack depth; cannot verify callee stack contract.`,
-              );
-            }
-          };
-          const callable = callables.get(asmItem.head.toLowerCase());
-          if (callable) {
-            const args = asmItem.operands;
-            const params = callable.kind === 'func' ? callable.node.params : callable.node.params;
-            const calleeName = callable.node.name;
-            const returnType =
-              callable.kind === 'func' ? callable.node.returnType : callable.node.returnType;
-            const returnsVoid =
-              returnType.kind === 'TypeName' && returnType.name.toLowerCase() === 'void';
-            const preservedRegs = returnsVoid
-              ? ['AF', 'BC', 'DE', 'IX', 'IY', 'HL']
-              : ['AF', 'BC', 'DE', 'IX', 'IY'];
-            if (args.length !== params.length) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `Call to "${asmItem.head}" has ${args.length} argument(s) but expects ${params.length}.`,
-              );
-              return;
-            }
-            for (const arg of args) {
-              if (!enforceDirectCallSiteEaBudget(arg, calleeName)) return;
+          const prevTag = currentCodeSegmentTag;
+          currentCodeSegmentTag = sourceTagForSpan(asmItem.span);
+          try {
+            for (const operand of asmItem.operands) {
+              if (!enforceEaRuntimeAtomBudget(operand, 'Source ea expression')) return;
             }
 
-            const pushArgValueFromName = (name: string, want: 'byte' | 'word'): boolean => {
-              const scalar = resolveScalarBinding(name);
-              if (scalar) {
-                return pushMemValue(
-                  { kind: 'EaName', span: asmItem.span, name } as any,
-                  want,
+            const diagIfRetStackImbalanced = (mnemonic = 'ret'): void => {
+              if (spTrackingValid && spDeltaTracked !== 0) {
+                diagAt(
+                  diagnostics,
                   asmItem.span,
+                  `${mnemonic} with non-zero tracked stack delta (${spDeltaTracked}); function stack is imbalanced.`,
                 );
-              }
-              return pushEaAddress(
-                { kind: 'EaName', span: asmItem.span, name } as any,
-                asmItem.span,
-              );
-            };
-            const pushArgValueFromEa = (ea: EaExprNode, want: 'byte' | 'word'): boolean => {
-              const scalar = resolveScalarTypeForEa(ea);
-              if (scalar) return pushMemValue(ea, want, asmItem.span);
-              return pushEaAddress(ea, asmItem.span);
-            };
-            const enumValueFromEa = (ea: EaExprNode): number | undefined => {
-              const name = flattenEaDottedName(ea);
-              if (!name) return undefined;
-              return env.enums.get(name);
-            };
-            const restorePreservedRegs = (): boolean => {
-              for (let ri = preservedRegs.length - 1; ri >= 0; ri--) {
-                if (
-                  !emitInstr(
-                    'pop',
-                    [{ kind: 'Reg', span: asmItem.span, name: preservedRegs[ri]! }],
-                    asmItem.span,
-                  )
-                ) {
-                  return false;
-                }
-              }
-              return true;
-            };
-
-            for (const reg of preservedRegs) {
-              if (
-                !emitInstr('push', [{ kind: 'Reg', span: asmItem.span, name: reg }], asmItem.span)
-              ) {
                 return;
               }
-            }
-            let ok = true;
-            let pushedArgWords = 0;
-            for (let ai = args.length - 1; ai >= 0; ai--) {
-              const arg = args[ai]!;
-              const param = params[ai]!;
-              const scalarKind = resolveScalarKind(param.typeExpr);
-              if (!scalarKind) {
+              if (!spTrackingValid && spTrackingInvalidatedByMutation && hasStackSlots) {
                 diagAt(
                   diagnostics,
                   asmItem.span,
-                  `Unsupported parameter type for "${param.name}".`,
+                  `${mnemonic} reached after untracked SP mutation; cannot verify function stack balance.`,
                 );
-                ok = false;
-                break;
+                return;
               }
-              const isByte = scalarKind === 'byte';
-
-              if (isByte) {
-                if (arg.kind === 'Reg' && reg8.has(arg.name.toUpperCase())) {
-                  ok = pushZeroExtendedReg8(arg.name.toUpperCase(), asmItem.span);
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
-                }
-                if (arg.kind === 'Imm') {
-                  const v = evalImmExpr(arg.expr, env, diagnostics);
-                  if (v === undefined) {
-                    if (arg.expr.kind === 'ImmName') {
-                      ok = pushArgValueFromName(arg.expr.name, 'byte');
-                      if (!ok) break;
-                      pushedArgWords++;
-                      continue;
-                    }
-                    diagAt(
-                      diagnostics,
-                      asmItem.span,
-                      `Failed to evaluate argument "${param.name}".`,
-                    );
-                    ok = false;
-                    break;
-                  }
-                  ok = pushImm16(v & 0xff, asmItem.span);
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
-                }
-                if (arg.kind === 'Ea') {
-                  const enumVal = enumValueFromEa(arg.expr);
-                  if (enumVal !== undefined) {
-                    ok = pushImm16(enumVal & 0xff, asmItem.span);
-                    if (!ok) break;
-                    pushedArgWords++;
-                    continue;
-                  }
-                  ok = pushArgValueFromEa(arg.expr, 'byte');
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
-                }
-                if (arg.kind === 'Mem') {
-                  ok = pushMemValue(arg.expr, 'byte', asmItem.span);
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
-                }
+              if (!spTrackingValid && hasStackSlots) {
                 diagAt(
                   diagnostics,
                   asmItem.span,
-                  `Unsupported byte argument form for "${param.name}" in call to "${asmItem.head}".`,
+                  `${mnemonic} reached with unknown stack depth; cannot verify function stack balance.`,
                 );
-                ok = false;
-                break;
-              } else {
-                if (arg.kind === 'Reg' && reg16.has(arg.name.toUpperCase())) {
-                  ok = emitInstr(
-                    'push',
-                    [{ kind: 'Reg', span: asmItem.span, name: arg.name.toUpperCase() }],
+              }
+            };
+            const diagIfCallStackUnverifiable = (mnemonic = 'call'): void => {
+              if (hasStackSlots && spTrackingValid && spDeltaTracked > 0) {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `${mnemonic} reached with positive tracked stack delta (${spDeltaTracked}); cannot verify callee stack contract.`,
+                );
+                return;
+              }
+              if (hasStackSlots && !spTrackingValid && spTrackingInvalidatedByMutation) {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `${mnemonic} reached after untracked SP mutation; cannot verify callee stack contract.`,
+                );
+                return;
+              }
+              if (hasStackSlots && !spTrackingValid) {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `${mnemonic} reached with unknown stack depth; cannot verify callee stack contract.`,
+                );
+              }
+            };
+            const callable = callables.get(asmItem.head.toLowerCase());
+            if (callable) {
+              const args = asmItem.operands;
+              const params = callable.kind === 'func' ? callable.node.params : callable.node.params;
+              const calleeName = callable.node.name;
+              const returnType =
+                callable.kind === 'func' ? callable.node.returnType : callable.node.returnType;
+              const returnsVoid =
+                returnType.kind === 'TypeName' && returnType.name.toLowerCase() === 'void';
+              const preservedRegs = returnsVoid
+                ? ['AF', 'BC', 'DE', 'IX', 'IY', 'HL']
+                : ['AF', 'BC', 'DE', 'IX', 'IY'];
+              if (args.length !== params.length) {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `Call to "${asmItem.head}" has ${args.length} argument(s) but expects ${params.length}.`,
+                );
+                return;
+              }
+              for (const arg of args) {
+                if (!enforceDirectCallSiteEaBudget(arg, calleeName)) return;
+              }
+
+              const pushArgValueFromName = (name: string, want: 'byte' | 'word'): boolean => {
+                const scalar = resolveScalarBinding(name);
+                if (scalar) {
+                  return pushMemValue(
+                    { kind: 'EaName', span: asmItem.span, name } as any,
+                    want,
                     asmItem.span,
                   );
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
                 }
-                if (arg.kind === 'Reg' && reg8.has(arg.name.toUpperCase())) {
-                  ok = pushZeroExtendedReg8(arg.name.toUpperCase(), asmItem.span);
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
-                }
-                if (arg.kind === 'Imm') {
-                  const v = evalImmExpr(arg.expr, env, diagnostics);
-                  if (v === undefined) {
-                    if (arg.expr.kind === 'ImmName') {
-                      ok = pushArgValueFromName(arg.expr.name, 'word');
-                      if (!ok) break;
-                      pushedArgWords++;
-                      continue;
-                    }
-                    diagAt(
-                      diagnostics,
+                return pushEaAddress(
+                  { kind: 'EaName', span: asmItem.span, name } as any,
+                  asmItem.span,
+                );
+              };
+              const pushArgValueFromEa = (ea: EaExprNode, want: 'byte' | 'word'): boolean => {
+                const scalar = resolveScalarTypeForEa(ea);
+                if (scalar) return pushMemValue(ea, want, asmItem.span);
+                return pushEaAddress(ea, asmItem.span);
+              };
+              const enumValueFromEa = (ea: EaExprNode): number | undefined => {
+                const name = flattenEaDottedName(ea);
+                if (!name) return undefined;
+                return env.enums.get(name);
+              };
+              const restorePreservedRegs = (): boolean => {
+                for (let ri = preservedRegs.length - 1; ri >= 0; ri--) {
+                  if (
+                    !emitInstr(
+                      'pop',
+                      [{ kind: 'Reg', span: asmItem.span, name: preservedRegs[ri]! }],
                       asmItem.span,
-                      `Failed to evaluate argument "${param.name}".`,
-                    );
-                    ok = false;
-                    break;
+                    )
+                  ) {
+                    return false;
                   }
-                  ok = pushImm16(v & 0xffff, asmItem.span);
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
                 }
-                if (arg.kind === 'Ea') {
-                  const enumVal = enumValueFromEa(arg.expr);
-                  if (enumVal !== undefined) {
-                    ok = pushImm16(enumVal & 0xffff, asmItem.span);
+                return true;
+              };
+
+              for (const reg of preservedRegs) {
+                if (
+                  !emitInstr('push', [{ kind: 'Reg', span: asmItem.span, name: reg }], asmItem.span)
+                ) {
+                  return;
+                }
+              }
+              let ok = true;
+              let pushedArgWords = 0;
+              for (let ai = args.length - 1; ai >= 0; ai--) {
+                const arg = args[ai]!;
+                const param = params[ai]!;
+                const scalarKind = resolveScalarKind(param.typeExpr);
+                if (!scalarKind) {
+                  diagAt(
+                    diagnostics,
+                    asmItem.span,
+                    `Unsupported parameter type for "${param.name}".`,
+                  );
+                  ok = false;
+                  break;
+                }
+                const isByte = scalarKind === 'byte';
+
+                if (isByte) {
+                  if (arg.kind === 'Reg' && reg8.has(arg.name.toUpperCase())) {
+                    ok = pushZeroExtendedReg8(arg.name.toUpperCase(), asmItem.span);
                     if (!ok) break;
                     pushedArgWords++;
                     continue;
                   }
-                  ok = pushArgValueFromEa(arg.expr, 'word');
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
+                  if (arg.kind === 'Imm') {
+                    const v = evalImmExpr(arg.expr, env, diagnostics);
+                    if (v === undefined) {
+                      if (arg.expr.kind === 'ImmName') {
+                        ok = pushArgValueFromName(arg.expr.name, 'byte');
+                        if (!ok) break;
+                        pushedArgWords++;
+                        continue;
+                      }
+                      diagAt(
+                        diagnostics,
+                        asmItem.span,
+                        `Failed to evaluate argument "${param.name}".`,
+                      );
+                      ok = false;
+                      break;
+                    }
+                    ok = pushImm16(v & 0xff, asmItem.span);
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
+                  if (arg.kind === 'Ea') {
+                    const enumVal = enumValueFromEa(arg.expr);
+                    if (enumVal !== undefined) {
+                      ok = pushImm16(enumVal & 0xff, asmItem.span);
+                      if (!ok) break;
+                      pushedArgWords++;
+                      continue;
+                    }
+                    ok = pushArgValueFromEa(arg.expr, 'byte');
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
+                  if (arg.kind === 'Mem') {
+                    ok = pushMemValue(arg.expr, 'byte', asmItem.span);
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
+                  diagAt(
+                    diagnostics,
+                    asmItem.span,
+                    `Unsupported byte argument form for "${param.name}" in call to "${asmItem.head}".`,
+                  );
+                  ok = false;
+                  break;
+                } else {
+                  if (arg.kind === 'Reg' && reg16.has(arg.name.toUpperCase())) {
+                    ok = emitInstr(
+                      'push',
+                      [{ kind: 'Reg', span: asmItem.span, name: arg.name.toUpperCase() }],
+                      asmItem.span,
+                    );
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
+                  if (arg.kind === 'Reg' && reg8.has(arg.name.toUpperCase())) {
+                    ok = pushZeroExtendedReg8(arg.name.toUpperCase(), asmItem.span);
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
+                  if (arg.kind === 'Imm') {
+                    const v = evalImmExpr(arg.expr, env, diagnostics);
+                    if (v === undefined) {
+                      if (arg.expr.kind === 'ImmName') {
+                        ok = pushArgValueFromName(arg.expr.name, 'word');
+                        if (!ok) break;
+                        pushedArgWords++;
+                        continue;
+                      }
+                      diagAt(
+                        diagnostics,
+                        asmItem.span,
+                        `Failed to evaluate argument "${param.name}".`,
+                      );
+                      ok = false;
+                      break;
+                    }
+                    ok = pushImm16(v & 0xffff, asmItem.span);
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
+                  if (arg.kind === 'Ea') {
+                    const enumVal = enumValueFromEa(arg.expr);
+                    if (enumVal !== undefined) {
+                      ok = pushImm16(enumVal & 0xffff, asmItem.span);
+                      if (!ok) break;
+                      pushedArgWords++;
+                      continue;
+                    }
+                    ok = pushArgValueFromEa(arg.expr, 'word');
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
+                  if (arg.kind === 'Mem') {
+                    ok = pushMemValue(arg.expr, 'word', asmItem.span);
+                    if (!ok) break;
+                    pushedArgWords++;
+                    continue;
+                  }
+                  diagAt(
+                    diagnostics,
+                    asmItem.span,
+                    `Unsupported word argument form for "${param.name}" in call to "${asmItem.head}".`,
+                  );
+                  ok = false;
+                  break;
                 }
-                if (arg.kind === 'Mem') {
-                  ok = pushMemValue(arg.expr, 'word', asmItem.span);
-                  if (!ok) break;
-                  pushedArgWords++;
-                  continue;
-                }
-                diagAt(
-                  diagnostics,
-                  asmItem.span,
-                  `Unsupported word argument form for "${param.name}" in call to "${asmItem.head}".`,
-                );
-                ok = false;
-                break;
               }
-            }
 
-            if (!ok) {
-              for (let k = 0; k < pushedArgWords; k++) {
+              if (!ok) {
+                for (let k = 0; k < pushedArgWords; k++) {
+                  emitInstr('pop', [{ kind: 'Reg', span: asmItem.span, name: 'BC' }], asmItem.span);
+                }
+                restorePreservedRegs();
+                return;
+              }
+
+              diagIfCallStackUnverifiable();
+              if (callable.kind === 'extern') {
+                emitAbs16Fixup(0xcd, callable.targetLower, 0, asmItem.span);
+              } else {
+                emitAbs16Fixup(0xcd, callable.node.name.toLowerCase(), 0, asmItem.span);
+              }
+              for (let k = 0; k < args.length; k++) {
                 emitInstr('pop', [{ kind: 'Reg', span: asmItem.span, name: 'BC' }], asmItem.span);
               }
-              restorePreservedRegs();
+              if (!restorePreservedRegs()) return;
+              syncToFlow();
               return;
             }
 
-            diagIfCallStackUnverifiable();
-            if (callable.kind === 'extern') {
-              emitAbs16Fixup(0xcd, callable.targetLower, 0, asmItem.span);
-            } else {
-              emitAbs16Fixup(0xcd, callable.node.name.toLowerCase(), 0, asmItem.span);
-            }
-            for (let k = 0; k < args.length; k++) {
-              emitInstr('pop', [{ kind: 'Reg', span: asmItem.span, name: 'BC' }], asmItem.span);
-            }
-            if (!restorePreservedRegs()) return;
-            syncToFlow();
-            return;
-          }
-
-          const opCandidates = opsByName.get(asmItem.head.toLowerCase());
-          if (opCandidates && opCandidates.length > 0) {
-            const arityMatches = opCandidates.filter(
-              (candidate) => candidate.params.length === asmItem.operands.length,
-            );
-            if (arityMatches.length === 0) {
-              const available = opCandidates
-                .map((candidate) => `  - ${formatOpSignature(candidate)}`)
-                .join('\n');
-              diagAtWithId(
-                diagnostics,
-                asmItem.span,
-                DiagnosticIds.OpArityMismatch,
-                `No op overload of "${asmItem.head}" accepts ${asmItem.operands.length} operand(s).\n` +
-                  `available overloads:\n${available}`,
+            const opCandidates = opsByName.get(asmItem.head.toLowerCase());
+            if (opCandidates && opCandidates.length > 0) {
+              const arityMatches = opCandidates.filter(
+                (candidate) => candidate.params.length === asmItem.operands.length,
               );
-              return;
-            }
-
-            const matches = arityMatches.filter((candidate) => {
-              if (candidate.params.length !== asmItem.operands.length) return false;
-              for (let idx = 0; idx < candidate.params.length; idx++) {
-                const param = candidate.params[idx]!;
-                const arg = asmItem.operands[idx]!;
-                if (!matcherMatchesOperand(param.matcher, arg)) return false;
+              if (arityMatches.length === 0) {
+                const available = opCandidates
+                  .map((candidate) => `  - ${formatOpSignature(candidate)}`)
+                  .join('\n');
+                diagAtWithId(
+                  diagnostics,
+                  asmItem.span,
+                  DiagnosticIds.OpArityMismatch,
+                  `No op overload of "${asmItem.head}" accepts ${asmItem.operands.length} operand(s).\n` +
+                    `available overloads:\n${available}`,
+                );
+                return;
               }
-              return true;
-            });
-            if (matches.length === 0) {
-              const operandSummary = asmItem.operands.map(formatAsmOperandForOpDiag).join(', ');
-              const available = arityMatches
-                .map((candidate) => {
-                  const reason = firstOpOverloadMismatchReason(candidate, asmItem.operands);
-                  return `  - ${formatOpDefinitionForDiag(candidate)}${reason ? ` ; ${reason}` : ''}`;
-                })
-                .join('\n');
-              diagAtWithId(
-                diagnostics,
-                asmItem.span,
-                DiagnosticIds.OpNoMatchingOverload,
-                `No matching op overload for "${asmItem.head}" with provided operands.\n` +
-                  `call-site operands: (${operandSummary})\n` +
-                  `available overloads:\n${available}`,
-              );
-              return;
-            }
-            const selected = selectMostSpecificOpOverload(matches, asmItem.operands);
-            if (!selected) {
-              const operandSummary = asmItem.operands.map(formatAsmOperandForOpDiag).join(', ');
-              const equallySpecific = matches
-                .map((candidate) => `  - ${formatOpDefinitionForDiag(candidate)}`)
-                .join('\n');
-              diagAtWithId(
-                diagnostics,
-                asmItem.span,
-                DiagnosticIds.OpAmbiguousOverload,
-                `Ambiguous op overload for "${asmItem.head}" (${matches.length} matches).\n` +
-                  `call-site operands: (${operandSummary})\n` +
-                  `equally specific candidates:\n${equallySpecific}`,
-              );
-              return;
-            }
-            const opDecl = selected;
-            const opKey = opDecl.name.toLowerCase();
-            const cycleStart = opExpansionStack.findIndex((entry) => entry.key === opKey);
-            if (cycleStart !== -1) {
-              const cycleChain = [
-                ...opExpansionStack
-                  .slice(cycleStart)
-                  .map(
-                    (entry) =>
-                      `${entry.name} (${entry.declSpan.file}:${entry.declSpan.start.line})`,
-                  ),
-                `${opDecl.name} (${opDecl.span.file}:${opDecl.span.start.line})`,
-              ].join(' -> ');
-              diagAtWithId(
-                diagnostics,
-                asmItem.span,
-                DiagnosticIds.OpExpansionCycle,
-                `Cyclic op expansion detected for "${opDecl.name}".\n` +
-                  `expansion chain: ${cycleChain}`,
-              );
-              return;
-            }
-            const bindings = new Map<string, AsmOperandNode>();
-            for (let idx = 0; idx < opDecl.params.length; idx++) {
-              bindings.set(opDecl.params[idx]!.name.toLowerCase(), asmItem.operands[idx]!);
-            }
 
-            const bindingAsImmExpr = (
-              bound: AsmOperandNode | undefined,
-              span: SourceSpan,
-            ): ImmExprNode | undefined => {
-              if (!bound) return undefined;
-              if (bound.kind === 'Imm') return cloneImmExpr(bound.expr);
-              if (bound.kind !== 'Ea') return undefined;
-              const name = flattenEaDottedName(bound.expr);
-              if (!name || !env.enums.has(name)) return undefined;
-              return { kind: 'ImmName', span, name };
-            };
-
-            const substituteImm = (expr: ImmExprNode): ImmExprNode => {
-              const substituteOffsetofPath = (path: any): any => ({
-                ...path,
-                steps: path.steps.map((step: any) =>
-                  step.kind === 'OffsetofIndex'
-                    ? { ...step, expr: substituteImm(step.expr) }
-                    : { ...step },
-                ),
+              const matches = arityMatches.filter((candidate) => {
+                if (candidate.params.length !== asmItem.operands.length) return false;
+                for (let idx = 0; idx < candidate.params.length; idx++) {
+                  const param = candidate.params[idx]!;
+                  const arg = asmItem.operands[idx]!;
+                  if (!matcherMatchesOperand(param.matcher, arg)) return false;
+                }
+                return true;
               });
-              if (expr.kind === 'ImmName') {
-                const bound = bindings.get(expr.name.toLowerCase());
-                const immBound = bindingAsImmExpr(bound, expr.span);
-                if (immBound) return immBound;
-                return { ...expr };
+              if (matches.length === 0) {
+                const operandSummary = asmItem.operands.map(formatAsmOperandForOpDiag).join(', ');
+                const available = arityMatches
+                  .map((candidate) => {
+                    const reason = firstOpOverloadMismatchReason(candidate, asmItem.operands);
+                    return `  - ${formatOpDefinitionForDiag(candidate)}${reason ? ` ; ${reason}` : ''}`;
+                  })
+                  .join('\n');
+                diagAtWithId(
+                  diagnostics,
+                  asmItem.span,
+                  DiagnosticIds.OpNoMatchingOverload,
+                  `No matching op overload for "${asmItem.head}" with provided operands.\n` +
+                    `call-site operands: (${operandSummary})\n` +
+                    `available overloads:\n${available}`,
+                );
+                return;
               }
-              if (expr.kind === 'ImmOffsetof') {
-                return { ...expr, path: substituteOffsetofPath(expr.path) as typeof expr.path };
+              const selected = selectMostSpecificOpOverload(matches, asmItem.operands);
+              if (!selected) {
+                const operandSummary = asmItem.operands.map(formatAsmOperandForOpDiag).join(', ');
+                const equallySpecific = matches
+                  .map((candidate) => `  - ${formatOpDefinitionForDiag(candidate)}`)
+                  .join('\n');
+                diagAtWithId(
+                  diagnostics,
+                  asmItem.span,
+                  DiagnosticIds.OpAmbiguousOverload,
+                  `Ambiguous op overload for "${asmItem.head}" (${matches.length} matches).\n` +
+                    `call-site operands: (${operandSummary})\n` +
+                    `equally specific candidates:\n${equallySpecific}`,
+                );
+                return;
               }
-              if (expr.kind === 'ImmUnary') return { ...expr, expr: substituteImm(expr.expr) };
-              if (expr.kind === 'ImmBinary') {
-                return {
-                  ...expr,
-                  left: substituteImm(expr.left),
-                  right: substituteImm(expr.right),
-                };
+              const opDecl = selected;
+              const opKey = opDecl.name.toLowerCase();
+              const cycleStart = opExpansionStack.findIndex((entry) => entry.key === opKey);
+              if (cycleStart !== -1) {
+                const cycleChain = [
+                  ...opExpansionStack
+                    .slice(cycleStart)
+                    .map(
+                      (entry) =>
+                        `${entry.name} (${entry.declSpan.file}:${entry.declSpan.start.line})`,
+                    ),
+                  `${opDecl.name} (${opDecl.span.file}:${opDecl.span.start.line})`,
+                ].join(' -> ');
+                diagAtWithId(
+                  diagnostics,
+                  asmItem.span,
+                  DiagnosticIds.OpExpansionCycle,
+                  `Cyclic op expansion detected for "${opDecl.name}".\n` +
+                    `expansion chain: ${cycleChain}`,
+                );
+                return;
               }
-              return { ...expr };
-            };
-
-            const substituteOperand = (operand: AsmOperandNode): AsmOperandNode => {
-              if (operand.kind === 'Imm' && operand.expr.kind === 'ImmName') {
-                const bound = bindings.get(operand.expr.name.toLowerCase());
-                const immBound = bindingAsImmExpr(bound, operand.span);
-                if (immBound) return { kind: 'Imm', span: operand.span, expr: immBound };
-                if (bound) return cloneOperand(bound);
-                return { ...operand, expr: substituteImm(operand.expr) };
-              }
-              if (operand.kind === 'Imm') return { ...operand, expr: substituteImm(operand.expr) };
-              if (
-                (operand.kind === 'Ea' || operand.kind === 'Mem') &&
-                operand.expr.kind === 'EaName'
-              ) {
-                const bound = bindings.get(operand.expr.name.toLowerCase());
-                if (bound?.kind === 'Ea') return cloneOperand(bound);
-                if (bound?.kind === 'Reg') {
-                  return {
-                    ...operand,
-                    expr: { kind: 'EaName', span: operand.expr.span, name: bound.name },
-                  };
-                }
-                if (bound?.kind === 'Imm' && bound.expr.kind === 'ImmName') {
-                  return {
-                    ...operand,
-                    expr: { kind: 'EaName', span: operand.expr.span, name: bound.expr.name },
-                  };
-                }
-                return cloneOperand(operand);
-              }
-              return cloneOperand(operand);
-            };
-
-            opExpansionStack.push({
-              key: opKey,
-              name: opDecl.name,
-              declSpan: opDecl.span,
-            });
-            try {
-              const localLabelMap = new Map<string, string>();
-              for (const bodyItem of opDecl.body.items) {
-                if (bodyItem.kind !== 'AsmLabel') continue;
-                const key = bodyItem.name.toLowerCase();
-                if (!localLabelMap.has(key)) {
-                  localLabelMap.set(
-                    key,
-                    newHiddenLabel(`__zax_op_${opDecl.name.toLowerCase()}_lbl`),
-                  );
-                }
+              const bindings = new Map<string, AsmOperandNode>();
+              for (let idx = 0; idx < opDecl.params.length; idx++) {
+                bindings.set(opDecl.params[idx]!.name.toLowerCase(), asmItem.operands[idx]!);
               }
 
-              const substituteImmWithOpLabels = (expr: ImmExprNode): ImmExprNode => {
+              const bindingAsImmExpr = (
+                bound: AsmOperandNode | undefined,
+                span: SourceSpan,
+              ): ImmExprNode | undefined => {
+                if (!bound) return undefined;
+                if (bound.kind === 'Imm') return cloneImmExpr(bound.expr);
+                if (bound.kind !== 'Ea') return undefined;
+                const name = flattenEaDottedName(bound.expr);
+                if (!name || !env.enums.has(name)) return undefined;
+                return { kind: 'ImmName', span, name };
+              };
+
+              const substituteImm = (expr: ImmExprNode): ImmExprNode => {
                 const substituteOffsetofPath = (path: any): any => ({
                   ...path,
                   steps: path.steps.map((step: any) =>
                     step.kind === 'OffsetofIndex'
-                      ? { ...step, expr: substituteImmWithOpLabels(step.expr) }
+                      ? { ...step, expr: substituteImm(step.expr) }
                       : { ...step },
                   ),
                 });
@@ -3211,246 +3196,470 @@ export function emitProgram(
                   const bound = bindings.get(expr.name.toLowerCase());
                   const immBound = bindingAsImmExpr(bound, expr.span);
                   if (immBound) return immBound;
-                  const mapped = localLabelMap.get(expr.name.toLowerCase());
-                  if (mapped) return { kind: 'ImmName', span: expr.span, name: mapped };
                   return { ...expr };
                 }
                 if (expr.kind === 'ImmOffsetof') {
                   return { ...expr, path: substituteOffsetofPath(expr.path) as typeof expr.path };
                 }
-                if (expr.kind === 'ImmUnary') {
-                  return { ...expr, expr: substituteImmWithOpLabels(expr.expr) };
-                }
+                if (expr.kind === 'ImmUnary') return { ...expr, expr: substituteImm(expr.expr) };
                 if (expr.kind === 'ImmBinary') {
                   return {
                     ...expr,
-                    left: substituteImmWithOpLabels(expr.left),
-                    right: substituteImmWithOpLabels(expr.right),
+                    left: substituteImm(expr.left),
+                    right: substituteImm(expr.right),
                   };
                 }
                 return { ...expr };
               };
 
-              const substituteOperandWithOpLabels = (operand: AsmOperandNode): AsmOperandNode => {
-                const substituteEaWithOpLabels = (ea: EaExprNode): EaExprNode => {
-                  if (ea.kind === 'EaName') {
-                    const bound = bindings.get(ea.name.toLowerCase());
-                    if (bound?.kind === 'Ea') return cloneEaExpr(bound.expr);
-                    if (bound?.kind === 'Reg') {
-                      return { kind: 'EaName', span: ea.span, name: bound.name };
-                    }
-                    if (bound?.kind === 'Imm' && bound.expr.kind === 'ImmName') {
-                      return { kind: 'EaName', span: ea.span, name: bound.expr.name };
-                    }
-                    const mapped = localLabelMap.get(ea.name.toLowerCase());
-                    if (mapped) return { kind: 'EaName', span: ea.span, name: mapped };
-                    return { ...ea };
-                  }
-                  if (ea.kind === 'EaField') {
-                    return { ...ea, base: substituteEaWithOpLabels(ea.base) };
-                  }
-                  if (ea.kind === 'EaIndex') {
-                    const index =
-                      ea.index.kind === 'IndexEa'
-                        ? { ...ea.index, expr: substituteEaWithOpLabels(ea.index.expr) }
-                        : ea.index.kind === 'IndexImm'
-                          ? { ...ea.index, value: substituteImmWithOpLabels(ea.index.value) }
-                          : ea.index.kind === 'IndexMemIxIy' && ea.index.disp
-                            ? { ...ea.index, disp: substituteImmWithOpLabels(ea.index.disp) }
-                            : { ...ea.index };
-                    return { ...ea, base: substituteEaWithOpLabels(ea.base), index };
-                  }
-                  if (ea.kind === 'EaAdd' || ea.kind === 'EaSub') {
+              const substituteOperand = (operand: AsmOperandNode): AsmOperandNode => {
+                if (operand.kind === 'Imm' && operand.expr.kind === 'ImmName') {
+                  const bound = bindings.get(operand.expr.name.toLowerCase());
+                  const immBound = bindingAsImmExpr(bound, operand.span);
+                  if (immBound) return { kind: 'Imm', span: operand.span, expr: immBound };
+                  if (bound) return cloneOperand(bound);
+                  return { ...operand, expr: substituteImm(operand.expr) };
+                }
+                if (operand.kind === 'Imm')
+                  return { ...operand, expr: substituteImm(operand.expr) };
+                if (
+                  (operand.kind === 'Ea' || operand.kind === 'Mem') &&
+                  operand.expr.kind === 'EaName'
+                ) {
+                  const bound = bindings.get(operand.expr.name.toLowerCase());
+                  if (bound?.kind === 'Ea') return cloneOperand(bound);
+                  if (bound?.kind === 'Reg') {
                     return {
-                      ...ea,
-                      base: substituteEaWithOpLabels(ea.base),
-                      offset: substituteImmWithOpLabels(ea.offset),
+                      ...operand,
+                      expr: { kind: 'EaName', span: operand.expr.span, name: bound.name },
                     };
                   }
-                  return cloneEaExpr(ea);
+                  if (bound?.kind === 'Imm' && bound.expr.kind === 'ImmName') {
+                    return {
+                      ...operand,
+                      expr: { kind: 'EaName', span: operand.expr.span, name: bound.expr.name },
+                    };
+                  }
+                  return cloneOperand(operand);
+                }
+                return cloneOperand(operand);
+              };
+
+              opExpansionStack.push({
+                key: opKey,
+                name: opDecl.name,
+                declSpan: opDecl.span,
+                callSiteSpan: asmItem.span,
+              });
+              try {
+                const localLabelMap = new Map<string, string>();
+                for (const bodyItem of opDecl.body.items) {
+                  if (bodyItem.kind !== 'AsmLabel') continue;
+                  const key = bodyItem.name.toLowerCase();
+                  if (!localLabelMap.has(key)) {
+                    localLabelMap.set(
+                      key,
+                      newHiddenLabel(`__zax_op_${opDecl.name.toLowerCase()}_lbl`),
+                    );
+                  }
+                }
+
+                const substituteImmWithOpLabels = (expr: ImmExprNode): ImmExprNode => {
+                  const substituteOffsetofPath = (path: any): any => ({
+                    ...path,
+                    steps: path.steps.map((step: any) =>
+                      step.kind === 'OffsetofIndex'
+                        ? { ...step, expr: substituteImmWithOpLabels(step.expr) }
+                        : { ...step },
+                    ),
+                  });
+                  if (expr.kind === 'ImmName') {
+                    const bound = bindings.get(expr.name.toLowerCase());
+                    const immBound = bindingAsImmExpr(bound, expr.span);
+                    if (immBound) return immBound;
+                    const mapped = localLabelMap.get(expr.name.toLowerCase());
+                    if (mapped) return { kind: 'ImmName', span: expr.span, name: mapped };
+                    return { ...expr };
+                  }
+                  if (expr.kind === 'ImmOffsetof') {
+                    return { ...expr, path: substituteOffsetofPath(expr.path) as typeof expr.path };
+                  }
+                  if (expr.kind === 'ImmUnary') {
+                    return { ...expr, expr: substituteImmWithOpLabels(expr.expr) };
+                  }
+                  if (expr.kind === 'ImmBinary') {
+                    return {
+                      ...expr,
+                      left: substituteImmWithOpLabels(expr.left),
+                      right: substituteImmWithOpLabels(expr.right),
+                    };
+                  }
+                  return { ...expr };
                 };
 
-                if (operand.kind === 'Imm') {
-                  if (operand.expr.kind === 'ImmName') {
-                    const bound = bindings.get(operand.expr.name.toLowerCase());
-                    const immBound = bindingAsImmExpr(bound, operand.span);
-                    if (immBound) return { kind: 'Imm', span: operand.span, expr: immBound };
-                    if (bound) return cloneOperand(bound);
-                  }
-                  return { ...operand, expr: substituteImmWithOpLabels(operand.expr) };
-                }
-                if (operand.kind === 'Ea' || operand.kind === 'Mem') {
-                  return {
-                    ...operand,
-                    expr: substituteEaWithOpLabels(operand.expr),
+                const substituteOperandWithOpLabels = (operand: AsmOperandNode): AsmOperandNode => {
+                  const substituteEaWithOpLabels = (ea: EaExprNode): EaExprNode => {
+                    if (ea.kind === 'EaName') {
+                      const bound = bindings.get(ea.name.toLowerCase());
+                      if (bound?.kind === 'Ea') return cloneEaExpr(bound.expr);
+                      if (bound?.kind === 'Reg') {
+                        return { kind: 'EaName', span: ea.span, name: bound.name };
+                      }
+                      if (bound?.kind === 'Imm' && bound.expr.kind === 'ImmName') {
+                        return { kind: 'EaName', span: ea.span, name: bound.expr.name };
+                      }
+                      const mapped = localLabelMap.get(ea.name.toLowerCase());
+                      if (mapped) return { kind: 'EaName', span: ea.span, name: mapped };
+                      return { ...ea };
+                    }
+                    if (ea.kind === 'EaField') {
+                      return { ...ea, base: substituteEaWithOpLabels(ea.base) };
+                    }
+                    if (ea.kind === 'EaIndex') {
+                      const index =
+                        ea.index.kind === 'IndexEa'
+                          ? { ...ea.index, expr: substituteEaWithOpLabels(ea.index.expr) }
+                          : ea.index.kind === 'IndexImm'
+                            ? { ...ea.index, value: substituteImmWithOpLabels(ea.index.value) }
+                            : ea.index.kind === 'IndexMemIxIy' && ea.index.disp
+                              ? { ...ea.index, disp: substituteImmWithOpLabels(ea.index.disp) }
+                              : { ...ea.index };
+                      return { ...ea, base: substituteEaWithOpLabels(ea.base), index };
+                    }
+                    if (ea.kind === 'EaAdd' || ea.kind === 'EaSub') {
+                      return {
+                        ...ea,
+                        base: substituteEaWithOpLabels(ea.base),
+                        offset: substituteImmWithOpLabels(ea.offset),
+                      };
+                    }
+                    return cloneEaExpr(ea);
                   };
-                }
-                return substituteOperand(operand);
-              };
 
-              const substituteConditionWithOpLabels = (
-                condition: string,
-                span: SourceSpan,
-              ): string => {
-                const bound = bindings.get(condition.toLowerCase());
-                if (!bound) return condition;
-                const token = normalizeFixedToken(bound);
-                if (!token || inverseConditionName(token) === undefined) {
+                  if (operand.kind === 'Imm') {
+                    if (operand.expr.kind === 'ImmName') {
+                      const bound = bindings.get(operand.expr.name.toLowerCase());
+                      const immBound = bindingAsImmExpr(bound, operand.span);
+                      if (immBound) return { kind: 'Imm', span: operand.span, expr: immBound };
+                      if (bound) return cloneOperand(bound);
+                    }
+                    return { ...operand, expr: substituteImmWithOpLabels(operand.expr) };
+                  }
+                  if (operand.kind === 'Ea' || operand.kind === 'Mem') {
+                    return {
+                      ...operand,
+                      expr: substituteEaWithOpLabels(operand.expr),
+                    };
+                  }
+                  return substituteOperand(operand);
+                };
+
+                const substituteConditionWithOpLabels = (
+                  condition: string,
+                  span: SourceSpan,
+                ): string => {
+                  const bound = bindings.get(condition.toLowerCase());
+                  if (!bound) return condition;
+                  const token = normalizeFixedToken(bound);
+                  if (!token || inverseConditionName(token) === undefined) {
+                    diagAt(
+                      diagnostics,
+                      span,
+                      `op "${opDecl.name}" condition parameter "${condition}" must bind to a condition token (NZ/Z/NC/C/PO/PE/P/M).`,
+                    );
+                    return condition;
+                  }
+                  return token;
+                };
+
+                const expandedItems: AsmItemNode[] = opDecl.body.items.map((bodyItem) => {
+                  if (bodyItem.kind === 'AsmInstruction') {
+                    return {
+                      kind: 'AsmInstruction',
+                      span: bodyItem.span,
+                      head: bodyItem.head,
+                      operands: bodyItem.operands.map((o) => substituteOperandWithOpLabels(o)),
+                    };
+                  }
+                  if (bodyItem.kind === 'AsmLabel') {
+                    return {
+                      kind: 'AsmLabel',
+                      span: bodyItem.span,
+                      name: localLabelMap.get(bodyItem.name.toLowerCase()) ?? bodyItem.name,
+                    };
+                  }
+                  if (bodyItem.kind === 'Select') {
+                    return {
+                      kind: 'Select',
+                      span: bodyItem.span,
+                      selector: substituteOperandWithOpLabels(bodyItem.selector),
+                    };
+                  }
+                  if (bodyItem.kind === 'Case') {
+                    return {
+                      kind: 'Case',
+                      span: bodyItem.span,
+                      value: substituteImmWithOpLabels(bodyItem.value),
+                    };
+                  }
+                  if (
+                    bodyItem.kind === 'If' ||
+                    bodyItem.kind === 'While' ||
+                    bodyItem.kind === 'Until'
+                  ) {
+                    return {
+                      ...bodyItem,
+                      cc: substituteConditionWithOpLabels(bodyItem.cc, bodyItem.span),
+                    };
+                  }
+                  return { ...bodyItem };
+                });
+
+                const consumed = lowerAsmRange(expandedItems, 0, new Set());
+                if (consumed < expandedItems.length) {
                   diagAt(
                     diagnostics,
-                    span,
-                    `op "${opDecl.name}" condition parameter "${condition}" must bind to a condition token (NZ/Z/NC/C/PO/PE/P/M).`,
+                    expandedItems[consumed]!.span,
+                    `Internal control-flow lowering error.`,
                   );
-                  return condition;
                 }
-                return token;
-              };
+              } finally {
+                opExpansionStack.pop();
+              }
+              syncToFlow();
+              return;
+            }
 
-              const expandedItems: AsmItemNode[] = opDecl.body.items.map((bodyItem) => {
-                if (bodyItem.kind === 'AsmInstruction') {
-                  return {
-                    kind: 'AsmInstruction',
-                    span: bodyItem.span,
-                    head: bodyItem.head,
-                    operands: bodyItem.operands.map((o) => substituteOperandWithOpLabels(o)),
-                  };
-                }
-                if (bodyItem.kind === 'AsmLabel') {
-                  return {
-                    kind: 'AsmLabel',
-                    span: bodyItem.span,
-                    name: localLabelMap.get(bodyItem.name.toLowerCase()) ?? bodyItem.name,
-                  };
-                }
-                if (bodyItem.kind === 'Select') {
-                  return {
-                    kind: 'Select',
-                    span: bodyItem.span,
-                    selector: substituteOperandWithOpLabels(bodyItem.selector),
-                  };
-                }
-                if (bodyItem.kind === 'Case') {
-                  return {
-                    kind: 'Case',
-                    span: bodyItem.span,
-                    value: substituteImmWithOpLabels(bodyItem.value),
-                  };
-                }
-                if (
-                  bodyItem.kind === 'If' ||
-                  bodyItem.kind === 'While' ||
-                  bodyItem.kind === 'Until'
-                ) {
-                  return {
-                    ...bodyItem,
-                    cc: substituteConditionWithOpLabels(bodyItem.cc, bodyItem.span),
-                  };
-                }
-                return { ...bodyItem };
-              });
+            const head = asmItem.head.toLowerCase();
 
-              const consumed = lowerAsmRange(expandedItems, 0, new Set());
-              if (consumed < expandedItems.length) {
-                diagAt(
-                  diagnostics,
-                  expandedItems[consumed]!.span,
-                  `Internal control-flow lowering error.`,
+            const emitRel8FromOperand = (
+              operand: AsmOperandNode,
+              opcode: number,
+              mnemonic: string,
+            ): boolean => {
+              if (operand.kind !== 'Imm') {
+                if (mnemonic === 'djnz' || mnemonic.startsWith('jr')) {
+                  diagAt(diagnostics, asmItem.span, `${mnemonic} expects disp8`);
+                } else {
+                  diagAt(diagnostics, asmItem.span, `${mnemonic} expects an immediate target.`);
+                }
+                return false;
+              }
+              const symbolicTarget = symbolicTargetFromExpr(operand.expr);
+              if (symbolicTarget) {
+                emitRel8Fixup(
+                  opcode,
+                  symbolicTarget.baseLower,
+                  symbolicTarget.addend,
+                  asmItem.span,
+                  mnemonic,
                 );
+                return true;
               }
-            } finally {
-              opExpansionStack.pop();
-            }
-            syncToFlow();
-            return;
-          }
-
-          const head = asmItem.head.toLowerCase();
-
-          const emitRel8FromOperand = (
-            operand: AsmOperandNode,
-            opcode: number,
-            mnemonic: string,
-          ): boolean => {
-            if (operand.kind !== 'Imm') {
-              if (mnemonic === 'djnz' || mnemonic.startsWith('jr')) {
-                diagAt(diagnostics, asmItem.span, `${mnemonic} expects disp8`);
-              } else {
-                diagAt(diagnostics, asmItem.span, `${mnemonic} expects an immediate target.`);
+              const value = evalImmExpr(operand.expr, env, diagnostics);
+              if (value === undefined) {
+                diagAt(diagnostics, asmItem.span, `Failed to evaluate ${mnemonic} target.`);
+                return false;
               }
-              return false;
-            }
-            const symbolicTarget = symbolicTargetFromExpr(operand.expr);
-            if (symbolicTarget) {
-              emitRel8Fixup(
-                opcode,
-                symbolicTarget.baseLower,
-                symbolicTarget.addend,
-                asmItem.span,
-                mnemonic,
-              );
-              return true;
-            }
-            const value = evalImmExpr(operand.expr, env, diagnostics);
-            if (value === undefined) {
-              diagAt(diagnostics, asmItem.span, `Failed to evaluate ${mnemonic} target.`);
-              return false;
-            }
-            if (value < -128 || value > 127) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `${mnemonic} relative branch displacement out of range (-128..127): ${value}.`,
-              );
-              return false;
-            }
-            emitCodeBytes(Uint8Array.of(opcode, value & 0xff), asmItem.span.file);
-            return true;
-          };
-          if (head === 'jr') {
-            if (asmItem.operands.length === 1) {
-              if (asmItem.operands[0]!.kind === 'Mem') {
+              if (value < -128 || value > 127) {
                 diagAt(
                   diagnostics,
                   asmItem.span,
-                  `jr does not support indirect targets; expects disp8`,
+                  `${mnemonic} relative branch displacement out of range (-128..127): ${value}.`,
                 );
-                return;
+                return false;
               }
-              const single = asmItem.operands[0]!;
-              const ccSingle =
-                single.kind === 'Imm' && single.expr.kind === 'ImmName'
-                  ? single.expr.name
-                  : single.kind === 'Reg'
-                    ? single.name
-                    : undefined;
-              if (ccSingle && jrConditionOpcodeFromName(ccSingle) !== undefined) {
-                diagAt(diagnostics, asmItem.span, `jr cc, disp expects two operands (cc, disp8)`);
-                return;
-              }
-              if (single.kind === 'Imm') {
-                const symbolicTarget = symbolicTargetFromExpr(single.expr);
-                if (
-                  symbolicTarget &&
-                  jrConditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
-                ) {
+              emitCodeBytes(Uint8Array.of(opcode, value & 0xff), asmItem.span.file);
+              return true;
+            };
+            if (head === 'jr') {
+              if (asmItem.operands.length === 1) {
+                if (asmItem.operands[0]!.kind === 'Mem') {
+                  diagAt(
+                    diagnostics,
+                    asmItem.span,
+                    `jr does not support indirect targets; expects disp8`,
+                  );
+                  return;
+                }
+                const single = asmItem.operands[0]!;
+                const ccSingle =
+                  single.kind === 'Imm' && single.expr.kind === 'ImmName'
+                    ? single.expr.name
+                    : single.kind === 'Reg'
+                      ? single.name
+                      : undefined;
+                if (ccSingle && jrConditionOpcodeFromName(ccSingle) !== undefined) {
                   diagAt(diagnostics, asmItem.span, `jr cc, disp expects two operands (cc, disp8)`);
                   return;
                 }
+                if (single.kind === 'Imm') {
+                  const symbolicTarget = symbolicTargetFromExpr(single.expr);
+                  if (
+                    symbolicTarget &&
+                    jrConditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
+                  ) {
+                    diagAt(
+                      diagnostics,
+                      asmItem.span,
+                      `jr cc, disp expects two operands (cc, disp8)`,
+                    );
+                    return;
+                  }
+                }
+                if (single.kind === 'Reg') {
+                  diagAt(
+                    diagnostics,
+                    asmItem.span,
+                    `jr does not support register targets; expects disp8`,
+                  );
+                  return;
+                }
+                if (!emitRel8FromOperand(asmItem.operands[0]!, 0x18, 'jr')) return;
+                flow.reachable = false;
+                syncToFlow();
+                return;
               }
-              if (single.kind === 'Reg') {
+              if (asmItem.operands.length === 2) {
+                const ccOp = asmItem.operands[0]!;
+                const ccName =
+                  ccOp.kind === 'Imm' && ccOp.expr.kind === 'ImmName'
+                    ? ccOp.expr.name
+                    : ccOp.kind === 'Reg'
+                      ? ccOp.name
+                      : undefined;
+                const opcode = ccName ? jrConditionOpcodeFromName(ccName) : undefined;
+                if (opcode === undefined) {
+                  diagAt(diagnostics, asmItem.span, `jr cc expects valid condition code NZ/Z/NC/C`);
+                  return;
+                }
+                const target = asmItem.operands[1]!;
+                if (target.kind === 'Mem') {
+                  diagAt(
+                    diagnostics,
+                    asmItem.span,
+                    `jr cc, disp does not support indirect targets`,
+                  );
+                  return;
+                }
+                if (target.kind === 'Reg') {
+                  diagAt(
+                    diagnostics,
+                    asmItem.span,
+                    `jr cc, disp does not support register targets; expects disp8`,
+                  );
+                  return;
+                }
+                if (target.kind !== 'Imm') {
+                  diagAt(diagnostics, asmItem.span, `jr cc, disp expects disp8`);
+                  return;
+                }
+                if (!emitRel8FromOperand(target, opcode, `jr ${ccName!.toLowerCase()}`)) return;
+                syncToFlow();
+                return;
+              }
+            }
+            if (head === 'djnz') {
+              if (asmItem.operands.length !== 1) {
+                diagAt(diagnostics, asmItem.span, `djnz expects one operand (disp8)`);
+                return;
+              }
+              const target = asmItem.operands[0]!;
+              if (target.kind === 'Mem') {
                 diagAt(
                   diagnostics,
                   asmItem.span,
-                  `jr does not support register targets; expects disp8`,
+                  `djnz does not support indirect targets; expects disp8`,
                 );
                 return;
               }
-              if (!emitRel8FromOperand(asmItem.operands[0]!, 0x18, 'jr')) return;
+              if (target.kind === 'Reg') {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `djnz does not support register targets; expects disp8`,
+                );
+                return;
+              }
+              if (target.kind !== 'Imm') {
+                diagAt(diagnostics, asmItem.span, `djnz expects disp8`);
+                return;
+              }
+              if (!emitRel8FromOperand(target, 0x10, 'djnz')) return;
+              syncToFlow();
+              return;
+            }
+            if (head === 'call') {
+              diagIfCallStackUnverifiable();
+            }
+            if (head === 'rst' && asmItem.operands.length === 1) {
+              diagIfCallStackUnverifiable('rst');
+            }
+            if (head === 'ret') {
+              if (asmItem.operands.length === 0) {
+                diagIfRetStackImbalanced();
+                if (emitSyntheticEpilogue) {
+                  emitJumpTo(epilogueLabel, asmItem.span);
+                } else {
+                  emitInstr('ret', [], asmItem.span);
+                }
+                flow.reachable = false;
+                syncToFlow();
+                return;
+              }
+              if (asmItem.operands.length === 1) {
+                const op = conditionOpcode(asmItem.operands[0]!);
+                if (op === undefined) {
+                  diagAt(diagnostics, asmItem.span, `ret cc expects a valid condition code`);
+                  return;
+                }
+                diagIfRetStackImbalanced();
+                emitSyntheticEpilogue = true;
+                emitJumpCondTo(op, epilogueLabel, asmItem.span);
+                syncToFlow();
+                return;
+              }
+            }
+            if ((head === 'retn' || head === 'reti') && asmItem.operands.length === 0) {
+              diagIfRetStackImbalanced(head);
+              if (emitSyntheticEpilogue) {
+                diagAt(
+                  diagnostics,
+                  asmItem.span,
+                  `${head} is not supported in functions with locals; use ret/ret cc so cleanup epilogue can run.`,
+                );
+              }
+              emitInstr(head, [], asmItem.span);
               flow.reachable = false;
               syncToFlow();
               return;
             }
-            if (asmItem.operands.length === 2) {
+
+            if (head === 'jp' && asmItem.operands.length === 1) {
+              const target = asmItem.operands[0]!;
+              if (target.kind === 'Imm') {
+                const symbolicTarget = symbolicTargetFromExpr(target.expr);
+                if (
+                  symbolicTarget &&
+                  conditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
+                ) {
+                  diagAt(diagnostics, asmItem.span, `jp cc, nn expects two operands (cc, nn)`);
+                  return;
+                }
+                if (symbolicTarget) {
+                  emitAbs16Fixup(
+                    0xc3,
+                    symbolicTarget.baseLower,
+                    symbolicTarget.addend,
+                    asmItem.span,
+                  );
+                  flow.reachable = false;
+                  syncToFlow();
+                  return;
+                }
+              }
+            }
+            if (head === 'jp' && asmItem.operands.length === 2) {
               const ccOp = asmItem.operands[0]!;
               const ccName =
                 ccOp.kind === 'Imm' && ccOp.expr.kind === 'ImmName'
@@ -3458,262 +3667,140 @@ export function emitProgram(
                   : ccOp.kind === 'Reg'
                     ? ccOp.name
                     : undefined;
-              const opcode = ccName ? jrConditionOpcodeFromName(ccName) : undefined;
-              if (opcode === undefined) {
-                diagAt(diagnostics, asmItem.span, `jr cc expects valid condition code NZ/Z/NC/C`);
-                return;
-              }
+              const opcode = ccName ? conditionOpcodeFromName(ccName) : undefined;
               const target = asmItem.operands[1]!;
-              if (target.kind === 'Mem') {
-                diagAt(diagnostics, asmItem.span, `jr cc, disp does not support indirect targets`);
-                return;
+              if (opcode !== undefined && target.kind === 'Imm') {
+                const symbolicTarget = symbolicTargetFromExpr(target.expr);
+                if (symbolicTarget) {
+                  emitAbs16Fixup(
+                    opcode,
+                    symbolicTarget.baseLower,
+                    symbolicTarget.addend,
+                    asmItem.span,
+                  );
+                  syncToFlow();
+                  return;
+                }
               }
-              if (target.kind === 'Reg') {
-                diagAt(
-                  diagnostics,
-                  asmItem.span,
-                  `jr cc, disp does not support register targets; expects disp8`,
-                );
-                return;
+            }
+            if (head === 'call' && asmItem.operands.length === 1) {
+              const target = asmItem.operands[0]!;
+              if (target.kind === 'Imm') {
+                const symbolicTarget = symbolicTargetFromExpr(target.expr);
+                if (
+                  symbolicTarget &&
+                  callConditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
+                ) {
+                  diagAt(diagnostics, asmItem.span, `call cc, nn expects two operands (cc, nn)`);
+                  return;
+                }
+                if (symbolicTarget) {
+                  emitAbs16Fixup(
+                    0xcd,
+                    symbolicTarget.baseLower,
+                    symbolicTarget.addend,
+                    asmItem.span,
+                  );
+                  syncToFlow();
+                  return;
+                }
               }
-              if (target.kind !== 'Imm') {
-                diagAt(diagnostics, asmItem.span, `jr cc, disp expects disp8`);
-                return;
+            }
+            if (head === 'call' && asmItem.operands.length === 2) {
+              const ccOp = asmItem.operands[0]!;
+              const ccName =
+                ccOp.kind === 'Imm' && ccOp.expr.kind === 'ImmName'
+                  ? ccOp.expr.name
+                  : ccOp.kind === 'Reg'
+                    ? ccOp.name
+                    : undefined;
+              const opcode = ccName ? callConditionOpcodeFromName(ccName) : undefined;
+              const target = asmItem.operands[1]!;
+              if (opcode !== undefined && target.kind === 'Imm') {
+                const symbolicTarget = symbolicTargetFromExpr(target.expr);
+                if (symbolicTarget) {
+                  emitAbs16Fixup(
+                    opcode,
+                    symbolicTarget.baseLower,
+                    symbolicTarget.addend,
+                    asmItem.span,
+                  );
+                  syncToFlow();
+                  return;
+                }
               }
-              if (!emitRel8FromOperand(target, opcode, `jr ${ccName!.toLowerCase()}`)) return;
+            }
+
+            if (head === 'ld' && asmItem.operands.length === 2) {
+              const dstOp = asmItem.operands[0]!;
+              const srcOp = asmItem.operands[1]!;
+              const dst = dstOp.kind === 'Reg' ? dstOp.name.toUpperCase() : undefined;
+              const opcode =
+                dst === 'BC'
+                  ? 0x01
+                  : dst === 'DE'
+                    ? 0x11
+                    : dst === 'HL'
+                      ? 0x21
+                      : dst === 'SP'
+                        ? 0x31
+                        : undefined;
+              if (
+                opcode !== undefined &&
+                srcOp.kind === 'Imm' &&
+                srcOp.expr.kind === 'ImmName' &&
+                !resolveScalarBinding(srcOp.expr.name)
+              ) {
+                const v = evalImmExpr(srcOp.expr, env, diagnostics);
+                if (v === undefined) {
+                  emitAbs16Fixup(opcode, srcOp.expr.name.toLowerCase(), 0, asmItem.span);
+                  syncToFlow();
+                  return;
+                }
+              }
+              if (
+                (dst === 'IX' || dst === 'IY') &&
+                srcOp.kind === 'Imm' &&
+                srcOp.expr.kind === 'ImmName' &&
+                !resolveScalarBinding(srcOp.expr.name)
+              ) {
+                const v = evalImmExpr(srcOp.expr, env, diagnostics);
+                if (v === undefined) {
+                  emitAbs16FixupPrefixed(
+                    dst === 'IX' ? 0xdd : 0xfd,
+                    0x21,
+                    srcOp.expr.name.toLowerCase(),
+                    0,
+                    asmItem.span,
+                  );
+                  syncToFlow();
+                  return;
+                }
+              }
+            }
+
+            if (lowerLdWithEa(asmItem)) {
               syncToFlow();
               return;
             }
-          }
-          if (head === 'djnz') {
-            if (asmItem.operands.length !== 1) {
-              diagAt(diagnostics, asmItem.span, `djnz expects one operand (disp8)`);
-              return;
-            }
-            const target = asmItem.operands[0]!;
-            if (target.kind === 'Mem') {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `djnz does not support indirect targets; expects disp8`,
-              );
-              return;
-            }
-            if (target.kind === 'Reg') {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `djnz does not support register targets; expects disp8`,
-              );
-              return;
-            }
-            if (target.kind !== 'Imm') {
-              diagAt(diagnostics, asmItem.span, `djnz expects disp8`);
-              return;
-            }
-            if (!emitRel8FromOperand(target, 0x10, 'djnz')) return;
-            syncToFlow();
-            return;
-          }
-          if (head === 'call') {
-            diagIfCallStackUnverifiable();
-          }
-          if (head === 'rst' && asmItem.operands.length === 1) {
-            diagIfCallStackUnverifiable('rst');
-          }
-          if (head === 'ret') {
-            if (asmItem.operands.length === 0) {
-              diagIfRetStackImbalanced();
-              if (emitSyntheticEpilogue) {
-                emitJumpTo(epilogueLabel, asmItem.span);
-              } else {
-                emitInstr('ret', [], asmItem.span);
-              }
+
+            const encoded = encodeInstruction(asmItem, env, diagnostics);
+            if (!encoded) return;
+            emitCodeBytes(encoded, asmItem.span.file);
+            applySpTracking(asmItem.head, asmItem.operands);
+
+            if ((head === 'jp' || head === 'jr') && asmItem.operands.length === 1) {
               flow.reachable = false;
-              syncToFlow();
-              return;
-            }
-            if (asmItem.operands.length === 1) {
-              const op = conditionOpcode(asmItem.operands[0]!);
-              if (op === undefined) {
-                diagAt(diagnostics, asmItem.span, `ret cc expects a valid condition code`);
-                return;
-              }
-              diagIfRetStackImbalanced();
-              emitSyntheticEpilogue = true;
-              emitJumpCondTo(op, epilogueLabel, asmItem.span);
-              syncToFlow();
-              return;
-            }
-          }
-          if ((head === 'retn' || head === 'reti') && asmItem.operands.length === 0) {
-            diagIfRetStackImbalanced(head);
-            if (emitSyntheticEpilogue) {
-              diagAt(
-                diagnostics,
-                asmItem.span,
-                `${head} is not supported in functions with locals; use ret/ret cc so cleanup epilogue can run.`,
-              );
-            }
-            emitInstr(head, [], asmItem.span);
-            flow.reachable = false;
-            syncToFlow();
-            return;
-          }
-
-          if (head === 'jp' && asmItem.operands.length === 1) {
-            const target = asmItem.operands[0]!;
-            if (target.kind === 'Imm') {
-              const symbolicTarget = symbolicTargetFromExpr(target.expr);
-              if (
-                symbolicTarget &&
-                conditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
-              ) {
-                diagAt(diagnostics, asmItem.span, `jp cc, nn expects two operands (cc, nn)`);
-                return;
-              }
-              if (symbolicTarget) {
-                emitAbs16Fixup(0xc3, symbolicTarget.baseLower, symbolicTarget.addend, asmItem.span);
-                flow.reachable = false;
-                syncToFlow();
-                return;
-              }
-            }
-          }
-          if (head === 'jp' && asmItem.operands.length === 2) {
-            const ccOp = asmItem.operands[0]!;
-            const ccName =
-              ccOp.kind === 'Imm' && ccOp.expr.kind === 'ImmName'
-                ? ccOp.expr.name
-                : ccOp.kind === 'Reg'
-                  ? ccOp.name
-                  : undefined;
-            const opcode = ccName ? conditionOpcodeFromName(ccName) : undefined;
-            const target = asmItem.operands[1]!;
-            if (opcode !== undefined && target.kind === 'Imm') {
-              const symbolicTarget = symbolicTargetFromExpr(target.expr);
-              if (symbolicTarget) {
-                emitAbs16Fixup(
-                  opcode,
-                  symbolicTarget.baseLower,
-                  symbolicTarget.addend,
-                  asmItem.span,
-                );
-                syncToFlow();
-                return;
-              }
-            }
-          }
-          if (head === 'call' && asmItem.operands.length === 1) {
-            const target = asmItem.operands[0]!;
-            if (target.kind === 'Imm') {
-              const symbolicTarget = symbolicTargetFromExpr(target.expr);
-              if (
-                symbolicTarget &&
-                callConditionOpcodeFromName(symbolicTarget.baseLower) !== undefined
-              ) {
-                diagAt(diagnostics, asmItem.span, `call cc, nn expects two operands (cc, nn)`);
-                return;
-              }
-              if (symbolicTarget) {
-                emitAbs16Fixup(0xcd, symbolicTarget.baseLower, symbolicTarget.addend, asmItem.span);
-                syncToFlow();
-                return;
-              }
-            }
-          }
-          if (head === 'call' && asmItem.operands.length === 2) {
-            const ccOp = asmItem.operands[0]!;
-            const ccName =
-              ccOp.kind === 'Imm' && ccOp.expr.kind === 'ImmName'
-                ? ccOp.expr.name
-                : ccOp.kind === 'Reg'
-                  ? ccOp.name
-                  : undefined;
-            const opcode = ccName ? callConditionOpcodeFromName(ccName) : undefined;
-            const target = asmItem.operands[1]!;
-            if (opcode !== undefined && target.kind === 'Imm') {
-              const symbolicTarget = symbolicTargetFromExpr(target.expr);
-              if (symbolicTarget) {
-                emitAbs16Fixup(
-                  opcode,
-                  symbolicTarget.baseLower,
-                  symbolicTarget.addend,
-                  asmItem.span,
-                );
-                syncToFlow();
-                return;
-              }
-            }
-          }
-
-          if (head === 'ld' && asmItem.operands.length === 2) {
-            const dstOp = asmItem.operands[0]!;
-            const srcOp = asmItem.operands[1]!;
-            const dst = dstOp.kind === 'Reg' ? dstOp.name.toUpperCase() : undefined;
-            const opcode =
-              dst === 'BC'
-                ? 0x01
-                : dst === 'DE'
-                  ? 0x11
-                  : dst === 'HL'
-                    ? 0x21
-                    : dst === 'SP'
-                      ? 0x31
-                      : undefined;
-            if (
-              opcode !== undefined &&
-              srcOp.kind === 'Imm' &&
-              srcOp.expr.kind === 'ImmName' &&
-              !resolveScalarBinding(srcOp.expr.name)
+            } else if (
+              (head === 'ret' || head === 'retn' || head === 'reti') &&
+              asmItem.operands.length === 0
             ) {
-              const v = evalImmExpr(srcOp.expr, env, diagnostics);
-              if (v === undefined) {
-                emitAbs16Fixup(opcode, srcOp.expr.name.toLowerCase(), 0, asmItem.span);
-                syncToFlow();
-                return;
-              }
+              flow.reachable = false;
             }
-            if (
-              (dst === 'IX' || dst === 'IY') &&
-              srcOp.kind === 'Imm' &&
-              srcOp.expr.kind === 'ImmName' &&
-              !resolveScalarBinding(srcOp.expr.name)
-            ) {
-              const v = evalImmExpr(srcOp.expr, env, diagnostics);
-              if (v === undefined) {
-                emitAbs16FixupPrefixed(
-                  dst === 'IX' ? 0xdd : 0xfd,
-                  0x21,
-                  srcOp.expr.name.toLowerCase(),
-                  0,
-                  asmItem.span,
-                );
-                syncToFlow();
-                return;
-              }
-            }
-          }
-
-          if (lowerLdWithEa(asmItem)) {
             syncToFlow();
-            return;
+          } finally {
+            currentCodeSegmentTag = prevTag;
           }
-
-          const encoded = encodeInstruction(asmItem, env, diagnostics);
-          if (!encoded) return;
-          emitCodeBytes(encoded, asmItem.span.file);
-          applySpTracking(asmItem.head, asmItem.operands);
-
-          if ((head === 'jp' || head === 'jr') && asmItem.operands.length === 1) {
-            flow.reachable = false;
-          } else if (
-            (head === 'ret' || head === 'retn' || head === 'reti') &&
-            asmItem.operands.length === 0
-          ) {
-            flow.reachable = false;
-          }
-          syncToFlow();
         };
 
         const lowerAsmRange = (
@@ -3725,370 +3812,380 @@ export function emitProgram(
           while (i < asmItems.length) {
             const it = asmItems[i]!;
             if (stopKinds.has(it.kind)) return i;
-            if (it.kind === 'AsmLabel') {
-              defineCodeLabel(it.name, it.span, 'global');
-              if (!flow.reachable) {
-                flow.reachable = true;
-                flow.spValid = false;
-                flow.spDelta = 0;
-                flow.spInvalidDueToMutation = false;
-                syncFromFlow();
+            const prevTag = currentCodeSegmentTag;
+            currentCodeSegmentTag = sourceTagForSpan(it.span);
+            try {
+              if (it.kind === 'AsmLabel') {
+                defineCodeLabel(it.name, it.span, 'global');
+                if (!flow.reachable) {
+                  flow.reachable = true;
+                  flow.spValid = false;
+                  flow.spDelta = 0;
+                  flow.spInvalidDueToMutation = false;
+                  syncFromFlow();
+                }
+                i++;
+                continue;
               }
-              i++;
-              continue;
-            }
-            if (it.kind === 'AsmInstruction') {
-              emitAsmInstruction(it);
-              i++;
-              continue;
-            }
-            if (it.kind === 'If') {
-              const entry = snapshotFlow();
-              const elseLabel = newHiddenLabel('__zax_if_else');
-              const endLabel = newHiddenLabel('__zax_if_end');
-              emitJumpIfFalse(it.cc, elseLabel, it.span);
+              if (it.kind === 'AsmInstruction') {
+                emitAsmInstruction(it);
+                i++;
+                continue;
+              }
+              if (it.kind === 'If') {
+                const entry = snapshotFlow();
+                const elseLabel = newHiddenLabel('__zax_if_else');
+                const endLabel = newHiddenLabel('__zax_if_end');
+                emitJumpIfFalse(it.cc, elseLabel, it.span);
 
-              let j = lowerAsmRange(asmItems, i + 1, new Set(['Else', 'End']));
-              const thenExit = snapshotFlow();
-              if (j >= asmItems.length) {
-                diagAt(diagnostics, it.span, `if without matching end.`);
-                return asmItems.length;
-              }
-              const term = asmItems[j]!;
-              if (term.kind === 'Else') {
-                if (thenExit.reachable) emitJumpTo(endLabel, term.span);
-                defineCodeLabel(elseLabel, term.span, 'local');
-                restoreFlow(entry);
-                j = lowerAsmRange(asmItems, j + 1, new Set(['End']));
-                const elseExit = snapshotFlow();
-                if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
-                  diagAt(diagnostics, it.span, `if/else without matching end.`);
+                let j = lowerAsmRange(asmItems, i + 1, new Set(['Else', 'End']));
+                const thenExit = snapshotFlow();
+                if (j >= asmItems.length) {
+                  diagAt(diagnostics, it.span, `if without matching end.`);
                   return asmItems.length;
                 }
-                defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
-                restoreFlow(joinFlows(thenExit, elseExit, asmItems[j]!.span, 'if/else'));
+                const term = asmItems[j]!;
+                if (term.kind === 'Else') {
+                  if (thenExit.reachable) emitJumpTo(endLabel, term.span);
+                  defineCodeLabel(elseLabel, term.span, 'local');
+                  restoreFlow(entry);
+                  j = lowerAsmRange(asmItems, j + 1, new Set(['End']));
+                  const elseExit = snapshotFlow();
+                  if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
+                    diagAt(diagnostics, it.span, `if/else without matching end.`);
+                    return asmItems.length;
+                  }
+                  defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
+                  restoreFlow(joinFlows(thenExit, elseExit, asmItems[j]!.span, 'if/else'));
+                  i = j + 1;
+                  continue;
+                }
+                if (term.kind !== 'End') {
+                  diagAt(diagnostics, it.span, `if without matching end.`);
+                  return asmItems.length;
+                }
+                defineCodeLabel(elseLabel, term.span, 'local');
+                restoreFlow(joinFlows(thenExit, entry, term.span, 'if'));
                 i = j + 1;
                 continue;
               }
-              if (term.kind !== 'End') {
-                diagAt(diagnostics, it.span, `if without matching end.`);
-                return asmItems.length;
-              }
-              defineCodeLabel(elseLabel, term.span, 'local');
-              restoreFlow(joinFlows(thenExit, entry, term.span, 'if'));
-              i = j + 1;
-              continue;
-            }
-            if (it.kind === 'While') {
-              const entry = snapshotFlow();
-              const condLabel = newHiddenLabel('__zax_while_cond');
-              const endLabel = newHiddenLabel('__zax_while_end');
-              let backEdgeUnknown = false;
-              let backEdgeMutation = false;
-              defineCodeLabel(condLabel, it.span, 'local');
-              emitJumpIfFalse(it.cc, endLabel, it.span);
+              if (it.kind === 'While') {
+                const entry = snapshotFlow();
+                const condLabel = newHiddenLabel('__zax_while_cond');
+                const endLabel = newHiddenLabel('__zax_while_end');
+                let backEdgeUnknown = false;
+                let backEdgeMutation = false;
+                defineCodeLabel(condLabel, it.span, 'local');
+                emitJumpIfFalse(it.cc, endLabel, it.span);
 
-              const j = lowerAsmRange(asmItems, i + 1, new Set(['End']));
-              const bodyExit = snapshotFlow();
-              if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
-                diagAt(diagnostics, it.span, `while without matching end.`);
-                return asmItems.length;
+                const j = lowerAsmRange(asmItems, i + 1, new Set(['End']));
+                const bodyExit = snapshotFlow();
+                if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
+                  diagAt(diagnostics, it.span, `while without matching end.`);
+                  return asmItems.length;
+                }
+                if (
+                  bodyExit.reachable &&
+                  bodyExit.spValid &&
+                  entry.spValid &&
+                  bodyExit.spDelta !== entry.spDelta
+                ) {
+                  backEdgeUnknown = true;
+                  diagAt(
+                    diagnostics,
+                    asmItems[j]!.span,
+                    `Stack depth mismatch at while back-edge (${bodyExit.spDelta} vs ${entry.spDelta}).`,
+                  );
+                } else if (
+                  bodyExit.reachable &&
+                  (!bodyExit.spValid || !entry.spValid) &&
+                  (bodyExit.spInvalidDueToMutation || entry.spInvalidDueToMutation)
+                ) {
+                  backEdgeUnknown = true;
+                  backEdgeMutation = true;
+                  diagAt(
+                    diagnostics,
+                    asmItems[j]!.span,
+                    `Cannot verify stack depth at while back-edge due to untracked SP mutation.`,
+                  );
+                } else if (
+                  bodyExit.reachable &&
+                  (!bodyExit.spValid || !entry.spValid) &&
+                  hasStackSlots
+                ) {
+                  backEdgeUnknown = true;
+                  diagAt(
+                    diagnostics,
+                    asmItems[j]!.span,
+                    `Cannot verify stack depth at while back-edge due to unknown stack state.`,
+                  );
+                }
+                if (bodyExit.reachable) emitJumpTo(condLabel, asmItems[j]!.span);
+                defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
+                if (backEdgeUnknown) {
+                  restoreFlow({
+                    reachable: entry.reachable,
+                    spDelta: 0,
+                    spValid: false,
+                    spInvalidDueToMutation: backEdgeMutation,
+                  });
+                } else {
+                  restoreFlow(entry);
+                }
+                i = j + 1;
+                continue;
               }
-              if (
-                bodyExit.reachable &&
-                bodyExit.spValid &&
-                entry.spValid &&
-                bodyExit.spDelta !== entry.spDelta
-              ) {
-                backEdgeUnknown = true;
-                diagAt(
-                  diagnostics,
-                  asmItems[j]!.span,
-                  `Stack depth mismatch at while back-edge (${bodyExit.spDelta} vs ${entry.spDelta}).`,
-                );
-              } else if (
-                bodyExit.reachable &&
-                (!bodyExit.spValid || !entry.spValid) &&
-                (bodyExit.spInvalidDueToMutation || entry.spInvalidDueToMutation)
-              ) {
-                backEdgeUnknown = true;
-                backEdgeMutation = true;
-                diagAt(
-                  diagnostics,
-                  asmItems[j]!.span,
-                  `Cannot verify stack depth at while back-edge due to untracked SP mutation.`,
-                );
-              } else if (
-                bodyExit.reachable &&
-                (!bodyExit.spValid || !entry.spValid) &&
-                hasStackSlots
-              ) {
-                backEdgeUnknown = true;
-                diagAt(
-                  diagnostics,
-                  asmItems[j]!.span,
-                  `Cannot verify stack depth at while back-edge due to unknown stack state.`,
-                );
+              if (it.kind === 'Repeat') {
+                const entry = snapshotFlow();
+                const loopLabel = newHiddenLabel('__zax_repeat_body');
+                let backEdgeUnknown = false;
+                let backEdgeMutation = false;
+                defineCodeLabel(loopLabel, it.span, 'local');
+                const j = lowerAsmRange(asmItems, i + 1, new Set(['Until']));
+                if (j >= asmItems.length || asmItems[j]!.kind !== 'Until') {
+                  diagAt(diagnostics, it.span, `repeat without matching until.`);
+                  return asmItems.length;
+                }
+                const untilNode = asmItems[j]!;
+                const bodyExit = snapshotFlow();
+                const ok = emitJumpIfFalse(untilNode.cc, loopLabel, untilNode.span);
+                if (!ok) return asmItems.length;
+                if (
+                  bodyExit.reachable &&
+                  bodyExit.spValid &&
+                  entry.spValid &&
+                  bodyExit.spDelta !== entry.spDelta
+                ) {
+                  backEdgeUnknown = true;
+                  diagAt(
+                    diagnostics,
+                    untilNode.span,
+                    `Stack depth mismatch at repeat/until (${bodyExit.spDelta} vs ${entry.spDelta}).`,
+                  );
+                } else if (
+                  bodyExit.reachable &&
+                  (!bodyExit.spValid || !entry.spValid) &&
+                  (bodyExit.spInvalidDueToMutation || entry.spInvalidDueToMutation)
+                ) {
+                  backEdgeUnknown = true;
+                  backEdgeMutation = true;
+                  diagAt(
+                    diagnostics,
+                    untilNode.span,
+                    `Cannot verify stack depth at repeat/until due to untracked SP mutation.`,
+                  );
+                } else if (
+                  bodyExit.reachable &&
+                  (!bodyExit.spValid || !entry.spValid) &&
+                  hasStackSlots
+                ) {
+                  backEdgeUnknown = true;
+                  diagAt(
+                    diagnostics,
+                    untilNode.span,
+                    `Cannot verify stack depth at repeat/until due to unknown stack state.`,
+                  );
+                }
+                if (backEdgeUnknown) {
+                  restoreFlow({
+                    reachable: bodyExit.reachable,
+                    spDelta: 0,
+                    spValid: false,
+                    spInvalidDueToMutation: backEdgeMutation,
+                  });
+                }
+                i = j + 1;
+                continue;
               }
-              if (bodyExit.reachable) emitJumpTo(condLabel, asmItems[j]!.span);
-              defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
-              if (backEdgeUnknown) {
-                restoreFlow({
-                  reachable: entry.reachable,
-                  spDelta: 0,
-                  spValid: false,
-                  spInvalidDueToMutation: backEdgeMutation,
-                });
-              } else {
-                restoreFlow(entry);
-              }
-              i = j + 1;
-              continue;
-            }
-            if (it.kind === 'Repeat') {
-              const entry = snapshotFlow();
-              const loopLabel = newHiddenLabel('__zax_repeat_body');
-              let backEdgeUnknown = false;
-              let backEdgeMutation = false;
-              defineCodeLabel(loopLabel, it.span, 'local');
-              const j = lowerAsmRange(asmItems, i + 1, new Set(['Until']));
-              if (j >= asmItems.length || asmItems[j]!.kind !== 'Until') {
-                diagAt(diagnostics, it.span, `repeat without matching until.`);
-                return asmItems.length;
-              }
-              const untilNode = asmItems[j]!;
-              const bodyExit = snapshotFlow();
-              const ok = emitJumpIfFalse(untilNode.cc, loopLabel, untilNode.span);
-              if (!ok) return asmItems.length;
-              if (
-                bodyExit.reachable &&
-                bodyExit.spValid &&
-                entry.spValid &&
-                bodyExit.spDelta !== entry.spDelta
-              ) {
-                backEdgeUnknown = true;
-                diagAt(
-                  diagnostics,
-                  untilNode.span,
-                  `Stack depth mismatch at repeat/until (${bodyExit.spDelta} vs ${entry.spDelta}).`,
-                );
-              } else if (
-                bodyExit.reachable &&
-                (!bodyExit.spValid || !entry.spValid) &&
-                (bodyExit.spInvalidDueToMutation || entry.spInvalidDueToMutation)
-              ) {
-                backEdgeUnknown = true;
-                backEdgeMutation = true;
-                diagAt(
-                  diagnostics,
-                  untilNode.span,
-                  `Cannot verify stack depth at repeat/until due to untracked SP mutation.`,
-                );
-              } else if (
-                bodyExit.reachable &&
-                (!bodyExit.spValid || !entry.spValid) &&
-                hasStackSlots
-              ) {
-                backEdgeUnknown = true;
-                diagAt(
-                  diagnostics,
-                  untilNode.span,
-                  `Cannot verify stack depth at repeat/until due to unknown stack state.`,
-                );
-              }
-              if (backEdgeUnknown) {
-                restoreFlow({
-                  reachable: bodyExit.reachable,
-                  spDelta: 0,
-                  spValid: false,
-                  spInvalidDueToMutation: backEdgeMutation,
-                });
-              }
-              i = j + 1;
-              continue;
-            }
-            if (it.kind === 'Select') {
-              const entry = snapshotFlow();
-              const dispatchLabel = newHiddenLabel('__zax_select_dispatch');
-              const endLabel = newHiddenLabel('__zax_select_end');
-              const selectorIsReg8 =
-                it.selector.kind === 'Reg' && reg8.has(it.selector.name.toUpperCase());
-              const caseValues = new Set<number>();
-              const caseArms: { value: number; bodyLabel: string; span: SourceSpan }[] = [];
-              let elseLabel: string | undefined;
-              let sawArm = false;
-              const armExits: FlowState[] = [];
+              if (it.kind === 'Select') {
+                const entry = snapshotFlow();
+                const dispatchLabel = newHiddenLabel('__zax_select_dispatch');
+                const endLabel = newHiddenLabel('__zax_select_end');
+                const selectorIsReg8 =
+                  it.selector.kind === 'Reg' && reg8.has(it.selector.name.toUpperCase());
+                const caseValues = new Set<number>();
+                const caseArms: { value: number; bodyLabel: string; span: SourceSpan }[] = [];
+                let elseLabel: string | undefined;
+                let sawArm = false;
+                const armExits: FlowState[] = [];
 
-              emitJumpTo(dispatchLabel, it.span);
-              let j = i + 1;
+                emitJumpTo(dispatchLabel, it.span);
+                let j = i + 1;
 
-              const closeArm = (span: SourceSpan) => {
-                armExits.push(snapshotFlow());
-                if (flow.reachable) emitJumpTo(endLabel, span);
-              };
+                const closeArm = (span: SourceSpan) => {
+                  armExits.push(snapshotFlow());
+                  if (flow.reachable) emitJumpTo(endLabel, span);
+                };
 
-              while (j < asmItems.length) {
-                const armItem = asmItems[j]!;
-                if (armItem.kind === 'Case') {
-                  const bodyLabel = newHiddenLabel('__zax_case');
-                  defineCodeLabel(bodyLabel, armItem.span, 'local');
-                  let k = j;
-                  while (k < asmItems.length) {
-                    const caseItem = asmItems[k]!;
-                    if (caseItem.kind !== 'Case') break;
-                    const v = evalImmExpr(caseItem.value, env, diagnostics);
-                    if (v === undefined) {
-                      diagAt(diagnostics, caseItem.span, `Failed to evaluate case value.`);
-                    } else {
-                      const key = v & 0xffff;
-                      const canMatchSelector = !selectorIsReg8 || key <= 0xff;
-                      if (selectorIsReg8 && key > 0xff) {
-                        warnAt(
-                          diagnostics,
-                          caseItem.span,
-                          `Case value ${key} can never match reg8 selector.`,
-                        );
-                      }
-                      if (caseValues.has(key)) {
-                        diagAt(diagnostics, caseItem.span, `Duplicate case value ${key}.`);
+                while (j < asmItems.length) {
+                  const armItem = asmItems[j]!;
+                  if (armItem.kind === 'Case') {
+                    const bodyLabel = newHiddenLabel('__zax_case');
+                    defineCodeLabel(bodyLabel, armItem.span, 'local');
+                    let k = j;
+                    while (k < asmItems.length) {
+                      const caseItem = asmItems[k]!;
+                      if (caseItem.kind !== 'Case') break;
+                      const v = evalImmExpr(caseItem.value, env, diagnostics);
+                      if (v === undefined) {
+                        diagAt(diagnostics, caseItem.span, `Failed to evaluate case value.`);
                       } else {
-                        caseValues.add(key);
-                        if (canMatchSelector) {
-                          caseArms.push({ value: key, bodyLabel, span: caseItem.span });
+                        const key = v & 0xffff;
+                        const canMatchSelector = !selectorIsReg8 || key <= 0xff;
+                        if (selectorIsReg8 && key > 0xff) {
+                          warnAt(
+                            diagnostics,
+                            caseItem.span,
+                            `Case value ${key} can never match reg8 selector.`,
+                          );
+                        }
+                        if (caseValues.has(key)) {
+                          diagAt(diagnostics, caseItem.span, `Duplicate case value ${key}.`);
+                        } else {
+                          caseValues.add(key);
+                          if (canMatchSelector) {
+                            caseArms.push({ value: key, bodyLabel, span: caseItem.span });
+                          }
                         }
                       }
+                      k++;
                     }
-                    k++;
+                    restoreFlow(entry);
+                    sawArm = true;
+                    j = lowerAsmRange(asmItems, k, new Set(['Case', 'SelectElse', 'End']));
+                    closeArm(asmItems[Math.min(j, asmItems.length - 1)]!.span);
+                    continue;
                   }
-                  restoreFlow(entry);
-                  sawArm = true;
-                  j = lowerAsmRange(asmItems, k, new Set(['Case', 'SelectElse', 'End']));
-                  closeArm(asmItems[Math.min(j, asmItems.length - 1)]!.span);
-                  continue;
-                }
-                if (armItem.kind === 'SelectElse') {
-                  if (elseLabel) {
-                    diagAt(diagnostics, armItem.span, `Duplicate else in select.`);
+                  if (armItem.kind === 'SelectElse') {
+                    if (elseLabel) {
+                      diagAt(diagnostics, armItem.span, `Duplicate else in select.`);
+                    }
+                    elseLabel = newHiddenLabel('__zax_select_else');
+                    defineCodeLabel(elseLabel, armItem.span, 'local');
+                    restoreFlow(entry);
+                    sawArm = true;
+                    j = lowerAsmRange(asmItems, j + 1, new Set(['End']));
+                    closeArm(asmItems[Math.min(j, asmItems.length - 1)]!.span);
+                    continue;
                   }
-                  elseLabel = newHiddenLabel('__zax_select_else');
-                  defineCodeLabel(elseLabel, armItem.span, 'local');
-                  restoreFlow(entry);
-                  sawArm = true;
-                  j = lowerAsmRange(asmItems, j + 1, new Set(['End']));
-                  closeArm(asmItems[Math.min(j, asmItems.length - 1)]!.span);
-                  continue;
+                  if (armItem.kind === 'End') break;
+                  diagAt(diagnostics, armItem.span, `Expected case/else/end inside select.`);
+                  j++;
                 }
-                if (armItem.kind === 'End') break;
-                diagAt(diagnostics, armItem.span, `Expected case/else/end inside select.`);
-                j++;
-              }
 
-              if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
-                diagAt(diagnostics, it.span, `select without matching end.`);
-                return asmItems.length;
-              }
-              if (!sawArm) {
-                diagAt(diagnostics, it.span, `select must contain at least one case or else arm.`);
-              }
-
-              defineCodeLabel(dispatchLabel, asmItems[j]!.span, 'local');
-              let selectorConst: number | undefined;
-              if (it.selector.kind === 'Imm') {
-                const v = evalImmExpr(it.selector.expr, env, diagnostics);
-                if (v !== undefined) selectorConst = v & 0xffff;
-              }
-              if (selectorConst !== undefined) {
-                const matched = caseArms.find((arm) => arm.value === selectorConst);
-                emitJumpTo(matched?.bodyLabel ?? elseLabel ?? endLabel, asmItems[j]!.span);
-              } else if (caseArms.length === 0) {
-                emitJumpTo(elseLabel ?? endLabel, asmItems[j]!.span);
-              } else {
-                if (!emitInstr('push', [{ kind: 'Reg', span: it.span, name: 'HL' }], it.span)) {
+                if (j >= asmItems.length || asmItems[j]!.kind !== 'End') {
+                  diagAt(diagnostics, it.span, `select without matching end.`);
                   return asmItems.length;
                 }
-                if (!loadSelectorIntoHL(it.selector, it.span)) {
-                  return asmItems.length;
+                if (!sawArm) {
+                  diagAt(
+                    diagnostics,
+                    it.span,
+                    `select must contain at least one case or else arm.`,
+                  );
                 }
-                if (selectorIsReg8) {
-                  emitCodeBytes(Uint8Array.of(0x7d), it.span.file); // ld a, l
+
+                defineCodeLabel(dispatchLabel, asmItems[j]!.span, 'local');
+                let selectorConst: number | undefined;
+                if (it.selector.kind === 'Imm') {
+                  const v = evalImmExpr(it.selector.expr, env, diagnostics);
+                  if (v !== undefined) selectorConst = v & 0xffff;
                 }
-                for (const arm of caseArms) {
-                  const miss = newHiddenLabel('__zax_select_next');
+                if (selectorConst !== undefined) {
+                  const matched = caseArms.find((arm) => arm.value === selectorConst);
+                  emitJumpTo(matched?.bodyLabel ?? elseLabel ?? endLabel, asmItems[j]!.span);
+                } else if (caseArms.length === 0) {
+                  emitJumpTo(elseLabel ?? endLabel, asmItems[j]!.span);
+                } else {
+                  if (!emitInstr('push', [{ kind: 'Reg', span: it.span, name: 'HL' }], it.span)) {
+                    return asmItems.length;
+                  }
+                  if (!loadSelectorIntoHL(it.selector, it.span)) {
+                    return asmItems.length;
+                  }
                   if (selectorIsReg8) {
-                    emitSelectCompareReg8ToImm8(arm.value, miss, arm.span);
-                  } else {
-                    emitSelectCompareToImm16(arm.value, miss, arm.span);
+                    emitCodeBytes(Uint8Array.of(0x7d), it.span.file); // ld a, l
                   }
-                  emitInstr('pop', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span);
-                  emitJumpTo(arm.bodyLabel, arm.span);
-                  defineCodeLabel(miss, arm.span, 'local');
+                  for (const arm of caseArms) {
+                    const miss = newHiddenLabel('__zax_select_next');
+                    if (selectorIsReg8) {
+                      emitSelectCompareReg8ToImm8(arm.value, miss, arm.span);
+                    } else {
+                      emitSelectCompareToImm16(arm.value, miss, arm.span);
+                    }
+                    emitInstr('pop', [{ kind: 'Reg', span: arm.span, name: 'HL' }], arm.span);
+                    emitJumpTo(arm.bodyLabel, arm.span);
+                    defineCodeLabel(miss, arm.span, 'local');
+                  }
+                  emitInstr(
+                    'pop',
+                    [{ kind: 'Reg', span: asmItems[j]!.span, name: 'HL' }],
+                    asmItems[j]!.span,
+                  );
+                  emitJumpTo(elseLabel ?? endLabel, asmItems[j]!.span);
                 }
-                emitInstr(
-                  'pop',
-                  [{ kind: 'Reg', span: asmItems[j]!.span, name: 'HL' }],
-                  asmItems[j]!.span,
-                );
-                emitJumpTo(elseLabel ?? endLabel, asmItems[j]!.span);
-              }
 
-              defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
-              const joinInputs = [...armExits];
-              if (!elseLabel) joinInputs.push(entry);
-              const reachable = joinInputs.filter((f) => f.reachable);
-              if (reachable.length === 0) {
-                restoreFlow({
-                  reachable: false,
-                  spDelta: 0,
-                  spValid: true,
-                  spInvalidDueToMutation: false,
-                });
-              } else {
-                const base = reachable[0]!;
-                const allValid = reachable.every((f) => f.spValid);
-                let hasMismatch = false;
-                if (allValid) {
-                  const mismatchFlow = reachable.find((f) => f.spDelta !== base.spDelta);
-                  if (mismatchFlow) {
-                    hasMismatch = true;
+                defineCodeLabel(endLabel, asmItems[j]!.span, 'local');
+                const joinInputs = [...armExits];
+                if (!elseLabel) joinInputs.push(entry);
+                const reachable = joinInputs.filter((f) => f.reachable);
+                if (reachable.length === 0) {
+                  restoreFlow({
+                    reachable: false,
+                    spDelta: 0,
+                    spValid: true,
+                    spInvalidDueToMutation: false,
+                  });
+                } else {
+                  const base = reachable[0]!;
+                  const allValid = reachable.every((f) => f.spValid);
+                  let hasMismatch = false;
+                  if (allValid) {
+                    const mismatchFlow = reachable.find((f) => f.spDelta !== base.spDelta);
+                    if (mismatchFlow) {
+                      hasMismatch = true;
+                      diagAt(
+                        diagnostics,
+                        asmItems[j]!.span,
+                        `Stack depth mismatch at select join (${base.spDelta} vs ${mismatchFlow.spDelta}).`,
+                      );
+                    }
+                  } else if (reachable.some((f) => f.spInvalidDueToMutation)) {
                     diagAt(
                       diagnostics,
                       asmItems[j]!.span,
-                      `Stack depth mismatch at select join (${base.spDelta} vs ${mismatchFlow.spDelta}).`,
+                      `Cannot verify stack depth at select join due to untracked SP mutation.`,
+                    );
+                  } else if (hasStackSlots) {
+                    diagAt(
+                      diagnostics,
+                      asmItems[j]!.span,
+                      `Cannot verify stack depth at select join due to unknown stack state.`,
                     );
                   }
-                } else if (reachable.some((f) => f.spInvalidDueToMutation)) {
-                  diagAt(
-                    diagnostics,
-                    asmItems[j]!.span,
-                    `Cannot verify stack depth at select join due to untracked SP mutation.`,
-                  );
-                } else if (hasStackSlots) {
-                  diagAt(
-                    diagnostics,
-                    asmItems[j]!.span,
-                    `Cannot verify stack depth at select join due to unknown stack state.`,
-                  );
+                  restoreFlow({
+                    reachable: true,
+                    spDelta: base.spDelta,
+                    spValid: allValid && !hasMismatch,
+                    spInvalidDueToMutation: reachable.some((f) => f.spInvalidDueToMutation),
+                  });
                 }
-                restoreFlow({
-                  reachable: true,
-                  spDelta: base.spDelta,
-                  spValid: allValid && !hasMismatch,
-                  spInvalidDueToMutation: reachable.some((f) => f.spInvalidDueToMutation),
-                });
+                i = j + 1;
+                continue;
               }
-              i = j + 1;
-              continue;
-            }
-            if (
-              it.kind === 'Else' ||
-              it.kind === 'End' ||
-              it.kind === 'Until' ||
-              it.kind === 'Case' ||
-              it.kind === 'SelectElse'
-            ) {
-              diagAt(diagnostics, it.span, `Unexpected "${it.kind.toLowerCase()}" in asm block.`);
-              i++;
-              continue;
+              if (
+                it.kind === 'Else' ||
+                it.kind === 'End' ||
+                it.kind === 'Until' ||
+                it.kind === 'Case' ||
+                it.kind === 'SelectElse'
+              ) {
+                diagAt(diagnostics, it.span, `Unexpected "${it.kind.toLowerCase()}" in asm block.`);
+                i++;
+                continue;
+              }
+            } finally {
+              currentCodeSegmentTag = prevTag;
             }
           }
           return i;
@@ -4128,31 +4225,36 @@ export function emitProgram(
           );
         }
         if (!emitSyntheticEpilogue && flow.reachable) {
-          emitInstr('ret', [], item.span);
+          withCodeSourceTag(sourceTagForSpan(item.span), () => {
+            emitInstr('ret', [], item.span);
+          });
           flow.reachable = false;
           syncToFlow();
         }
 
         if (emitSyntheticEpilogue) {
-          // When control can fall through to the end of the function body, route it through the
-          // synthetic epilogue. If flow is unreachable here (e.g. a terminal `ret`), avoid emitting
-          // a dead jump before the epilogue label.
-          if (flow.reachable) {
-            emitAbs16Fixup(0xc3, epilogueLabel.toLowerCase(), 0, item.span);
-          }
-          pending.push({
-            kind: 'label',
-            name: epilogueLabel,
-            section: 'code',
-            offset: codeOffset,
-            file: item.span.file,
-            line: item.span.start.line,
-            scope: 'local',
+          withCodeSourceTag(sourceTagForSpan(item.span), () => {
+            // When control can fall through to the end of the function body, route it through the
+            // synthetic epilogue. If flow is unreachable here (e.g. a terminal `ret`), avoid emitting
+            // a dead jump before the epilogue label.
+            if (flow.reachable) {
+              emitAbs16Fixup(0xc3, epilogueLabel.toLowerCase(), 0, item.span);
+            }
+            pending.push({
+              kind: 'label',
+              name: epilogueLabel,
+              section: 'code',
+              offset: codeOffset,
+              file: item.span.file,
+              line: item.span.start.line,
+              scope: 'local',
+            });
+            for (let k = 0; k < frameSize / 2; k++) {
+              if (!emitInstr('pop', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span))
+                break;
+            }
+            emitInstr('ret', [], item.span);
           });
-          for (let k = 0; k < frameSize / 2; k++) {
-            if (!emitInstr('pop', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span)) break;
-          }
-          emitInstr('ret', [], item.span);
         }
         continue;
       }
@@ -4519,6 +4621,24 @@ export function emitProgram(
     Number.isFinite(min) && Number.isFinite(max)
       ? { start: min, end: max + 1 }
       : { start: 0, end: 0 };
+  const sourceSegments = codeOk
+    ? codeSourceSegments
+        .map((segment) => ({
+          ...segment,
+          start: codeBase + segment.start,
+          end: codeBase + segment.end,
+        }))
+        .filter(
+          (segment) => segment.start >= 0 && segment.end <= 0x10000 && segment.end > segment.start,
+        )
+    : [];
 
-  return { map: { bytes, writtenRange }, symbols };
+  return {
+    map: {
+      bytes,
+      writtenRange,
+      ...(sourceSegments.length > 0 ? { sourceSegments } : {}),
+    },
+    symbols,
+  };
 }

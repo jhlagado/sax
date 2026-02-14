@@ -57,11 +57,9 @@ describe('PR200 D8M appendix mapping closure', () => {
     const fileEntry = json.files['pr200_d8m_appendix_mapping.zax'];
     if (!fileEntry) throw new Error('Expected per-file D8M entry for fixture source');
     expect(fileEntry.segments?.length).toBeGreaterThan(0);
-    expect(fileEntry.segments?.[0]).toMatchObject({
-      lstLine: 0,
-      kind: 'unknown',
-      confidence: 'low',
-    });
+    expect(
+      fileEntry.segments?.some((segment) => segment.lstLine > 0 && segment.confidence === 'high'),
+    ).toBe(true);
 
     const fileSymbols = fileEntry.symbols ?? [];
     expect(
