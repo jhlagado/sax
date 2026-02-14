@@ -26,22 +26,17 @@ jobs:
               - 'docs/**'
               - '**/*.md'
               - '.github/ISSUE_TEMPLATE/**'
-            full:
-              - 'src/**'
-              - 'test/**'
-              - 'examples/**'
-              - 'scripts/**'
-              - '.github/workflows/**'
-              - 'package.json'
-              - 'yarn.lock'
-              - 'tsconfig*.json'
-              - 'vitest.config.*'
+            other:
+              - '**'
+              - '!docs/**'
+              - '!**/*.md'
+              - '!.github/ISSUE_TEMPLATE/**'
 
       - name: Classify change set
         id: classify
         shell: bash
         run: |
-          if [[ "${{ steps.filter.outputs.docs }}" == "true" && "${{ steps.filter.outputs.full }}" != "true" ]]; then
+          if [[ "${{ steps.filter.outputs.docs }}" == "true" && "${{ steps.filter.outputs.other }}" != "true" ]]; then
             echo "docs_only=true" >> "$GITHUB_OUTPUT"
             echo "run_full=false" >> "$GITHUB_OUTPUT"
             echo "Change set classified as docs-only."
@@ -74,7 +69,7 @@ jobs:
         run: yarn install --frozen-lockfile
 
       - name: Docs format check
-        run: yarn prettier -c "docs/**/*.md" "docs/*.md" ".github/ISSUE_TEMPLATE/*.yml"
+        run: yarn prettier -c "**/*.md" ".github/ISSUE_TEMPLATE/*.yml"
 
   test:
     name: test (${{ matrix.os }})
