@@ -1,4 +1,50 @@
-# ZAX Roadmap (Reality Check, Assembler-First)
+# ZAX Developer Playbook (Non-normative)
+
+This document consolidates execution planning, architecture notes, implementation checklists, and contributor workflow guidance.
+
+Normative language behavior is defined only by `docs/zax-spec.md`.
+
+## 0. Document Scope
+
+This playbook replaces the previous split across:
+
+- `docs/roadmap.md`
+- `docs/v02-implementation-checklist.md`
+- `docs/assembler-pipeline.md`
+- `docs/zax-ai-team-prompt.md`
+
+## 1. Architecture Brief
+
+### 1.1 Decision Hierarchy
+
+| Level | Source                             | Role                                  |
+| ----- | ---------------------------------- | ------------------------------------- |
+| 1     | `docs/zax-spec.md`                 | Canonical language authority          |
+| 2     | `docs/v02-transition-decisions.md` | Transition rationale/history          |
+| 3     | This playbook                      | Execution and implementation guidance |
+
+Conflict rule: if guidance here conflicts with `docs/zax-spec.md`, the spec wins.
+
+### 1.2 Runtime-Atom Mental Model
+
+- A runtime atom is one runtime-varying source in address computation.
+- v0.2 source-level `ea` budget: max one runtime atom per expression.
+- v0.2 direct call-site `ea`/`(ea)` arguments: runtime-atom-free.
+- User model: one moving part per expression; stage multi-dynamic work over lines.
+
+### 1.3 Preservation and Lowering Model
+
+- Typed call boundaries are preservation-safe per `docs/zax-spec.md`.
+- `op` bodies are inline; stack/register discipline is developer-managed.
+- Hidden lowering should stay bounded and predictable.
+
+### 1.4 Rollout Waves
+
+- Wave 1: runtime-atom enforcement for source-level `ea` expressions (#221).
+- Wave 2: runtime-atom-free direct call-site `ea`/`(ea)` enforcement (#222).
+- Wave 3: op stack-policy alignment across docs/implementation/tests (#223).
+
+## 2. Roadmap (Consolidated)
 
 This roadmap replaces optimistic status tracking with a risk-first plan.
 
@@ -34,7 +80,7 @@ Working estimate scorecard (risk-weighted, subjective):
 
 What moves the needle fastest:
 
-- Make the CLI/output gate real: implement `docs/zax-cli.md` options in code, and add contract tests that verify the artifact set and naming rules.
+- Make the CLI/output gate real: implement `Appendix D of docs/zax-spec.md` options in code, and add contract tests that verify the artifact set and naming rules.
 - Expand ISA coverage with fixtures + negative tests until every instruction needed by `examples/*.zax` and the active spec is supported (or explicitly rejected).
 - Add hardening gates that are difficult to game: examples compile (already exists) plus determinism checks and broad negative fixture classes.
 
@@ -52,7 +98,7 @@ Team rule for in-flight work:
 
 - If a PR touches addressing/call lowering/op semantics, it must reference one of these issues or explicitly state why it is unrelated.
 - Feature additions in these areas should not bypass the rollout order above.
-- `docs/v02-implementation-checklist.md` is the canonical execution board for this rollout.
+- `this playbook (Section 3)` is the canonical execution board for this rollout.
 
 ---
 
@@ -88,7 +134,7 @@ The codebase has meaningful progress, but it is **not near complete** for a prod
 1. Output/tooling completeness is partial.
 
 - `.bin`, `.hex`, D8M, and a minimal `.lst` exist, but `.lst` is not yet a full source listing (currently a byte dump + symbols).
-- CLI parity with `docs/zax-cli.md` is not fully proven as a stable contract.
+- CLI parity with `Appendix D of docs/zax-spec.md` is not fully proven as a stable contract.
 
 1. Hardening and acceptance are incomplete.
 
@@ -133,7 +179,7 @@ Treat ZAX as "integration-ready" only when every gate below is green:
 
 1. CLI/output gate
 
-- `docs/zax-cli.md` baseline options are implemented and tested.
+- `Appendix D of docs/zax-spec.md` baseline options are implemented and tested.
 - `.bin`, `.hex`, `.d8dbg.json`, and `.lst` behavior is deterministic and contract-tested.
 
 1. Hardening gate
@@ -150,7 +196,7 @@ Treat ZAX as "integration-ready" only when every gate below is green:
 
 Milestone 1: CLI contract is real (Gate 5 trending green)
 
-- Implement the `docs/zax-cli.md` baseline flags in the real CLI.
+- Implement the `Appendix D of docs/zax-spec.md` baseline flags in the real CLI.
 - Add tests that run the CLI end-to-end and assert:
 - Primary output selection matches `--type`.
 - Sibling artifacts exist/suppress correctly.
@@ -217,7 +263,7 @@ Exit criteria:
 
 Objective: finalize user-facing compiler contract.
 
-- Complete CLI option behavior against `docs/zax-cli.md`.
+- Complete CLI option behavior against `Appendix D of docs/zax-spec.md`.
 - Implement and validate `.lst` output.
 - Improve D8M fidelity where needed for stable debug mapping.
 
@@ -430,3 +476,411 @@ Next (assembler-first):
 - Every roadmap item must map to: code change + tests + spec/CLI reference.
 - Do not mark phases complete based on merged PR count alone.
 - If a phase fails exit criteria, roadmap status stays red regardless of partial progress.
+
+## 3. Implementation Checklist (Consolidated)
+
+This checklist is non-normative planning support.
+
+Normative language behavior is defined in `docs/zax-spec.md`.
+
+## Usage
+
+1. Create one GitHub issue per planned change (use the `v0.2 Change Task` template).
+2. Add or update a row in the table below with the issue number and status.
+3. Link the implementing PR in the `PR` column.
+4. Keep rule text in `docs/zax-spec.md`; keep this file as a pointer/checklist only.
+
+## Active Queue
+
+| Area                    | Change                                                       | Issue                                              | Status      | PR                                               |
+| ----------------------- | ------------------------------------------------------------ | -------------------------------------------------- | ----------- | ------------------------------------------------ |
+| docs                    | Runtime-atom model and single-expression budget              | —                                                  | In progress | [#219](https://github.com/jhlagado/ZAX/pull/219) |
+| semantics/lowering      | Enforce runtime-atom quota for source-level `ea` expressions | [#221](https://github.com/jhlagado/ZAX/issues/221) | Planned     | —                                                |
+| semantics/lowering      | Enforce runtime-atom-free direct `ea`/`(ea)` call-site args  | [#222](https://github.com/jhlagado/ZAX/issues/222) | Planned     | —                                                |
+| lowering/spec-alignment | Resolve op stack-policy mismatch (docs vs implementation)    | [#223](https://github.com/jhlagado/ZAX/issues/223) | Planned     | —                                                |
+
+## Rollout Schedule (Spec-First, Implementation Catch-Up)
+
+This section makes implementation lag explicit so contributors can plan work against v0.2 normative direction.
+
+| Wave   | Target                                              | Scope                                                                | Tracking                                           |
+| ------ | --------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------- |
+| Wave 1 | Runtime-atom enforcement in `ea` expressions        | Implement quota checks + user-friendly diagnostics + fixture updates | [#221](https://github.com/jhlagado/ZAX/issues/221) |
+| Wave 2 | Runtime-atom-free direct call-site `ea`/`(ea)` args | Enforce staged-arg model + diagnostics + fixture updates             | [#222](https://github.com/jhlagado/ZAX/issues/222) |
+| Wave 3 | Op stack-policy alignment                           | Finalize one policy and align docs/implementation/tests              | [#223](https://github.com/jhlagado/ZAX/issues/223) |
+
+## Team Signal
+
+- `docs/zax-spec.md` remains canonical for target behavior.
+- Until Waves 1-3 land, some implementation paths are intentionally behind the spec and are tracked by the issues above.
+- New feature work touching addressing/calls/ops should cross-check this schedule before adding behavior.
+
+## Status Legend
+
+- `Planned`: scoped issue exists; work not started.
+- `In progress`: PR open or implementation active.
+- `Blocked`: waiting on dependency/decision.
+- `Done`: merged to `main`.
+
+## 4. Assembler Pipeline Reference (Consolidated)
+
+This document explains how the ZAX toolchain turns a `.zax` entry file into output artifacts (`.bin`, `.hex`, `.d8dbg.json`, `.lst`), and how it handles forward references (fixups).
+
+This describes **current code**, not an aspirational design.
+
+---
+
+## 1. Inputs and Outputs
+
+Inputs:
+
+- An entry module path (a `.zax` file).
+- Optional `includeDirs` used when resolving `import` statements.
+
+Outputs (in-memory artifacts returned by the compiler):
+
+- Flat binary image (`.bin`)
+- Intel HEX (`.hex`)
+- D8 debug map (`.d8dbg.json`)
+- Listing (`.lst`) (currently a minimal byte dump + symbols; not yet a full source listing)
+
+Implementation entrypoint:
+
+- `src/compile.ts` (`compile(...)`)
+
+---
+
+## 2. High-Level Stages
+
+### Stage A: Load modules (imports)
+
+ZAX is compiled as a whole-program unit. Starting from the entry file:
+
+1. Read and parse the entry module.
+2. Collect `import` targets.
+3. Resolve each import against:
+   1. The importing module directory
+   2. Each `includeDirs` entry (in order)
+4. Read and parse imported modules, recursively.
+5. Detect:
+   - Import cycles
+   - Module ID collisions (case-insensitive), where module ID is derived from the filename (without extension)
+6. Topologically sort modules so dependencies are processed first (deterministic ordering).
+
+Implementation:
+
+- `src/compile.ts`: `loadProgram(...)`
+
+### Stage B: Build semantic environment (names + types)
+
+The compiler builds a global environment from the whole program:
+
+- Declared symbols (functions, ops, consts, data/var names, etc.)
+- Type layouts for `type` declarations (records/unions) and derived layouts for `data`/`var`
+
+Implementation:
+
+- `src/semantics/env.ts`: `buildEnv(...)`
+- `src/semantics/layout.ts`: type layout helpers
+
+### Stage C: Lower + emit (code/data bytes + fixups)
+
+Lowering walks the AST and emits:
+
+- Code section bytes
+- Data section bytes
+- A symbol table (addresses for labels / globals)
+- Fixups: “patch this placeholder once the target address is known”
+
+The key point is that **forward references are allowed** in many forms (labels before definition, calls/jumps to later symbols). Emission records a fixup at the use site and patches it once layout is complete.
+
+Implementation:
+
+- `src/lowering/emit.ts`: `emitProgram(...)`
+- See `docs/zax-spec.md` “Fixups and Forward References (v0.1)” for the language-level contract.
+
+### Stage D: Format writers (artifacts)
+
+The emitter returns a memory map + symbols. Format writers turn that into artifacts:
+
+- `src/formats/writeBin.ts`
+- `src/formats/writeHex.ts`
+- `src/formats/writeD8m.ts`
+- `src/formats/writeListing.ts`
+
+The compile pipeline currently does **not** write to disk itself; it returns artifacts in-memory and the CLI (or caller) decides what to do with them.
+
+Implementation:
+
+- `src/compile.ts`: calls `deps.formats.*`
+
+---
+
+## 3. Forward References and Fixups (How It Works)
+
+### What is a fixup?
+
+A fixup is a record that says:
+
+- Where in the output bytes a placeholder was emitted
+- What symbol/expression it should be patched with
+- What encoding rule applies (e.g., absolute 16-bit address, rel8 displacement)
+
+Examples of things that generally require fixups:
+
+- `jp label` (absolute 16-bit)
+- `jr label` (relative 8-bit displacement, range-checked)
+- `call func` (absolute 16-bit)
+- `ld hl, dataSymbol` (absolute 16-bit immediate)
+
+### When do fixups resolve?
+
+Fixups resolve after enough emission has happened to know final addresses, i.e. after:
+
+- All code/data bytes are emitted
+- The symbol table has final addresses
+
+At that point the compiler patches placeholder bytes.
+
+### What if a fixup cannot resolve?
+
+If a referenced symbol cannot be resolved, emission reports an error diagnostic like:
+
+- `Unresolved symbol "<name>" in 16-bit fixup.`
+- `Unresolved symbol "<name>" in rel8 <mnemonic> fixup.`
+
+Implementation:
+
+- `src/lowering/emit.ts` (unresolved symbol diagnostics during fixup resolution)
+
+---
+
+## 4. Determinism Notes (Why Ordering Matters)
+
+Several pipeline steps intentionally impose deterministic ordering so builds are stable:
+
+- Import graph traversal and topo ordering is sorted by `(moduleId, path)`.
+- Emission uses stable symbol maps where practical; instability here shows up as non-deterministic output bytes or symbol addresses.
+
+Implementation:
+
+- `src/compile.ts`: deterministic topo sort for modules
+
+## 5. Team Workflow Prompt (Consolidated)
+
+Use this prompt to instruct an AI (or multiple AIs acting as a team) to **plan and execute** the implementation of the ZAX assembler.
+
+This prompt is intentionally "meta": it comes _before_ detailed planning. Its job is to force the AI to produce a robust plan, break work into PR-sized chunks, coordinate agents, and follow a rigorous testing and review workflow.
+
+---
+
+## Prompt
+
+You are an AI engineering team building a **ZAX assembler**: a Node.js command-line executable that compiles `.zax` modules into machine-code artifacts for Z80-family projects.
+
+### Reference documents (read before planning)
+
+- `docs/zax-spec.md` — the **normative** language specification. Every compiler behavior must trace to a section here.
+- `Appendix D of docs/zax-spec.md` — the **non-normative** CLI design. Defines invocation shape, switches, artifact naming, and Debug80 integration expectations.
+- `examples/*.zax` — working examples that must compile successfully as an end-to-end acceptance test.
+
+Treat this like a production tool: cross-platform (macOS/Windows/Linux), deterministic outputs, excellent diagnostics, strong tests, and developed via small PRs using `git` + the GitHub CLI (`gh`).
+
+### 0) Mission
+
+Implement a Node-based assembler for ZAX that:
+
+- reads an entry `.zax` file, resolves imports, and compiles the whole program
+- produces **at minimum**:
+  - flat binary output (`.bin`)
+  - Intel HEX output (`.hex`) (per the spec constraints)
+  - Debug80-compatible debug map: **D8 Debug Map (D8M) v1 JSON** (`.d8dbg.json`)
+- optionally produces a listing (`.lst`) and/or a human-readable map/symbol report
+- reaches a **fully working assembler** baseline before any external integration work
+
+CLI design is specified in `Appendix D of docs/zax-spec.md`. Do not deviate from it without discussion.
+
+### 1) Non-negotiables (quality gates)
+
+- **Cross-platform**
+  - Handle Windows paths, quoting, drive letters, and CRLF tolerance.
+  - Do not assume `/` path separators in user input.
+  - Do not rely on case-sensitive filesystem behavior.
+  - Do not use platform-specific shell utilities in core logic.
+  - Paths in diagnostics should use the path form the user provided (do not rewrite separators in user-facing output; canonicalize only internally).
+  - Treat `.ZAX` and `.zax` as equivalent for file discovery on case-insensitive filesystems.
+- **Determinism**
+  - Same inputs → identical outputs (binary, HEX, D8M, listing).
+  - Never depend on filesystem enumeration order, `Map` iteration assumptions, or `Date.now()`.
+  - No timestamps or absolute machine paths in any output artifact. Outputs are reproducible by default.
+  - Make ordering rules explicit and tested.
+- **Diagnostics**
+  - Every error includes file + line/column (when possible) and a clear message.
+  - Each diagnostic (errors and warnings) has a stable ID (e.g., `ZAX001`) for programmatic use.
+  - IDs are stable across releases once introduced: no renumbering, no reusing an ID for a different diagnostic.
+  - Fail with non-zero exit code on error.
+- **Artifacts required**
+  - `.bin`, `.hex`, and `.d8dbg.json` are first-class. `.bin` and `.hex` must be emitted from PR 1. A minimal `.d8dbg.json` (format/version/arch + segment list + symbols) must also ship in PR 1 so the D8M pipeline never diverges; later PRs extend it.
+
+### 2) Architecture expectations
+
+Implement a compiler pipeline with clear module boundaries. Required structure:
+
+- `src/cli/` — args parsing (per `Appendix D of docs/zax-spec.md`), IO policy, exit codes
+- `src/frontend/` — lexer, parser, AST, source spans
+- `src/semantics/` — name resolution, collisions, types/layout, const eval
+- `src/lowering/` — structured control flow → labels/jumps, lowering of non-encodable operands, `op` expansion, stack frame/trampoline
+- `src/backend/` — Z80 encoding, fixups, address→byte map, section packing, overlap checks
+- `src/formats/` — BIN/HEX writers, optional LST writer, D8M writer
+- `src/diagnostics/` — error objects (with stable IDs) + renderers
+
+Call out explicitly where:
+
+- determinism is enforced (sorting, ordering, normalization)
+- Windows path edge cases are handled
+- spec rules map to implementation (e.g., `select` lowering, `op` expansion, stack frame/trampoline model)
+
+### 3) Contract-first development (Phase 0 — required before any implementation)
+
+Before writing compiler logic, the first PR must define the **interface contracts** that all subsequent work depends on. This prevents agents from building incompatible internals.
+
+Phase 0 deliverables (all in one PR):
+
+1. **AST node types** (`src/frontend/ast.ts`) — define the stable top-level shape: discriminated union convention, source-span fields, and the concrete node kinds needed for PRs 1–2 (module file, func declaration, asm block, Z80 instruction nodes, const/enum/data). For constructs not yet needed (imports, op, structured control flow, unions, etc.), define placeholder members in the union (e.g., a comment or a generic `UnimplementedNode` kind with a span) so the union is forward-compatible. `UnimplementedNode` may exist in the union for type stability, but the parser must never emit it beyond the slice it is meant to cover — tests must fail if an `UnimplementedNode` appears in the AST output of any passing fixture. Later PRs replace placeholders with concrete node kinds as they go via the contract-change mechanism in §6.2.
+2. **Diagnostic types** (`src/diagnostics/types.ts`) — a `Diagnostic` interface with `id` (stable string), `severity`, `message`, `file`, `line`, `column`. An enum or namespace of all diagnostic IDs.
+3. **Compiler pipeline interface** (`src/pipeline.ts`) — the top-level function signature: input (entry path + options) → output (artifacts + diagnostics). Define the artifact types (binary buffer, HEX string, D8M JSON object, listing string).
+4. **Format writer interfaces** (`src/formats/types.ts`) — each writer takes the compiler's internal address→byte map (or equivalent) plus symbol table and produces an output artifact.
+
+This PR has no implementation, only types and interfaces. It must be reviewed and merged before any other PR begins.
+
+### 4) Testing regime (spec-as-oracle)
+
+The normative spec is the test plan. Every testable rule in `docs/zax-spec.md` must have at least one positive and one negative test fixture, traceable to a section number.
+
+All test code lives under `test/` (not `tests/`). Do not create a parallel directory tree.
+
+#### 4.1 Test categories
+
+- **Unit tests** — lexer tokens, parser AST snapshots, layout/sizeof calculations, const evaluation, name resolution, Z80 instruction encoding, fixups.
+- **Integration tests** — run the CLI on `.zax` fixture files and compare outputs:
+  - `.hex` output (golden file)
+  - `.bin` output (golden file)
+  - `.d8dbg.json` output (structural comparison on key fields)
+  - `.lst` output if produced (golden file)
+- **Negative fixtures** — one per error class. Each fixture must:
+  - assert the **first** diagnostic ID (stable string, not message text) and its primary source span
+  - additional cascaded diagnostics are allowed but must be explicitly asserted if checked (don't assert count unless the test is specifically about cascade behavior)
+  - cover: syntax errors, symbol collisions, reserved-name violations, type mismatches, overlap errors, invalid HEX checksums, out-of-range addresses, circular imports, ambiguous `op` overloads, stack-depth mismatches, etc.
+- **Spec traceability** — test file names or descriptions must reference the spec section they exercise (e.g., `test/section-6.4/hex-overlap.test.ts`, or a comment `// §6.4: overlap is an error regardless of byte equality`).
+
+#### 4.2 Golden-file policy
+
+- Golden files (expected `.bin`, `.hex`, `.d8dbg.json`, `.lst`) are committed to the repo under `test/fixtures/`.
+- A diff in a golden file **must** be flagged in the PR description with the reason for the change.
+- Agents must never silently regenerate golden files. Use an explicit `--update-golden` test flag that is never used in CI.
+
+#### 4.3 The `examples/` acceptance gate
+
+All `.zax` files under `examples/` must compile without errors as a CI gate. This is the simplest end-to-end smoke test.
+
+#### 4.4 Fully working assembler gate (required before integrations)
+
+Treat the assembler as "complete enough for integration" only when all of the following are true:
+
+- All v0.1 language features in `docs/zax-spec.md` are implemented, or explicitly rejected with intentional diagnostics.
+- CLI baseline behavior in `Appendix D of docs/zax-spec.md` is implemented (`-o`, `-t`, include paths, output suppression switches, help/version).
+- CI passes on macOS, Linux, and Windows with deterministic outputs.
+- `examples/*.zax` compile successfully and artifact tests are stable.
+- Negative tests cover major diagnostic classes and stable IDs.
+- Remaining work is polish/hardening only, not missing core compiler capability.
+
+### 5) Vertical-slice PR plan (required ordering)
+
+Work in **vertical slices**, not horizontal layers. Each PR compiles a _slightly larger subset_ of ZAX from source to artifact output. This ensures the pipeline is always integrated and testable.
+
+Required PR sequence (adjust scope as needed, but preserve the vertical-slice principle):
+
+| PR  | Scope                                                                                                                                                                                     | Key spec sections                               |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 0   | **Contracts**: AST types, diagnostic types, pipeline interface, format writer interfaces. No implementation.                                                                              | —                                               |
+| 1   | **Minimal end-to-end**: lex + parse + encode + emit a single `func` with inline `asm` (raw Z80 mnemonics only, no locals, no imports). Produce `.bin`, `.hex`, and minimal `.d8dbg.json`. | §1, §2.1, §2.2, §8.1, §8.2, App B               |
+| 2   | **Constants and data**: `const`, `enum`, `data` declarations, `imm` expressions, section packing.                                                                                         | §4.3, §4.4, §6.3, §7.1                          |
+| 3   | **Module-scope `var`, types, records, arrays, unions**: layout, `sizeof`, `ea` expressions, field access, array indexing, lowering of non-encodable operands.                             | §4.1, §4.2, §5 (incl. §5.3), §6.2, §6.1.1, §7.2 |
+| 4   | **Function locals and calling convention**: `var` block in `func`, SP-relative addressing, stack frame/trampoline mechanism, `func` calls from `asm`.                                     | §8.1–§8.5                                       |
+| 5   | **Structured control flow**: `if`/`else`/`while`/`repeat`/`until`, `select`/`case`, stack-depth matching at joins.                                                                        | §10                                             |
+| 6   | **Imports and multi-module**: `import`, name resolution, collision detection, packing order, forward references.                                                                          | §3                                              |
+| 7   | **`op` declarations**: matcher types, overload resolution, autosave, expansion, cyclic-expansion detection.                                                                               | §9                                              |
+| 8   | **`bin`/`hex`/`extern`**: external bytes, Intel HEX ingestion + validation, extern bindings.                                                                                              | §6.4, §6.5                                      |
+| 9   | **Assembler completeness pass**: finish CLI polish (all switches per `Appendix D of docs/zax-spec.md`), complete D8M/LST quality, and close remaining core compiler gaps.                 | CLI doc, Appendix B, relevant spec sections     |
+| 10  | **`examples/` acceptance + hardening**: all examples compile, negative-test coverage sweep, cross-platform path edge cases, determinism audit.                                            | All                                             |
+| 11  | **Debug80 integration (deferred)**: integrate Debug80 only after PR10 and the fully-working-assembler gate (§4.4) are satisfied.                                                          | CLI doc, Appendix B                             |
+
+Each PR must include tests for its scope and must not break any previously passing tests.
+
+### 6) Agent coordination protocol
+
+When using multiple agents in parallel:
+
+#### 6.1 Ownership boundaries
+
+- **Agent A (frontend)**: `src/frontend/`, `src/semantics/`, `src/diagnostics/`. Owns lexer, parser, AST construction, name resolution, const eval.
+- **Agent B (backend)**: `src/lowering/`, `src/backend/`, `src/formats/`. Owns control-flow lowering, Z80 encoding, fixups, section packing, format writers.
+- **Agent C (CLI + integration)**: `src/cli/`, `test/integration/`, and deferred Debug80 integration after the assembler-complete gate.
+
+#### 6.2 Coordination rules
+
+- **PR #0 (contracts) must merge before any agent begins implementation.** This is the synchronization point.
+- Agents work on separate branches (`codex/<agent>-<topic>`). No two agents modify the same file.
+- Integration happens on `main`: agent merges to `main`, other agents rebase before opening their next PR.
+- If an agent needs to change a shared interface (AST, diagnostics, pipeline), it opens a **contract-change PR** first, which must be reviewed and merged before dependent work continues.
+- When interfaces are stable, agents may work in parallel on independent vertical slices (e.g., Agent A on `op` expansion while Agent B on `select` lowering).
+
+#### 6.3 Definition of done (per PR)
+
+Every PR must satisfy before merge:
+
+- [ ] Code compiles with no TypeScript errors
+- [ ] All existing tests pass (no regressions)
+- [ ] New tests added for every new feature and every new error path
+- [ ] No golden-file changes without explicit justification in PR description
+- [ ] PR description references spec sections covered
+- [ ] Linter clean (ESLint + Prettier, or equivalent)
+
+### 7) Debug80 integration (deferred requirement)
+
+Debug80 currently integrates `asm80` by spawning it and expecting `.hex` + `.lst`, and it uses D8M debug maps.
+
+This work is intentionally deferred until the assembler is fully working per §4.4.
+
+Do not prioritize Debug80 integration while core compiler behavior, CLI behavior, or test completeness is still in progress.
+
+You must plan and implement:
+
+- A way for Debug80 to detect `.zax` projects (or entry files) and invoke `zax` instead of `asm80`.
+- The assembler must work correctly when invoked the way Debug80 does: `cwd` set to the source directory, output paths passed as relative. Do not "fix" this by changing Debug80's cwd assumptions.
+- Artifact naming must fit Debug80 expectations (per `Appendix D of docs/zax-spec.md`).
+
+Deliverables for integration:
+
+- a small PR to Debug80 adding "ZAX awareness" (file extension, build pipeline invocation, error reporting)
+- an end-to-end test or documented manual recipe showing Debug80 stepping through ZAX output using the D8M map
+
+### 8) What you must deliver first
+
+Before coding, output:
+
+1. The **Phase 0 contracts PR** (AST types, diagnostic types, pipeline interface, format writer interfaces).
+2. A **phased plan** confirming or adjusting the vertical-slice PR table above, with estimated scope per PR.
+3. A **clear assembler-complete gate checklist** (feature coverage, CLI readiness, tests, determinism, diagnostics).
+
+Do not write compiler logic until Phase 0 is merged.
+
+---
+
+## Notes for refinement (for humans)
+
+Topics to decide in future revisions of this prompt:
+
+- Whether to support multiple commands (`zax build`, `zax parse`, `zax lex`) in addition to the classic `zax file.zax` flow
+- Whether to add a `--strict` mode that treats warnings as errors vs the current `--warn-as-error` switch
+- Whether D8M output should include compiler version metadata for reproducibility tracking

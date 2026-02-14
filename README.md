@@ -241,7 +241,7 @@ ZAX is under active development. The compiler exists as a Node.js CLI tool and h
 
 What works today: single and multi-module compilation, functions with locals and calling conventions, structured control flow, the op system, records/unions/arrays, `const`/`enum`/`data`/`var`/`bin`/`hex`/`extern` declarations, forward references and fixups, and a growing slice of the Z80 instruction set.
 
-What remains: broader ISA coverage, CLI hardening, full listing output, cross-platform acceptance testing, and Debug80 integration. See `docs/roadmap.md` for the concrete milestone plan.
+What remains: broader ISA coverage, CLI hardening, full listing output, cross-platform acceptance testing, and Debug80 integration. See `docs/zax-dev-playbook.md` for the concrete milestone plan.
 
 ---
 
@@ -308,13 +308,11 @@ Tests are organized by spec section and PR scope under `test/`. Golden-file comp
 
 ## Documentation
 
-| Document                     | Purpose                                           |
-| ---------------------------- | ------------------------------------------------- |
-| `docs/zax-spec.md`           | **Normative** language specification (v0.1 draft) |
-| `docs/zax-op-system-spec.md` | Extended specification for the `op` system        |
-| `docs/zax-cli.md`            | CLI behavior and artifact conventions             |
-| `docs/roadmap.md`            | Development milestones and completion gates       |
-| `docs/zax-ai-team-prompt.md` | AI team coordination and architecture guide       |
+| Document                           | Purpose                                                             |
+| ---------------------------------- | ------------------------------------------------------------------- |
+| `docs/zax-spec.md`                 | **Normative** language specification (includes CLI/op appendices)   |
+| `docs/zax-dev-playbook.md`         | Consolidated implementation, roadmap, checklist, and workflow guide |
+| `docs/v02-transition-decisions.md` | Transition rationale and migration sequencing (non-normative)       |
 
 ---
 
