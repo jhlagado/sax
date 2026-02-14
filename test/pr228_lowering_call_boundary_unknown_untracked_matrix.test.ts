@@ -27,7 +27,8 @@ describe('PR228 lowering: call-boundary unknown/untracked stack matrix', () => {
     expect(actual).toEqual([
       { message: 'Stack depth mismatch at select join (-2 vs 0).', line: 18, column: 3 },
       {
-        message: 'call reached with unknown stack depth; cannot verify callee stack contract.',
+        message:
+          'typed call "callee" reached with unknown stack depth; cannot verify typed-call boundary contract.',
         line: 19,
         column: 3,
       },
@@ -37,7 +38,8 @@ describe('PR228 lowering: call-boundary unknown/untracked stack matrix', () => {
         column: 3,
       },
       {
-        message: 'call reached after untracked SP mutation; cannot verify callee stack contract.',
+        message:
+          'typed call "callee" reached after untracked SP mutation; cannot verify typed-call boundary contract.',
         line: 28,
         column: 3,
       },
