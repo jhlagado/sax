@@ -30,4 +30,25 @@ describe('cli case-style linting', () => {
 
     await rm(work, { recursive: true, force: true });
   });
+
+  it('does not lint label prefixes or hex immediates as register tokens', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-case-style-label-hex-'));
+    const entry = join(work, 'main.zax');
+    const outBin = join(work, 'bundle.bin');
+
+    await writeFile(
+      entry,
+      ['export func main(): void', '  loop: ld a, $af', '  ret', 'end', ''].join('\n'),
+      'utf8',
+    );
+
+    const res = await runCli(['--type', 'bin', '--case-style=upper', '--output', outBin, entry]);
+    expect(res.code).toBe(0);
+    expect(res.stderr).toContain('mnemonic "ld" should be uppercase');
+    expect(res.stderr).toContain('register "a" should be uppercase');
+    expect(res.stderr).not.toContain('mnemonic "loop:" should be uppercase');
+    expect(res.stderr).not.toContain('register "af" should be uppercase');
+
+    await rm(work, { recursive: true, force: true });
+  });
 });

@@ -38,4 +38,24 @@ describe('PR263: case-style linting', () => {
       ]),
     );
   });
+
+  it('ignores label prefixes and hex immediates when linting registers/mnemonics', async () => {
+    const entry = join(__dirname, 'fixtures', 'pr264_case_style_label_hex_literal.zax');
+    const res = await compile(entry, { caseStyle: 'upper' }, { formats: defaultFormatWriters });
+
+    const errors = res.diagnostics.filter((d) => d.severity === 'error');
+    const warnings = res.diagnostics.filter((d) => d.severity === 'warning');
+    const messages = warnings.map((d) => d.message);
+
+    expect(errors).toEqual([]);
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('mnemonic "ld" should be uppercase'),
+        expect.stringContaining('register "a" should be uppercase'),
+        expect.stringContaining('mnemonic "ret" should be uppercase'),
+      ]),
+    );
+    expect(messages.join('\n')).not.toContain('mnemonic "loop:" should be uppercase');
+    expect(messages.join('\n')).not.toContain('register "af" should be uppercase');
+  });
 });

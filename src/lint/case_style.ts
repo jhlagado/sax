@@ -13,7 +13,7 @@ type TokenStyle = 'upper' | 'lower' | 'mixed';
 type NormalizedStyle = Exclude<TokenStyle, 'mixed'>;
 
 const REGISTER_RE =
-  /(?<![A-Za-z0-9_])(AF'|AF|BC|DE|HL|SP|IXH|IXL|IYH|IYL|IX|IY|A|B|C|D|E|H|L|I|R)(?![A-Za-z0-9_])/gi;
+  /(?<![A-Za-z0-9_$])(AF'|AF|BC|DE|HL|SP|IXH|IXL|IYH|IYL|IX|IY|A|B|C|D|E|H|L|I|R)(?![A-Za-z0-9_])/gi;
 
 function classifyTokenStyle(token: string): TokenStyle | undefined {
   const letters = token.replace(/[^A-Za-z]/g, '');
@@ -27,6 +27,10 @@ function sourceSliceBySpan(source: string, span: SourceSpan): string {
   const start = Math.max(0, Math.min(source.length, span.start.offset));
   const end = Math.max(start, Math.min(source.length, span.end.offset));
   return source.slice(start, end);
+}
+
+function stripLeadingLabel(text: string): string {
+  return text.replace(/^\s*[A-Za-z_][A-Za-z0-9_]*\s*:\s*/, '');
 }
 
 function scrubCharLiterals(text: string): string {
@@ -141,7 +145,7 @@ function lintAsmItems(
 ): void {
   const seenControlKeyword = new Set<string>();
   for (const item of items) {
-    const text = sourceSliceBySpan(source, item.span).trim();
+    const text = stripLeadingLabel(sourceSliceBySpan(source, item.span)).trim();
     if (text.length === 0) continue;
 
     if (item.kind === 'AsmInstruction') {
