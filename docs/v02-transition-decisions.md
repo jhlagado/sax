@@ -5,6 +5,8 @@ This document lists features requiring decisions about their future in ZAX.
 This draft captures v0.2 decisions, including intentional breaking changes from v0.1 where required for a consistent higher-level model.
 
 > Transition status: this document is a non-normative v0.2 decision record. Canonical normative language behavior is defined in `docs/zax-spec.md`.
+>
+> Execution-priority note: implementation sequencing is driven by `MUST`/required behavior in `docs/zax-spec.md`; `SHOULD`/optional policy work is staged separately in `docs/zax-dev-playbook.md`.
 
 ## v0.1 -> v0.2 Breaking-Change Snapshot
 

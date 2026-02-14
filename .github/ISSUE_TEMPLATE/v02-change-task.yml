@@ -39,6 +39,18 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: normative_priority
+    attributes:
+      label: Normative Priority Tag
+      description: Classify this task using the execution-priority model in docs/zax-dev-playbook.md.
+      options:
+        - NORMATIVE-MUST
+        - NORMATIVE-SHOULD
+        - TRANSITION-NOTE
+    validations:
+      required: true
+
   - type: checkboxes
     id: scope
     attributes:

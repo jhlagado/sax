@@ -18,7 +18,7 @@ This directory is intentionally small. Each document has a single purpose.
 ## Engineering Playbook
 
 - `zax-dev-playbook.md`
-  - Consolidated implementation and process guide (roadmap, checklist, pipeline notes, and contributor workflow).
+  - Consolidated implementation and process guide (roadmap, checklist, pipeline notes, contributor workflow, and normative-priority execution model).
 
 ## Consolidation Policy
 

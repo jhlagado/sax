@@ -25,6 +25,30 @@ This playbook replaces the previous split across:
 
 Conflict rule: if guidance here conflicts with `docs/zax-spec.md`, the spec wins.
 
+### 1.1.1 Execution Priority Contract
+
+Execution priority is derived from normative language in `docs/zax-spec.md`, not from transition-doc breadth.
+
+- Queue A (Conformance): `MUST` / required behavior in `docs/zax-spec.md`.
+- Queue B (Advisory): `SHOULD`, optional warnings, and quality improvements.
+- Transition items from `docs/v02-transition-decisions.md` enter execution only after mapping to Queue A or Queue B.
+
+Priority rule:
+
+1. Queue A items are implemented first and define conformance.
+2. Queue B items are staged separately and do not block Queue A completion.
+3. If a Queue B item should become mandatory, promote it by updating `docs/zax-spec.md` first.
+
+### 1.1.2 Normative Priority Tags
+
+Use one of the following tags on every scoped issue/PR:
+
+| Tag                | Meaning                                                          | Blocking for v0.2 conformance |
+| ------------------ | ---------------------------------------------------------------- | ----------------------------- |
+| `NORMATIVE-MUST`   | Required behavior from `docs/zax-spec.md`                        | Yes                           |
+| `NORMATIVE-SHOULD` | Advisory behavior from `docs/zax-spec.md`                        | No                            |
+| `TRANSITION-NOTE`  | Transition rationale/policy with no direct normative requirement | No                            |
+
 ### 1.2 Runtime-Atom Mental Model
 
 - A runtime atom is one runtime-varying source in address computation.
@@ -84,9 +108,11 @@ What moves the needle fastest:
 - Expand ISA coverage with fixtures + negative tests until every instruction needed by `examples/*.zax` and the active spec is supported (or explicitly rejected).
 - Add hardening gates that are difficult to game: examples compile (already exists) plus determinism checks and broad negative fixture classes.
 
-## v0.2 Spec-First Rollout Constraints
+## v0.2 Execution Queues
 
-The current docs-first direction introduces intentional near-term implementation lag in three areas. These are not open-ended; they are scheduled and tracked.
+### Queue A: Conformance (`NORMATIVE-MUST`)
+
+These items are implementation priority and gate conformance claims:
 
 | Priority | Constraint                                                   | Issue                                              | Delivery intent                      |
 | -------- | ------------------------------------------------------------ | -------------------------------------------------- | ------------------------------------ |
@@ -94,11 +120,20 @@ The current docs-first direction introduces intentional near-term implementation
 | 2        | Enforce runtime-atom-free direct call-site `ea`/`(ea)` args  | [#222](https://github.com/jhlagado/ZAX/issues/222) | Immediately after #221               |
 | 3        | Resolve op stack-policy mismatch (docs vs implementation)    | [#223](https://github.com/jhlagado/ZAX/issues/223) | After #221/#222 policy stabilization |
 
+### Queue B: Advisory (`NORMATIVE-SHOULD`)
+
+Track recommendation-quality work separately from Queue A:
+
+| Priority | Constraint                                     | Issue                 | Delivery intent                  |
+| -------- | ---------------------------------------------- | --------------------- | -------------------------------- |
+| A1       | Optional warning quality and refinement passes | (add issue as needed) | After Queue A active tranche     |
+| A2       | Additional migration guidance polish           | (add issue as needed) | Batched with docs quality cycles |
+
 Team rule for in-flight work:
 
-- If a PR touches addressing/call lowering/op semantics, it must reference one of these issues or explicitly state why it is unrelated.
-- Feature additions in these areas should not bypass the rollout order above.
-- `this playbook (Section 3)` is the canonical execution board for this rollout.
+- Every PR touching language/lowering semantics must include one priority tag: `NORMATIVE-MUST`, `NORMATIVE-SHOULD`, or `TRANSITION-NOTE`.
+- Queue B work must not displace Queue A sequencing.
+- `docs/v02-transition-decisions.md` provides rationale; it does not by itself set implementation priority.
 
 ---
 
