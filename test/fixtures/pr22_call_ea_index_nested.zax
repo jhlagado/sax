@@ -1,4 +1,4 @@
-; PR22 fixture: nested indexed EA currently rejected in lowering with clear diagnostic
+; PR22 fixture: nested indexed EA with one runtime atom remains supported
 section code at $0000
 section data at $0040
 

@@ -1,0 +1,15 @@
+section code at $0000
+section var at $1000
+
+globals
+  i: byte
+  j: byte
+  arr: byte[16]
+  grid: byte[4][8]
+
+export func main(): void
+  ld a, arr[i + j]
+  ld a, grid[i][j]
+
+  ret
+end

@@ -122,6 +122,29 @@ export function emitProgram(
 
   const reg8 = new Set(['A', 'B', 'C', 'D', 'E', 'H', 'L']);
   const reg16 = new Set(['BC', 'DE', 'HL']);
+  const runtimeAtomRegisterNames = new Set([
+    'A',
+    'B',
+    'C',
+    'D',
+    'E',
+    'H',
+    'L',
+    'HL',
+    'DE',
+    'BC',
+    'SP',
+    'IX',
+    'IY',
+    'IXH',
+    'IXL',
+    'IYH',
+    'IYL',
+    'AF',
+    "AF'",
+    'I',
+    'R',
+  ]);
   const reg8Code = new Map([
     ['B', 0],
     ['C', 1],
@@ -682,6 +705,67 @@ export function emitProgram(
     const typeExpr = resolveEaTypeExpr(ea);
     if (!typeExpr) return undefined;
     return resolveScalarKind(typeExpr);
+  };
+
+  const countRuntimeAtomsInImmExpr = (expr: ImmExprNode): number => {
+    switch (expr.kind) {
+      case 'ImmLiteral':
+      case 'ImmSizeof':
+        return 0;
+      case 'ImmOffsetof':
+        return expr.path.steps.reduce(
+          (acc, step) =>
+            acc + (step.kind === 'OffsetofIndex' ? countRuntimeAtomsInImmExpr(step.expr) : 0),
+          0,
+        );
+      case 'ImmName':
+        return resolveScalarBinding(expr.name) ? 1 : 0;
+      case 'ImmUnary':
+        return countRuntimeAtomsInImmExpr(expr.expr);
+      case 'ImmBinary':
+        return countRuntimeAtomsInImmExpr(expr.left) + countRuntimeAtomsInImmExpr(expr.right);
+    }
+  };
+
+  const countRuntimeAtomsInEaExpr = (ea: EaExprNode): number => {
+    switch (ea.kind) {
+      case 'EaName':
+        return resolveScalarBinding(ea.name) || runtimeAtomRegisterNames.has(ea.name.toUpperCase())
+          ? 1
+          : 0;
+      case 'EaField':
+        return countRuntimeAtomsInEaExpr(ea.base);
+      case 'EaAdd':
+      case 'EaSub':
+        return countRuntimeAtomsInEaExpr(ea.base) + countRuntimeAtomsInImmExpr(ea.offset);
+      case 'EaIndex': {
+        const baseAtoms = countRuntimeAtomsInEaExpr(ea.base);
+        switch (ea.index.kind) {
+          case 'IndexImm':
+            return baseAtoms + countRuntimeAtomsInImmExpr(ea.index.value);
+          case 'IndexReg8':
+          case 'IndexReg16':
+          case 'IndexMemHL':
+            return baseAtoms + 1;
+          case 'IndexMemIxIy':
+            return baseAtoms + 1 + (ea.index.disp ? countRuntimeAtomsInImmExpr(ea.index.disp) : 0);
+          case 'IndexEa':
+            return baseAtoms + countRuntimeAtomsInEaExpr(ea.index.expr);
+        }
+      }
+    }
+  };
+
+  const enforceEaRuntimeAtomBudget = (operand: AsmOperandNode, context: string): boolean => {
+    if (operand.kind !== 'Ea' && operand.kind !== 'Mem') return true;
+    const atoms = countRuntimeAtomsInEaExpr(operand.expr);
+    if (atoms <= 1) return true;
+    diagAt(
+      diagnostics,
+      operand.span,
+      `${context} exceeds runtime-atom budget (max 1; found ${atoms}).`,
+    );
+    return false;
   };
 
   const resolveEa = (ea: EaExprNode, span: SourceSpan): EaResolution | undefined => {
@@ -2266,6 +2350,10 @@ export function emitProgram(
         };
 
         const emitAsmInstruction = (asmItem: AsmInstructionNode): void => {
+          for (const operand of asmItem.operands) {
+            if (!enforceEaRuntimeAtomBudget(operand, 'Source ea expression')) return;
+          }
+
           const diagIfRetStackImbalanced = (mnemonic = 'ret'): void => {
             if (spTrackingValid && spDeltaTracked !== 0) {
               diagAt(

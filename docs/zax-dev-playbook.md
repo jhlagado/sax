@@ -55,6 +55,7 @@ Use one of the following tags on every scoped issue/PR:
 - v0.2 source-level `ea` budget: max one runtime atom per expression.
 - v0.2 direct call-site `ea`/`(ea)` arguments: runtime-atom-free.
 - User model: one moving part per expression; stage multi-dynamic work over lines.
+- Implementation note: the lowering path rejects `ea` expressions over budget with explicit diagnostics (for example, `grid[row][col]` / `arr[i + j]` when both names are runtime scalar indices).
 
 ### 1.3 Preservation and Lowering Model
 
