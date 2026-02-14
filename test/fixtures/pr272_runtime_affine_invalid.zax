@@ -1,0 +1,12 @@
+section code at $0000
+section var at $1000
+
+globals
+  idx: byte
+  arr: byte[64]
+
+export func main(): void
+  ld a, arr[idx * 3]
+  ld a, arr[idx >> 1]
+  ld a, (arr + (idx / 2))
+end

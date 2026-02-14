@@ -155,7 +155,12 @@ Allowed:
 arr[CONST1 + CONST2 * 4]
 arr[CONST1 + CONST2 * 4][idx]
 arr[idx].field
+arr[idx + 3]
+arr[(idxw << 1) + 6]
 ```
+
+Current lowering supports single-atom affine forms using constants with `+`, `-`, `*` (power-of-2 multipliers), and `<<`.
+Runtime expressions that require non-affine ops (`/`, `%`, `&`, `|`, `^`, `>>`) should be staged first.
 
 Rejected in one expression:
 
