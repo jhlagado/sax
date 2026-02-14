@@ -32,6 +32,7 @@ import type { CompileEnv } from '../semantics/env.js';
 import { evalImmExpr } from '../semantics/env.js';
 import { sizeOfTypeExpr } from '../semantics/layout.js';
 import { encodeInstruction } from '../z80/encode.js';
+import type { OpStackPolicyMode } from '../pipeline.js';
 
 function diag(diagnostics: Diagnostic[], file: string, message: string): void {
   diagnostics.push({ id: DiagnosticIds.EmitError, severity: 'error', message, file });
@@ -64,6 +65,23 @@ function diagAtWithId(
   });
 }
 
+function diagAtWithSeverityAndId(
+  diagnostics: Diagnostic[],
+  span: SourceSpan,
+  id: DiagnosticId,
+  severity: 'error' | 'warning',
+  message: string,
+): void {
+  diagnostics.push({
+    id,
+    severity,
+    message,
+    file: span.file,
+    line: span.start.line,
+    column: span.start.column,
+  });
+}
+
 function warnAt(diagnostics: Diagnostic[], span: SourceSpan, message: string): void {
   diagnostics.push({
     id: DiagnosticIds.EmitError,
@@ -89,7 +107,7 @@ export function emitProgram(
   program: ProgramNode,
   env: CompileEnv,
   diagnostics: Diagnostic[],
-  options?: { includeDirs?: string[] },
+  options?: { includeDirs?: string[]; opStackPolicy?: OpStackPolicyMode },
 ): { map: EmittedByteMap; symbols: SymbolEntry[] } {
   type SectionKind = 'code' | 'data' | 'var';
   type PendingSymbol = {
@@ -136,6 +154,11 @@ export function emitProgram(
     | { kind: 'extern'; node: ExternFuncNode; targetLower: string };
   const callables = new Map<string, Callable>();
   const opsByName = new Map<string, OpDeclNode[]>();
+  type OpStackSummary =
+    | { kind: 'known'; delta: number; hasUntrackedSpMutation: boolean }
+    | { kind: 'complex' };
+  const opStackSummaryCache = new Map<OpDeclNode, OpStackSummary>();
+  const opStackPolicyMode = options?.opStackPolicy ?? 'off';
   const declaredOpNames = new Set<string>();
   const declaredBinNames = new Set<string>();
 
@@ -173,6 +196,96 @@ export function emitProgram(
     ['L', 5],
     ['A', 7],
   ]);
+  const opStackSummaryKey = (decl: OpDeclNode): string =>
+    `${decl.name.toLowerCase()}@${decl.span.file}:${decl.span.start.line}`;
+  const summarizeOpStackEffect = (
+    decl: OpDeclNode,
+    visiting: Set<string> = new Set(),
+  ): OpStackSummary => {
+    const cached = opStackSummaryCache.get(decl);
+    if (cached) return cached;
+    const key = opStackSummaryKey(decl);
+    if (visiting.has(key)) return { kind: 'complex' };
+    visiting.add(key);
+    let delta = 0;
+    let hasUntrackedSpMutation = false;
+    let complex = false;
+    for (const item of decl.body.items) {
+      if (item.kind === 'AsmLabel') continue;
+      if (item.kind !== 'AsmInstruction') {
+        complex = true;
+        break;
+      }
+      const head = item.head.toLowerCase();
+      const operands = item.operands;
+      if (head === 'push' && operands.length === 1) {
+        delta -= 2;
+        continue;
+      }
+      if (head === 'pop' && operands.length === 1) {
+        delta += 2;
+        continue;
+      }
+      if (
+        head === 'inc' &&
+        operands.length === 1 &&
+        operands[0]?.kind === 'Reg' &&
+        operands[0].name.toUpperCase() === 'SP'
+      ) {
+        delta += 1;
+        continue;
+      }
+      if (
+        head === 'dec' &&
+        operands.length === 1 &&
+        operands[0]?.kind === 'Reg' &&
+        operands[0].name.toUpperCase() === 'SP'
+      ) {
+        delta -= 1;
+        continue;
+      }
+      if (
+        head === 'ld' &&
+        operands.length === 2 &&
+        operands[0]?.kind === 'Reg' &&
+        operands[0].name.toUpperCase() === 'SP'
+      ) {
+        hasUntrackedSpMutation = true;
+        continue;
+      }
+      if (
+        head === 'ret' ||
+        head === 'retn' ||
+        head === 'reti' ||
+        head === 'jp' ||
+        head === 'jr' ||
+        head === 'djnz'
+      ) {
+        complex = true;
+        break;
+      }
+      const nestedCandidates = opsByName.get(head);
+      if (nestedCandidates && nestedCandidates.length > 0) {
+        if (nestedCandidates.length !== 1) {
+          complex = true;
+          break;
+        }
+        const nested = summarizeOpStackEffect(nestedCandidates[0]!, visiting);
+        if (nested.kind !== 'known') {
+          complex = true;
+          break;
+        }
+        delta += nested.delta;
+        hasUntrackedSpMutation = hasUntrackedSpMutation || nested.hasUntrackedSpMutation;
+      }
+    }
+    visiting.delete(key);
+    const out: OpStackSummary = complex
+      ? { kind: 'complex' }
+      : { kind: 'known', delta, hasUntrackedSpMutation };
+    opStackSummaryCache.set(decl, out);
+    return out;
+  };
 
   const resolveScalarKind = (
     typeExpr: TypeExprNode,
@@ -3193,6 +3306,30 @@ export function emitProgram(
                 return;
               }
               const opDecl = selected;
+              if (opStackPolicyMode !== 'off' && hasStackSlots) {
+                const summary = summarizeOpStackEffect(opDecl);
+                const severity = opStackPolicyMode === 'error' ? 'error' : 'warning';
+                if (summary.kind === 'known') {
+                  if (summary.hasUntrackedSpMutation) {
+                    diagAtWithSeverityAndId(
+                      diagnostics,
+                      asmItem.span,
+                      DiagnosticIds.OpStackPolicyRisk,
+                      severity,
+                      `op "${opDecl.name}" may mutate SP in an untracked way (static body analysis); invocation inside stack-slot function may invalidate stack verification.`,
+                    );
+                  }
+                  if (summary.delta !== 0) {
+                    diagAtWithSeverityAndId(
+                      diagnostics,
+                      asmItem.span,
+                      DiagnosticIds.OpStackPolicyRisk,
+                      severity,
+                      `op "${opDecl.name}" has non-zero static stack delta (${summary.delta}) and is invoked inside a stack-slot function.`,
+                    );
+                  }
+                }
+              }
               const opKey = opDecl.name.toLowerCase();
               const cycleStart = opExpansionStack.findIndex((entry) => entry.key === opKey);
               if (cycleStart !== -1) {

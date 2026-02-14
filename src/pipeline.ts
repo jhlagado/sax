@@ -2,6 +2,7 @@ import type { Diagnostic } from './diagnostics/types.js';
 import type { Artifact, FormatWriters } from './formats/types.js';
 
 export type CaseStyleMode = 'off' | 'upper' | 'lower' | 'consistent';
+export type OpStackPolicyMode = 'off' | 'warn' | 'error';
 
 /**
  * Options that influence compilation behavior and which artifacts are produced.
@@ -30,6 +31,8 @@ export interface CompilerOptions {
   emitListing?: boolean;
   /** Optional case-style lint mode for asm keywords/register tokens. */
   caseStyle?: CaseStyleMode;
+  /** Optional op stack-policy static risk mode (`off` by default). */
+  opStackPolicy?: OpStackPolicyMode;
 }
 
 /**

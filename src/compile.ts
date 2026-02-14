@@ -314,6 +314,7 @@ export const compile: CompileFn = async (
 
   const { map, symbols } = emitProgram(program, env, diagnostics, {
     ...(options.includeDirs ? { includeDirs: options.includeDirs } : {}),
+    ...(options.opStackPolicy ? { opStackPolicy: options.opStackPolicy } : {}),
   });
   if (hasErrors(diagnostics)) {
     return { diagnostics, artifacts: [] };
