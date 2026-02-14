@@ -166,10 +166,8 @@ Stage multi-dynamic work over multiple lines.
 ### 4.1 `const`
 
 ```zax
-const
-  ScreenBase = $C000
-  TileBytes = 32
-end
+const ScreenBase = $C000
+const TileBytes = 32
 ```
 
 ### 4.2 Operators
@@ -181,9 +179,7 @@ Use compile-time constants to keep runtime lowering simple.
 ### 4.3 Example
 
 ```zax
-const
-  BufferSize = sizeof(Sprite) * 8
-end
+const BufferSize = sizeof(Sprite) * 8
 ```
 
 ## Chapter 5 - Structured Control Flow
@@ -223,13 +219,14 @@ until Z
 ### 5.4 `select`
 
 ```zax
-select mode
-case Mode.Idle:
-  ld a, 0
-case Mode.Run:
-  ld a, 1
-else:
-  ld a, $FF
+ld a, mode
+select A
+  case Mode.Idle
+    ld a, 0
+  case Mode.Run
+    ld a, 1
+  else
+    ld a, $FF
 end
 ```
 
@@ -238,9 +235,9 @@ end
 ### 6.1 Function Shape
 
 ```zax
-export func add8(a: byte, b: byte): byte
-  ld a, a
-  add a, b
+export func add8(lhs: byte, rhs: byte): byte
+  ld a, lhs
+  add a, rhs
   ld l, a
   ret
 end
@@ -262,7 +259,7 @@ Keep call-site arguments simple; stage dynamic address/value work first.
 `op` is inline expansion with operand matching, not a function call.
 
 ```zax
-op clear_carry
+op clear_carry()
   or a
 end
 ```
@@ -293,11 +290,7 @@ end
 ### 8.1 Declaration
 
 ```zax
-enum Mode
-  Idle
-  Run
-  Panic
-end
+enum Mode Idle, Run, Panic
 ```
 
 ### 8.2 Qualified Usage Required
@@ -383,26 +376,24 @@ This chapter combines structured control flow, typed layout, inline `op` expansi
 ### 12.2 Pattern 1 - State Machine with `enum` + `select`
 
 ```zax
-enum DeviceState
-  Idle
-  Busy
-  Error
-end
+enum DeviceState Idle, Busy, Error
 
 globals
   state: byte
-end
 
 export func main(): void
 loop:
   ld a, state
   select A
-  case DeviceState.Idle:
-    ld state, DeviceState.Busy
-  case DeviceState.Busy:
-    ld state, DeviceState.Idle
-  case DeviceState.Error:
-    ld state, DeviceState.Idle
+  case DeviceState.Idle
+    ld a, DeviceState.Busy
+    ld state, a
+  case DeviceState.Busy
+    ld a, DeviceState.Idle
+    ld state, a
+  case DeviceState.Error
+    ld a, DeviceState.Idle
+    ld state, a
   end
   jr loop
 end
@@ -420,15 +411,14 @@ Behavior:
 type UART
   status: byte
   control: byte
-  data: byte
+  tx_data: byte
 end
 
 section var at $A000
 globals
   uart: UART
-end
 
-op wait_ready
+op wait_ready()
 wait:
   ld a, uart.status
   cp 1
@@ -437,7 +427,7 @@ end
 
 func uart_send(value: byte): void
   wait_ready
-  ld uart.data, value
+  ld uart.tx_data, value
   ret
 end
 ```
@@ -451,19 +441,16 @@ Behavior:
 ### 12.4 Pattern 3 - Structured Command Dispatch
 
 ```zax
-enum Command
-  CmdRead
-  CmdWrite
-  CmdReset
-end
+enum Command CmdRead, CmdWrite, CmdReset
 
 func handle_command(cmd: byte): void
-  select cmd
-  case Command.CmdRead:
+  ld a, cmd
+  select A
+  case Command.CmdRead
     ; read handler
-  case Command.CmdWrite:
+  case Command.CmdWrite
     ; write handler
-  case Command.CmdReset:
+  case Command.CmdReset
     ; reset handler
   end
   ret
@@ -497,29 +484,26 @@ Use this layering model:
 ### 12.7 Mini Firmware Loop Example
 
 ```zax
-enum Mode
-  Normal
-  Panic
-end
+enum Mode Normal, Panic
 
 globals
   mode: byte
   fault_latched: byte
-end
 
 export func main(): void
 main_loop:
   ld a, fault_latched
   or a
   if NZ
-    ld mode, Mode.Panic
+    ld a, Mode.Panic
+    ld mode, a
   end
 
   ld a, mode
   select A
-  case Mode.Normal:
+  case Mode.Normal
     ; normal work
-  case Mode.Panic:
+  case Mode.Panic
     ; safe mode
   end
 
