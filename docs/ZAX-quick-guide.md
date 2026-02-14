@@ -78,6 +78,7 @@ Useful contract options:
 - `--case-style <m>` (`off|upper|lower|consistent`) for case-style linting
 - `--op-stack-policy <m>` (`off|warn|error`) for optional op stack-policy diagnostics at typed call boundaries
 - `--type-padding-warn` to emit warnings when composite type storage is padded to power-of-2 size
+- `--raw-typed-call-warn` to warn when raw `call` targets typed callable symbols
 
 ## Chapter 2 - Storage Model
 
@@ -276,6 +277,7 @@ Keep call-site arguments simple; stage dynamic address/value work first.
 - Scalar value-semantic arguments (`var`, `rec.field`, `arr[idx]`) may use the normal source `ea` runtime-atom rule (max one runtime atom).
 - Direct address arguments (`ea`/`(ea)` as address-style call-site forms) remain runtime-atom-free in v0.2.
 - Stack-verification diagnostics distinguish typed call boundaries from raw `call` instructions.
+- `--raw-typed-call-warn` is available as an advisory lint when raw `call`/`call cc,nn` targets a typed callable symbol.
 
 ## Chapter 7 - The `op` System
 

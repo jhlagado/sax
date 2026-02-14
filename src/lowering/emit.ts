@@ -107,7 +107,11 @@ export function emitProgram(
   program: ProgramNode,
   env: CompileEnv,
   diagnostics: Diagnostic[],
-  options?: { includeDirs?: string[]; opStackPolicy?: OpStackPolicyMode },
+  options?: {
+    includeDirs?: string[];
+    opStackPolicy?: OpStackPolicyMode;
+    rawTypedCallWarnings?: boolean;
+  },
 ): { map: EmittedByteMap; symbols: SymbolEntry[] } {
   type SectionKind = 'code' | 'data' | 'var';
   type PendingSymbol = {
@@ -159,6 +163,7 @@ export function emitProgram(
     | { kind: 'complex' };
   const opStackSummaryCache = new Map<OpDeclNode, OpStackSummary>();
   const opStackPolicyMode = options?.opStackPolicy ?? 'off';
+  const rawTypedCallWarningsEnabled = options?.rawTypedCallWarnings === true;
   const declaredOpNames = new Set<string>();
   const declaredBinNames = new Set<string>();
 
@@ -3280,6 +3285,23 @@ export function emitProgram(
                 );
               }
             };
+            const warnIfRawCallTargetsTypedCallable = (
+              symbolicTarget: { baseLower: string; addend: number } | undefined,
+            ): void => {
+              if (!rawTypedCallWarningsEnabled || !symbolicTarget || symbolicTarget.addend !== 0) {
+                return;
+              }
+              const callable = callables.get(symbolicTarget.baseLower);
+              if (!callable) return;
+              const typedName = callable.node.name;
+              diagAtWithSeverityAndId(
+                diagnostics,
+                asmItem.span,
+                DiagnosticIds.RawCallTypedTargetWarning,
+                'warning',
+                `Raw call targets typed callable "${typedName}" and bypasses typed-call argument/preservation semantics; use typed call syntax unless raw ABI is intentional.`,
+              );
+            };
             const callable = callables.get(asmItem.head.toLowerCase());
             if (callable) {
               const args = asmItem.operands;
@@ -4161,6 +4183,7 @@ export function emitProgram(
                   return;
                 }
                 if (symbolicTarget) {
+                  warnIfRawCallTargetsTypedCallable(symbolicTarget);
                   emitAbs16Fixup(
                     0xcd,
                     symbolicTarget.baseLower,
@@ -4185,6 +4208,7 @@ export function emitProgram(
               if (opcode !== undefined && target.kind === 'Imm') {
                 const symbolicTarget = symbolicTargetFromExpr(target.expr);
                 if (symbolicTarget) {
+                  warnIfRawCallTargetsTypedCallable(symbolicTarget);
                   emitAbs16Fixup(
                     opcode,
                     symbolicTarget.baseLower,

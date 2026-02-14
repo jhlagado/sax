@@ -35,6 +35,8 @@ export interface CompilerOptions {
   opStackPolicy?: OpStackPolicyMode;
   /** Emit v0.2 type storage padding warnings for named composite types. */
   typePaddingWarnings?: boolean;
+  /** Emit warnings when raw `call` targets a typed callable symbol. */
+  rawTypedCallWarnings?: boolean;
 }
 
 /**
