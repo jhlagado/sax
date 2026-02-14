@@ -261,6 +261,11 @@ end
 - `void` typed calls: no boundary-visible clobbers
 - non-`void` typed calls: `HL` is visible return channel (`L` for byte returns)
 
+Lowering consequence:
+
+- `void` call wrappers preserve/restore `HL`
+- non-`void` call wrappers intentionally leave `HL` as the published return channel
+
 ### 6.3 Practical Rule
 
 Keep call-site arguments simple; stage dynamic address/value work first.
