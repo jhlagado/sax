@@ -62,6 +62,9 @@ export const DiagnosticIds = {
 
   /** Type/layout error (unknown type, recursion, missing array length, etc.). */
   TypeError: 'ZAX403',
+
+  /** Case-style lint warning for keyword/register casing policy. */
+  CaseStyleLint: 'ZAX500',
 } as const;
 
 /**

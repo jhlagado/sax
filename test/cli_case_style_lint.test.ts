@@ -1,0 +1,33 @@
+import { beforeAll, describe, expect, it } from 'vitest';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { ensureCliBuilt, exists, runCli } from './helpers/cli.js';
+
+describe('cli case-style linting', () => {
+  beforeAll(async () => {
+    await ensureCliBuilt();
+  }, 180_000);
+
+  it('prints warnings and still exits 0 when --case-style triggers lint findings', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-case-style-'));
+    const entry = join(work, 'main.zax');
+    const outBin = join(work, 'bundle.bin');
+
+    await writeFile(
+      entry,
+      ['export func main(): void', '  ld a, 1', '  ret', 'end', ''].join('\n'),
+      'utf8',
+    );
+
+    const res = await runCli(['--type', 'bin', '--case-style=upper', '--output', outBin, entry]);
+    expect(res.code).toBe(0);
+    expect(res.stdout.trim()).toBe(outBin);
+    expect(res.stderr).toContain('warning: [ZAX500]');
+    expect(res.stderr).toContain('mnemonic "ld" should be uppercase');
+    expect(await exists(outBin)).toBe(true);
+
+    await rm(work, { recursive: true, force: true });
+  });
+});

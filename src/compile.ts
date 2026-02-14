@@ -8,6 +8,7 @@ import type { CompileFn, CompilerOptions, CompileResult, PipelineDeps } from './
 import type { ProgramNode } from './frontend/ast.js';
 import type { ImportNode, ModuleFileNode } from './frontend/ast.js';
 import { parseModuleFile } from './frontend/parser.js';
+import { lintCaseStyle } from './lint/case_style.js';
 import { emitProgram } from './lowering/emit.js';
 import type { Artifact } from './formats/types.js';
 import { buildEnv } from './semantics/env.js';
@@ -76,13 +77,19 @@ function isIgnorableImportProbeError(err: unknown): boolean {
   return code === 'ENOENT' || code === 'ENOTDIR';
 }
 
+type LoadedProgram = {
+  program: ProgramNode;
+  sourceTexts: Map<string, string>;
+};
+
 async function loadProgram(
   entryFile: string,
   diagnostics: Diagnostic[],
   options: Pick<CompilerOptions, 'includeDirs'>,
-): Promise<ProgramNode | undefined> {
+): Promise<LoadedProgram | undefined> {
   const entryPath = normalizePath(entryFile);
   const modules = new Map<string, ModuleFileNode>();
+  const sourceTexts = new Map<string, string>();
   const edges = new Map<string, Map<string, { line: number; column: number }>>();
   const includeDirs = (options.includeDirs ?? []).map(normalizePath);
 
@@ -123,6 +130,7 @@ async function loadProgram(
     }
 
     modules.set(p, moduleFile);
+    sourceTexts.set(p, sourceText);
     edges.set(p, new Map());
 
     for (const imp of importTargets(moduleFile)) {
@@ -252,7 +260,10 @@ async function loadProgram(
   const entryModule = modules.get(entryPath);
   if (!entryModule) return undefined;
 
-  return { kind: 'Program', span: entryModule.span, entryFile: entryPath, files: moduleFiles };
+  return {
+    program: { kind: 'Program', span: entryModule.span, entryFile: entryPath, files: moduleFiles },
+    sourceTexts,
+  };
 }
 
 /**
@@ -270,12 +281,15 @@ export const compile: CompileFn = async (
 ): Promise<CompileResult> => {
   const entryPath = normalizePath(entryFile);
   const diagnostics: Diagnostic[] = [];
-  const program = await loadProgram(entryPath, diagnostics, options);
-  if (!program) return { diagnostics, artifacts: [] };
+  const loaded = await loadProgram(entryPath, diagnostics, options);
+  if (!loaded) return { diagnostics, artifacts: [] };
+  const { program, sourceTexts } = loaded;
 
   if (hasErrors(diagnostics)) {
     return { diagnostics, artifacts: [] };
   }
+
+  lintCaseStyle(program, sourceTexts, options.caseStyle ?? 'off', diagnostics);
 
   const env = buildEnv(program, diagnostics);
   if (hasErrors(diagnostics)) {

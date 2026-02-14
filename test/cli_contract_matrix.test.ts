@@ -47,7 +47,7 @@ describe('cli contract matrix', () => {
     await rm(work, { recursive: true, force: true });
   });
 
-  it('rejects missing values for --output/--type/--include', async () => {
+  it('rejects missing values for --output/--type/--include/--case-style', async () => {
     const outMissing = await runCli(['--output']);
     expect(outMissing.code).toBe(2);
     expect(outMissing.stderr).toContain('--output expects a value');
@@ -59,6 +59,10 @@ describe('cli contract matrix', () => {
     const includeMissing = await runCli(['--include']);
     expect(includeMissing.code).toBe(2);
     expect(includeMissing.stderr).toContain('--include expects a value');
+
+    const caseStyleMissing = await runCli(['--case-style']);
+    expect(caseStyleMissing.code).toBe(2);
+    expect(caseStyleMissing.stderr).toContain('--case-style expects a value');
   });
 
   it('rejects unsupported type tokens and output/type extension mismatches', async () => {

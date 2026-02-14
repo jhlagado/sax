@@ -215,6 +215,11 @@ describe('cli acceptance matrix strictness', () => {
         message: 'Unknown option',
       },
       {
+        name: 'unsupported-case-style',
+        args: ['--case-style', 'camel', entry],
+        message: 'Unsupported --case-style "camel"',
+      },
+      {
         name: 'output-type-extension-mismatch',
         args: ['--type', 'bin', '-o', join(work, 'out.hex'), entry],
         message: '--output must end with ".bin"',

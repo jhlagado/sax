@@ -9,6 +9,7 @@ import { compile } from './compile.js';
 import type { Diagnostic } from './diagnostics/types.js';
 import { defaultFormatWriters } from './formats/index.js';
 import type { Artifact } from './formats/types.js';
+import type { CaseStyleMode } from './pipeline.js';
 
 type CliExit = { code: number };
 
@@ -20,6 +21,7 @@ type CliOptions = {
   emitHex: boolean;
   emitD8m: boolean;
   emitListing: boolean;
+  caseStyle: CaseStyleMode;
   includeDirs: string[];
 };
 
@@ -34,6 +36,7 @@ function usage(): string {
     '      --nobin           Suppress .bin',
     '      --nohex           Suppress .hex',
     '      --nod8m           Suppress .d8dbg.json',
+    '      --case-style <m>  Case-style lint mode: off|upper|lower|consistent',
     '  -I, --include <dir>   Add import search path (repeatable)',
     '  -V, --version         Print version',
     '  -h, --help            Show help',
@@ -56,6 +59,7 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
   let emitHex = true;
   let emitD8m = true;
   let emitListing = true;
+  let caseStyle: CaseStyleMode = 'off';
   const includeDirs: string[] = [];
   let entryFile: string | undefined;
 
@@ -116,6 +120,17 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
       emitD8m = false;
       continue;
     }
+    if (a === '--case-style' || a.startsWith('--case-style=')) {
+      const v = a.startsWith('--case-style=')
+        ? a.slice('--case-style='.length)
+        : ((argv[++i] ?? '') as string);
+      if (!v) fail(`--case-style expects a value`);
+      if (v !== 'off' && v !== 'upper' && v !== 'lower' && v !== 'consistent') {
+        fail(`Unsupported --case-style "${v}" (expected off|upper|lower|consistent)`);
+      }
+      caseStyle = v;
+      continue;
+    }
     if (a === '-I' || a === '--include' || a.startsWith('--include=')) {
       if (a.startsWith('--include=')) {
         const v = a.slice('--include='.length);
@@ -163,6 +178,7 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
     emitHex,
     emitD8m,
     emitListing,
+    caseStyle,
     includeDirs,
   };
 }
@@ -268,13 +284,14 @@ export async function runCli(argv: string[]): Promise<number> {
         emitHex: parsed.emitHex,
         emitD8m: parsed.emitD8m,
         emitListing: parsed.emitListing,
+        caseStyle: parsed.caseStyle,
         includeDirs: parsed.includeDirs,
       },
       { formats: defaultFormatWriters },
     );
 
-    if (res.diagnostics.some((d) => d.severity === 'error')) {
-      const sortedDiagnostics = [...res.diagnostics].sort(compareDiagnosticsForCli);
+    const sortedDiagnostics = [...res.diagnostics].sort(compareDiagnosticsForCli);
+    if (sortedDiagnostics.length > 0) {
       for (const d of sortedDiagnostics) {
         const loc =
           d.line !== undefined && d.column !== undefined
@@ -282,6 +299,9 @@ export async function runCli(argv: string[]): Promise<number> {
             : d.file;
         process.stderr.write(`${loc}: ${d.severity}: [${d.id}] ${d.message}\n`);
       }
+    }
+
+    if (sortedDiagnostics.some((d) => d.severity === 'error')) {
       return 1;
     }
 

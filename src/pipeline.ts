@@ -1,6 +1,8 @@
 import type { Diagnostic } from './diagnostics/types.js';
 import type { Artifact, FormatWriters } from './formats/types.js';
 
+export type CaseStyleMode = 'off' | 'upper' | 'lower' | 'consistent';
+
 /**
  * Options that influence compilation behavior and which artifacts are produced.
  *
@@ -26,6 +28,8 @@ export interface CompilerOptions {
   emitD8m?: boolean;
   /** Emit listing (`.lst`). */
   emitListing?: boolean;
+  /** Optional case-style lint mode for asm keywords/register tokens. */
+  caseStyle?: CaseStyleMode;
 }
 
 /**

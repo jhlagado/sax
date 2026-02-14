@@ -68,6 +68,8 @@ Keep switches intentionally small:
 - `--nohex` Suppress `.hex`
 - `--nod8m` Suppress `.d8dbg.json`
 - `-I, --include <dir>` Add import search path (repeatable)
+- `--case-style <mode>` Optional case-style linting for asm keywords/registers
+  - supported: `off`, `upper`, `lower`, `consistent`
 - `-V, --version`
 - `-h, --help`
 
@@ -75,6 +77,7 @@ Keep switches intentionally small:
 
 - CLI argument/shape errors exit with code `2`, print a `zax:` error line, and include usage text.
 - Compile diagnostics errors exit with code `1`, do **not** print usage text, and print source diagnostics only.
+- Warnings (for example case-style lint findings) are printed to stderr but still exit with code `0` when there are no errors.
 - Source diagnostics include stable diagnostic IDs (for example `[ZAX001]`, `[ZAX003]`, `[ZAX100]`) so tooling/tests can pin failure classes.
 
 ## Deterministic module order (imports)
