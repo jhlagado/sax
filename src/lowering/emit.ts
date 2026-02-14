@@ -3246,12 +3246,21 @@ export function emitProgram(
                 );
               }
             };
-            const diagIfCallStackUnverifiable = (mnemonic = 'call'): void => {
+            const diagIfCallStackUnverifiable = (options?: {
+              mnemonic?: string;
+              contractKind?: 'callee' | 'typed-call';
+            }): void => {
+              const mnemonic = options?.mnemonic ?? 'call';
+              const contractKind = options?.contractKind ?? 'callee';
+              const contractNoun =
+                contractKind === 'typed-call'
+                  ? 'typed-call boundary contract'
+                  : 'callee stack contract';
               if (hasStackSlots && spTrackingValid && spDeltaTracked > 0) {
                 diagAt(
                   diagnostics,
                   asmItem.span,
-                  `${mnemonic} reached with positive tracked stack delta (${spDeltaTracked}); cannot verify callee stack contract.`,
+                  `${mnemonic} reached with positive tracked stack delta (${spDeltaTracked}); cannot verify ${contractNoun}.`,
                 );
                 return;
               }
@@ -3259,7 +3268,7 @@ export function emitProgram(
                 diagAt(
                   diagnostics,
                   asmItem.span,
-                  `${mnemonic} reached after untracked SP mutation; cannot verify callee stack contract.`,
+                  `${mnemonic} reached after untracked SP mutation; cannot verify ${contractNoun}.`,
                 );
                 return;
               }
@@ -3267,7 +3276,7 @@ export function emitProgram(
                 diagAt(
                   diagnostics,
                   asmItem.span,
-                  `${mnemonic} reached with unknown stack depth; cannot verify callee stack contract.`,
+                  `${mnemonic} reached with unknown stack depth; cannot verify ${contractNoun}.`,
                 );
               }
             };
@@ -3498,7 +3507,10 @@ export function emitProgram(
                 return;
               }
 
-              diagIfCallStackUnverifiable();
+              diagIfCallStackUnverifiable({
+                mnemonic: `typed call "${calleeName}"`,
+                contractKind: 'typed-call',
+              });
               if (callable.kind === 'extern') {
                 emitAbs16Fixup(0xcd, callable.targetLower, 0, asmItem.span);
               } else {
@@ -4047,7 +4059,7 @@ export function emitProgram(
               diagIfCallStackUnverifiable();
             }
             if (head === 'rst' && asmItem.operands.length === 1) {
-              diagIfCallStackUnverifiable('rst');
+              diagIfCallStackUnverifiable({ mnemonic: 'rst' });
             }
             if (head === 'ret') {
               if (asmItem.operands.length === 0) {

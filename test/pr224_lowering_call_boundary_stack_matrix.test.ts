@@ -18,13 +18,15 @@ describe('PR224 lowering: call-boundary stack invariant matrix', () => {
 
     expect(
       messages.some((m) =>
-        m.includes('call reached with unknown stack depth; cannot verify callee stack contract.'),
+        m.includes(
+          'typed call "callee_safe" reached with unknown stack depth; cannot verify typed-call boundary contract.',
+        ),
       ),
     ).toBe(true);
     expect(
       messages.some((m) =>
         m.includes(
-          'call reached after untracked SP mutation; cannot verify callee stack contract.',
+          'typed call "callee_safe" reached after untracked SP mutation; cannot verify typed-call boundary contract.',
         ),
       ),
     ).toBe(true);
@@ -52,6 +54,10 @@ describe('PR224 lowering: call-boundary stack invariant matrix', () => {
       ),
     ).toBe(true);
 
-    expect(messages.some((m) => m.includes('callee_safe'))).toBe(false);
+    expect(
+      messages.some((m) =>
+        m.includes('Function "callee_safe" has unknown stack depth at fallthrough'),
+      ),
+    ).toBe(false);
   });
 });
