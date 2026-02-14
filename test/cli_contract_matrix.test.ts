@@ -166,4 +166,18 @@ describe('cli contract matrix', () => {
 
     await rm(work, { recursive: true, force: true });
   }, 20_000);
+
+  it('emits type-padding warnings when --type-padding-warn is enabled', async () => {
+    const fixture = join(__dirname, 'fixtures', 'pr274_type_padding_warning.zax');
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-type-padding-warn-'));
+    const outHex = join(work, 'out.hex');
+
+    const res = await runCli(['--type-padding-warn', '--output', outHex, fixture]);
+    expect(res.code).toBe(0);
+    expect(res.stderr).toContain('warning: [ZAX404]');
+    expect(res.stderr).toContain('Type "Sprite" size 5 padded to 8');
+    expect(await exists(outHex)).toBe(true);
+
+    await rm(work, { recursive: true, force: true });
+  });
 });

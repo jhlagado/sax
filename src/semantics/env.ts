@@ -11,7 +11,7 @@ import type {
   TypeDeclNode,
   UnionDeclNode,
 } from '../frontend/ast.js';
-import { offsetOfPathInTypeExpr, sizeOfTypeExpr } from './layout.js';
+import { offsetOfPathInTypeExpr, sizeOfTypeExpr, storageInfoForTypeDecl } from './layout.js';
 
 /**
  * Immutable compilation environment for PR2: resolved constant and enum member values.
@@ -180,7 +180,11 @@ function collectEnumMembers(items: ModuleItemNode[]): EnumDeclNode[] {
  * - Resolves names across all parsed module files (entry + imports) in program order.
  * - Constants may reference previously defined constants and enum members (forward refs not yet supported).
  */
-export function buildEnv(program: ProgramNode, diagnostics: Diagnostic[]): CompileEnv {
+export function buildEnv(
+  program: ProgramNode,
+  diagnostics: Diagnostic[],
+  options?: { typePaddingWarnings?: boolean },
+): CompileEnv {
   const consts = new Map<string, number>();
   const enums = new Map<string, number>();
   const types = new Map<string, TypeDeclNode | UnionDeclNode>();
@@ -241,6 +245,29 @@ export function buildEnv(program: ProgramNode, diagnostics: Diagnostic[]): Compi
   }
 
   const env: CompileEnv = { consts, enums, types };
+
+  if (options?.typePaddingWarnings === true) {
+    for (const mf of program.files) {
+      for (const item of mf.items) {
+        if (item.kind !== 'TypeDecl' && item.kind !== 'UnionDecl') continue;
+        const info = storageInfoForTypeDecl(item, env, diagnostics);
+        if (!info) continue;
+        if (info.storageSize <= info.preRoundSize) continue;
+        const padding = info.storageSize - info.preRoundSize;
+        diagnostics.push({
+          id: DiagnosticIds.TypePaddingWarning,
+          severity: 'warning',
+          message:
+            `Type "${item.name}" size ${info.preRoundSize} padded to ${info.storageSize} ` +
+            `(${padding} byte${padding === 1 ? '' : 's'} padding). ` +
+            `Storage-visible size is used for layout, indexing, and sizeof.`,
+          file: item.span.file,
+          line: item.span.start.line,
+          column: item.span.start.column,
+        });
+      }
+    }
+  }
 
   for (const mf of program.files) {
     for (const item of mf.items) {

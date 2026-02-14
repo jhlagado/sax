@@ -33,6 +33,8 @@ export interface CompilerOptions {
   caseStyle?: CaseStyleMode;
   /** Optional op stack-policy static risk mode (`off` by default). */
   opStackPolicy?: OpStackPolicyMode;
+  /** Emit v0.2 type storage padding warnings for named composite types. */
+  typePaddingWarnings?: boolean;
 }
 
 /**

@@ -23,6 +23,7 @@ type CliOptions = {
   emitListing: boolean;
   caseStyle: CaseStyleMode;
   opStackPolicy: OpStackPolicyMode;
+  typePaddingWarnings: boolean;
   includeDirs: string[];
 };
 
@@ -39,6 +40,7 @@ function usage(): string {
     '      --nod8m           Suppress .d8dbg.json',
     '      --case-style <m>  Case-style lint mode: off|upper|lower|consistent',
     '      --op-stack-policy <m> Op stack-policy mode: off|warn|error',
+    '      --type-padding-warn Emit warnings for power-of-2 type storage padding',
     '  -I, --include <dir>   Add import search path (repeatable)',
     '  -V, --version         Print version',
     '  -h, --help            Show help',
@@ -63,6 +65,7 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
   let emitListing = true;
   let caseStyle: CaseStyleMode = 'off';
   let opStackPolicy: OpStackPolicyMode = 'off';
+  let typePaddingWarnings = false;
   const includeDirs: string[] = [];
   let entryFile: string | undefined;
 
@@ -145,6 +148,10 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
       opStackPolicy = v;
       continue;
     }
+    if (a === '--type-padding-warn') {
+      typePaddingWarnings = true;
+      continue;
+    }
     if (a === '-I' || a === '--include' || a.startsWith('--include=')) {
       if (a.startsWith('--include=')) {
         const v = a.slice('--include='.length);
@@ -194,6 +201,7 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
     emitListing,
     caseStyle,
     opStackPolicy,
+    typePaddingWarnings,
     includeDirs,
   };
 }
@@ -301,6 +309,7 @@ export async function runCli(argv: string[]): Promise<number> {
         emitListing: parsed.emitListing,
         caseStyle: parsed.caseStyle,
         opStackPolicy: parsed.opStackPolicy,
+        typePaddingWarnings: parsed.typePaddingWarnings,
         includeDirs: parsed.includeDirs,
       },
       { formats: defaultFormatWriters },
