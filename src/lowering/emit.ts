@@ -3291,7 +3291,16 @@ export function emitProgram(
                 );
                 return;
               }
+              const requiresDirectCallSiteEaBudget = (arg: AsmOperandNode): boolean => {
+                if (arg.kind === 'Mem') return true;
+                if (arg.kind !== 'Ea') return false;
+                // Scalar-typed ea values in typed call-arg position are value-semantic and
+                // are lowered like loads, so they follow the general source ea atom budget.
+                // Address-style call-site ea arguments stay runtime-atom-free in v0.2.
+                return resolveScalarTypeForEa(arg.expr) === undefined;
+              };
               for (const arg of args) {
+                if (!requiresDirectCallSiteEaBudget(arg)) continue;
                 if (!enforceDirectCallSiteEaBudget(arg, calleeName)) return;
               }
 
