@@ -63,6 +63,7 @@ Use one of the following tags on every scoped issue/PR:
 - Typed call boundaries are preservation-safe per `docs/zax-spec.md`.
 - `op` bodies are inline; stack/register discipline is developer-managed.
 - Hidden lowering should stay bounded and predictable.
+- D8M emission includes source-attributed per-file segments; op-expanded instruction ranges are tagged as `macro` and attributed to op call-site lines.
 
 ### 1.4 Rollout Waves
 

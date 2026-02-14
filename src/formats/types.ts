@@ -17,6 +17,25 @@ export interface EmittedByteMap {
    */
   bytes: Map<number, number>;
   writtenRange?: AddressRange;
+  /**
+   * Optional source-attributed code segments emitted by lowering.
+   *
+   * Addresses are absolute in the final 16-bit address space.
+   */
+  sourceSegments?: EmittedSourceSegment[];
+}
+
+/**
+ * Source-attributed emitted range used by debug-map writers.
+ */
+export interface EmittedSourceSegment {
+  start: number;
+  end: number;
+  file: string;
+  line: number;
+  column: number;
+  kind: 'code' | 'data' | 'directive' | 'label' | 'macro' | 'unknown';
+  confidence: 'high' | 'medium' | 'low';
 }
 
 /**

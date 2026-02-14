@@ -4,6 +4,7 @@ import type {
   D8mArtifact,
   D8mJson,
   EmittedByteMap,
+  EmittedSourceSegment,
   SymbolEntry,
   WriteD8mOptions,
 } from './types.js';
@@ -133,6 +134,15 @@ function compareFileSymbols(a: D8mFileSymbol, b: D8mFileSymbol): number {
   return compareSerializedSymbols(withFile(a), withFile(b));
 }
 
+function compareD8mSegments(a: D8mSegment, b: D8mSegment): number {
+  if (a.start !== b.start) return a.start - b.start;
+  if (a.end !== b.end) return a.end - b.end;
+  if (a.lstLine !== b.lstLine) return a.lstLine - b.lstLine;
+  const kindCmp = a.kind.localeCompare(b.kind);
+  if (kindCmp !== 0) return kindCmp;
+  return a.confidence.localeCompare(b.confidence);
+}
+
 function rangesOverlap(a: SymbolAddressRange, b: SymbolAddressRange): boolean {
   return a.start < b.end && b.start < a.end;
 }
@@ -140,9 +150,9 @@ function rangesOverlap(a: SymbolAddressRange, b: SymbolAddressRange): boolean {
 /**
  * Create a minimal D8 Debug Map (D8M) v1 JSON artifact.
  *
- * PR1 implementation note:
- * - Includes only basic segments and a flat list of symbols.
- * - Does not emit instruction-to-source mappings yet.
+ * Implementation note:
+ * - Emits baseline contiguous written segments plus optional source-attributed per-file segments
+ *   when provided by lowering.
  */
 export function writeD8m(
   map: EmittedByteMap,
@@ -162,11 +172,20 @@ export function writeD8m(
     ...s,
     ...(s.file !== undefined ? { file: normalizeD8mPath(s.file, opts?.rootDir) } : {}),
   }));
+  const normalizedSourceSegments: EmittedSourceSegment[] = (map.sourceSegments ?? [])
+    .filter((segment) => segment.end > segment.start)
+    .map((segment) => ({
+      ...segment,
+      file: normalizeD8mPath(segment.file, opts?.rootDir),
+    }));
   const fileSet = new Set(
     normalizedSymbols
       .map((s) => s.file)
       .filter((f): f is string => typeof f === 'string' && f.length > 0),
   );
+  for (const segment of normalizedSourceSegments) {
+    if (segment.file.length > 0) fileSet.add(segment.file);
+  }
   const fileList = Array.from(fileSet).sort((a, b) => a.localeCompare(b));
 
   const serializedSymbols: D8mSerializedSymbol[] = normalizedSymbols
@@ -194,6 +213,15 @@ export function writeD8m(
     const entry = ensureFileEntry(key);
     const { file: _file, ...withoutFile } = symbol;
     entry.symbols.push(withoutFile);
+  }
+  for (const segment of normalizedSourceSegments) {
+    ensureFileEntry(segment.file).segments.push({
+      start: segment.start,
+      end: segment.end,
+      lstLine: segment.line,
+      kind: segment.kind,
+      confidence: segment.confidence,
+    });
   }
 
   const symbolRangesByFile = new Map<string, SymbolAddressRange[]>();
@@ -236,7 +264,7 @@ export function writeD8m(
 
   for (const entry of fileEntries.values()) {
     entry.symbols.sort(compareFileSymbols);
-    entry.segments.sort((a, b) => a.start - b.start || a.end - b.end);
+    entry.segments.sort(compareD8mSegments);
   }
 
   const files = Object.fromEntries(
