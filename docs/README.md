@@ -18,17 +18,12 @@ This directory is intentionally small. Each document has a single purpose.
 - `v02-transition-decisions.md`
   - v0.2 transition decision record retained for historical rationale while migration closes.
 - `v01-scope-decisions.md`
-  - Compatibility pointer to `v02-transition-decisions.md` during migration.
+  - Archived compatibility pointer retained only to forward old references.
 
 ## Engineering Playbook
 
 - `zax-dev-playbook.md`
   - Consolidated implementation and process guide (roadmap, checklist, pipeline notes, contributor workflow, and normative-priority execution model).
-
-## Agent Orientation (Non-normative)
-
-- `agent-brief.md`
-  - Fast onboarding summary for agents; mirrors current v0.2 direction without adding normative rules.
 
 ## Consolidation Policy
 
@@ -39,4 +34,5 @@ This directory is intentionally small. Each document has a single purpose.
 ## Archive Plan
 
 - `v02-transition-decisions.md` remains active only while migration material is being folded into `zax-spec.md` Appendix C and normative sections.
-- After that fold-in is complete, archive `v02-transition-decisions.md` and keep `v01-scope-decisions.md` only as a temporary forwarding pointer.
+- After that fold-in is complete, archive `v02-transition-decisions.md`.
+- Keep `v01-scope-decisions.md` as a minimal forwarding stub only (no duplicated transition body).
