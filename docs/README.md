@@ -20,6 +20,11 @@ This directory is intentionally small. Each document has a single purpose.
 - `zax-dev-playbook.md`
   - Consolidated implementation and process guide (roadmap, checklist, pipeline notes, contributor workflow, and normative-priority execution model).
 
+## Agent Orientation (Non-normative)
+
+- `agent-brief.md`
+  - Fast onboarding summary for agents; mirrors current v0.2 direction without adding normative rules.
+
 ## Consolidation Policy
 
 - Remove stale status snapshots and one-off audit docs once their information is folded into canonical specs or tests.
