@@ -312,7 +312,6 @@ Tests are organized by spec section and PR scope under `test/`. Golden-file comp
 | ---------------------------------- | ------------------------------------------------------------------- |
 | `docs/zax-spec.md`                 | **Normative** language specification (includes CLI/op appendices)   |
 | `docs/ZAX-quick-guide.md`          | Practical quick guide for daily language usage (non-normative)      |
-| `docs/tutorial.md`                 | Hands-on tutorial walkthrough for v0.2 workflows (non-normative)    |
 | `docs/zax-dev-playbook.md`         | Consolidated implementation, roadmap, checklist, and workflow guide |
 | `docs/v02-transition-decisions.md` | Transition rationale and migration sequencing (non-normative)       |
 

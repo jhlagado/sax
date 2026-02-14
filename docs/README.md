@@ -12,8 +12,6 @@ This directory is intentionally small. Each document has a single purpose.
 
 - `ZAX-quick-guide.md`
   - Compact chaptered quick guide for day-to-day usage.
-- `tutorial.md`
-  - Hands-on walkthrough for building ZAX programs with v0.2 semantics.
 
 ## Transition Records (Non-normative)
 
