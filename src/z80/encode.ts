@@ -46,6 +46,14 @@ function portImmValue(op: AsmOperandNode, env: CompileEnv): number | undefined {
   return evalImmExpr(op.expr, env);
 }
 
+function fitsImm8(value: number): boolean {
+  return value >= -0x80 && value <= 0xff;
+}
+
+function fitsImm16(value: number): boolean {
+  return value >= -0x8000 && value <= 0xffff;
+}
+
 function regName(op: AsmOperandNode): string | undefined {
   return op.kind === 'Reg' ? op.name.toUpperCase() : undefined;
 }
@@ -566,7 +574,7 @@ export function encodeInstruction(
       }
       const n = immValue(ops[1]!, env);
       if (n !== undefined) {
-        if (n < 0 || n > 0xff) {
+        if (!fitsImm8(n)) {
           diag(diagnostics, node, `add A, n expects imm8`);
           return undefined;
         }
@@ -638,7 +646,7 @@ export function encodeInstruction(
       return undefined;
     }
     const n = immValue(ops[0]!, env);
-    if (n === undefined || n < 0 || n > 0xffff) {
+    if (n === undefined || !fitsImm16(n)) {
       diag(diagnostics, node, `call expects imm16`);
       return undefined;
     }
@@ -656,7 +664,7 @@ export function encodeInstruction(
       return undefined;
     }
     const n = immValue(ops[1]!, env);
-    if (n === undefined || n < 0 || n > 0xffff) {
+    if (n === undefined || !fitsImm16(n)) {
       diag(diagnostics, node, `call cc, nn expects imm16`);
       return undefined;
     }
@@ -757,7 +765,7 @@ export function encodeInstruction(
         return undefined;
       }
       const n = portImmValue(port, env);
-      if (n === undefined || n < 0 || n > 0xff) {
+      if (n === undefined || !fitsImm8(n)) {
         diag(diagnostics, node, `in a,(n) expects an imm8 port number`);
         return undefined;
       }
@@ -814,7 +822,7 @@ export function encodeInstruction(
         return undefined;
       }
       const n = portImmValue(port, env);
-      if (n === undefined || n < 0 || n > 0xff) {
+      if (n === undefined || !fitsImm8(n)) {
         diag(diagnostics, node, `out (n),a expects an imm8 port number`);
         return undefined;
       }
@@ -855,7 +863,7 @@ export function encodeInstruction(
       return undefined;
     }
     const n = jpImm;
-    if (n === undefined || n < 0 || n > 0xffff) {
+    if (n === undefined || !fitsImm16(n)) {
       diag(diagnostics, node, `jp expects imm16`);
       return undefined;
     }
@@ -873,7 +881,7 @@ export function encodeInstruction(
       return undefined;
     }
     const n = immValue(ops[1]!, env);
-    if (n === undefined || n < 0 || n > 0xffff) {
+    if (n === undefined || !fitsImm16(n)) {
       diag(diagnostics, node, `jp cc, nn expects imm16`);
       return undefined;
     }
@@ -934,7 +942,7 @@ export function encodeInstruction(
     if (n !== undefined && r) {
       const indexedDst = indexedReg8(ops[0]!);
       if (indexedDst) {
-        if (n < 0 || n > 0xff) {
+        if (!fitsImm8(n)) {
           diag(diagnostics, node, `ld ${indexedDst.display}, n expects imm8`);
           return undefined;
         }
@@ -943,7 +951,7 @@ export function encodeInstruction(
       // ld r8, n
       const r8 = reg8Code(r);
       if (r8 !== undefined) {
-        if (n < 0 || n > 0xff) {
+        if (!fitsImm8(n)) {
           diag(diagnostics, node, `ld ${r}, n expects imm8`);
           return undefined;
         }
@@ -952,7 +960,7 @@ export function encodeInstruction(
 
       // ld rr, nn
       if (r === 'BC' || r === 'DE' || r === 'HL' || r === 'SP') {
-        if (n < 0 || n > 0xffff) {
+        if (!fitsImm16(n)) {
           diag(diagnostics, node, `ld ${r}, nn expects imm16`);
           return undefined;
         }
@@ -960,7 +968,7 @@ export function encodeInstruction(
         return Uint8Array.of(op, n & 0xff, (n >> 8) & 0xff);
       }
       if (r === 'IX' || r === 'IY') {
-        if (n < 0 || n > 0xffff) {
+        if (!fitsImm16(n)) {
           diag(diagnostics, node, `ld ${r}, nn expects imm16`);
           return undefined;
         }
@@ -1152,7 +1160,7 @@ export function encodeInstruction(
 
     // ld (hl), n
     if (isMemHL(ops[0]!) && n !== undefined) {
-      if (n < 0 || n > 0xff) {
+      if (!fitsImm8(n)) {
         diag(diagnostics, node, `ld (hl), n expects imm8`);
         return undefined;
       }
@@ -1162,7 +1170,7 @@ export function encodeInstruction(
     if (n !== undefined) {
       const idx = memIndexed(ops[0]!, env);
       if (idx) {
-        if (n < 0 || n > 0xff) {
+        if (!fitsImm8(n)) {
           diag(diagnostics, node, `ld (ix/iy+disp), n expects imm8`);
           return undefined;
         }
@@ -1449,7 +1457,7 @@ export function encodeInstruction(
     }
 
     const n = immValue(src, env);
-    if (n === undefined || n < 0 || n > 0xff) {
+    if (n === undefined || !fitsImm8(n)) {
       diag(diagnostics, node, `${mnemonic} expects imm8`);
       return undefined;
     }

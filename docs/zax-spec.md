@@ -742,6 +742,9 @@ Integer semantics (v0.1):
 - Division/modulo by zero is a compile error.
 - Shift counts must be non-negative; shifting by a negative count is a compile error.
 - When an `imm` value is encoded as `imm8`/`imm16`, the encoded value is the low 8/16 bits of the integer (two’s complement truncation).
+- Width-constrained immediate contexts accept signed-negative forms in addition to unsigned forms:
+  - `imm8` contexts accept `-128..255`, then encode low 8 bits.
+  - `imm16` contexts accept `-32768..65535`, then encode low 16 bits.
 
 ### 7.2 `ea` (Effective Address) Expressions
 
@@ -1719,9 +1722,9 @@ The distinction between a fixed matcher and a class matcher is central to overlo
 
 ### 3.2 Immediate Matchers
 
-**`imm8`** matches any compile-time immediate expression (per Section 7.1 of the spec) whose value fits in 8 bits (0–255 unsigned, or equivalently the low 8 bits of any integer value). When substituted into the op body, the parameter carries the evaluated immediate value.
+**`imm8`** matches any compile-time immediate expression (per Section 7.1 of the spec) whose value fits in 8-bit encoding range (`-128..255`). When substituted into the op body, the parameter carries the evaluated immediate value.
 
-**`imm16`** matches any compile-time immediate expression whose value fits in 16 bits.
+**`imm16`** matches any compile-time immediate expression whose value fits in 16-bit encoding range (`-32768..65535`).
 
 An important subtlety: a value like `42` fits in both `imm8` and `imm16`. The overload resolver treats `imm8` as more specific than `imm16` for values that fit in 8 bits (Section 5). This lets you write a fast-path overload for small immediates and a general overload for wider values:
 

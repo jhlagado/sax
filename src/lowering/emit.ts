@@ -505,6 +505,8 @@ export function emitProgram(
   };
 
   const matcherMatchesOperand = (matcher: OpMatcherNode, operand: AsmOperandNode): boolean => {
+    const fitsImm8 = (value: number): boolean => value >= -0x80 && value <= 0xff;
+    const fitsImm16 = (value: number): boolean => value >= -0x8000 && value <= 0xffff;
     const evalImmNoDiag = (expr: ImmExprNode): number | undefined => {
       const scratch: Diagnostic[] = [];
       return evalImmExpr(expr, env, scratch);
@@ -543,13 +545,13 @@ export function emitProgram(
         const expr = enumImmExprFromOperand(operand);
         if (!expr) return false;
         const v = evalImmNoDiag(expr);
-        return v !== undefined && v >= 0 && v <= 0xff;
+        return v !== undefined && fitsImm8(v);
       }
       case 'MatcherImm16': {
         const expr = enumImmExprFromOperand(operand);
         if (!expr) return false;
         const v = evalImmNoDiag(expr);
-        return v !== undefined && v >= 0 && v <= 0xffff;
+        return v !== undefined && fitsImm16(v);
       }
       case 'MatcherEa':
         return operand.kind === 'Ea';
@@ -1588,9 +1590,11 @@ export function emitProgram(
         diagAt(diagnostics, inst.span, `ld (ea), imm expects a constant imm expression.`);
         return true;
       }
+      const fitsImm8 = (value: number): boolean => value >= -0x80 && value <= 0xff;
+      const fitsImm16 = (value: number): boolean => value >= -0x8000 && value <= 0xffff;
 
       if (scalar === 'byte') {
-        if (v < 0 || v > 0xff) {
+        if (!fitsImm8(v)) {
           diagAt(diagnostics, inst.span, `ld (ea), imm expects imm8.`);
           return true;
         }
@@ -1610,7 +1614,7 @@ export function emitProgram(
       }
 
       if (scalar === 'word' || scalar === 'addr') {
-        if (v < 0 || v > 0xffff) {
+        if (!fitsImm16(v)) {
           diagAt(diagnostics, inst.span, `ld (ea), imm expects imm16.`);
           return true;
         }
