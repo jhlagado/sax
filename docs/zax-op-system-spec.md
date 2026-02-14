@@ -206,6 +206,8 @@ end
 
 **`ea`** matches an effective-address expression as defined in Section 7.2 of the spec: storage symbols (`globals`/`data`/`bin` names), function-local names (as SP-relative slots), field access (`rec.field`), array indexing (`arr[i]`), and address arithmetic (`ea + imm`, `ea - imm`). When substituted, the parameter carries the address expression _without_ implicit parentheses — it names a location, not its contents.
 
+The main spec's runtime-atom expression budget applies to `ea` matching. In v0.2, matcher acceptance does not bypass that budget: if a call-site `ea` contains too many runtime atoms, the invocation is rejected before or during semantic validation.
+
 **`mem8`** and **`mem16`** match dereference operands: call-site operands written as `(ea)` with an implied width of 8 or 16 bits respectively. These matchers are necessary because in raw Z80 mnemonics, the width of a memory dereference is implied by the instruction form (the destination or source register determines whether you're reading a byte or a word). But in an op parameter list, you may need to explicitly declare whether a memory operand carries a byte-width or word-width dereference.
 
 When a `mem8` or `mem16` parameter is substituted into the op body, the full dereference operand — including the parentheses — is substituted. This is a critical distinction from `ea`:
@@ -814,6 +816,8 @@ Several features that would be natural extensions of the op system are intention
 **Typed pointer/array matchers.** Matching on the _type_ of an `ea` (e.g., "this must be an address of a `Sprite` record") would enable safer ops but requires deeper type system integration than v0.2 currently supports.
 
 **Guard expressions.** Allowing overloads to specify additional constraints beyond matcher types (e.g., "only when `imm8` value is non-zero") would increase expressiveness but adds complexity to the resolution algorithm.
+
+**Unbounded single-expression dynamic addressing.** v0.2 intentionally caps source-level addressing complexity via the runtime-atom budget. Deep dynamic addressing is expected to be staged across multiple lines (or helper-op compositions), not packed into one expression.
 
 These omissions are deliberate scope boundaries, not oversights. They represent a natural extension path for future versions of the spec.
 

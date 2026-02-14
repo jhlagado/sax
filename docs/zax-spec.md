@@ -392,18 +392,39 @@ Layout:
 - `a[i]` addresses `base + i * sizeof(T)`.
 - `a[r][c]` addresses `base + r * sizeof(T[c]) + c * sizeof(T)` (row stride is `sizeof(T[c])`).
 
-Index forms (v0.1):
+Index forms (v0.2):
 
-- constant immediate
+- constant immediate or constant `imm` expression
 - 8-bit register (`A B C D E H L`)
 - 16-bit register (`HL DE BC`)
 - `(HL)` (byte read from memory at `HL`) for indirect index
 - `(IX±d)` / `(IY±d)` (byte read from indexed address) for indirect index
+- typed scalar index variable (`byte`/`word`)
 
-Notes (v0.1):
+Notes (v0.2):
 
 - Parentheses inside `[]` are permitted only for Z80 indirect index patterns.
 - `arr[i]` is an effective address (`ea`). Use parentheses for explicit dereference, or rely on value semantics in `LD` when the element type is scalar.
+
+Runtime-atom budget (v0.2):
+
+- A **runtime atom** is one runtime-varying source used in address computation:
+  - a scalar variable (`idx`)
+  - a register index source (`A`..`L`, `HL`/`DE`/`BC`)
+  - an indirect byte index source (`(HL)`, `(IX±d)`, `(IY±d)`)
+- Constant-only arithmetic contributes zero runtime atoms.
+- `.field` and `[const_expr]` path segments contribute zero runtime atoms.
+- A single source-level `ea` expression may contain at most **one** runtime atom.
+- If an `ea` expression contains more than one runtime atom, it is a compile error; stage computation across multiple lines.
+
+Examples (v0.2):
+
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4]`
+- Allowed (`1` atom): `arr[CONST1 + CONST2 * 4][i]`
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4][0]`
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4].name`
+- Rejected (`2` atoms): `arr[i][j]`
+- Rejected (`2` atoms): `arr[i + j]`
 
 ### 5.2 Records (Power-of-2 Sized)
 
@@ -538,7 +559,7 @@ Lowering guarantees and rejected patterns (v0.1):
 - The compiler guarantees lowering for loads/stores whose memory operand is an `ea` expression of the following forms:
   - `LD r8, (ea)` and `LD (ea), r8`
   - `LD r16, (ea)` and `LD (ea), r16`
-    where `ea` is a local/arg slot, a module-scope storage address (`globals`/`data`/`bin`), `rec.field`, `arr[i]`, or `ea +/- imm`.
+    where `ea` is a local/arg slot, a module-scope storage address (`globals`/`data`/`bin`), `rec.field`, `arr[i]`, or `ea +/- imm` (subject to the runtime-atom budget in 5.1).
 - The compiler rejects source forms that are not meaningful on Z80 and do not have a well-defined lowering under the preservation constraints, including:
   - memory-to-memory forms (e.g., `LD (ea1), (ea2)`).
   - instructions where both operands require lowering and a correct sequence cannot be produced without clobbering non-destination registers or flags that must be preserved.
@@ -741,7 +762,7 @@ Integer semantics (v0.1):
 - storage symbols: `globals` names, `data` names, `bin` base names
 - function-scope symbols: argument names and local `var` names (as SP-relative stack slots)
 - field access: `rec.field`
-- indexing: `arr[i]` and nested `arr[r][c]` (index forms as defined above)
+- indexing: `arr[i]` and nested `arr[r][c]` (index forms as defined above; runtime-atom budget from 5.1 applies)
 - address arithmetic: `ea + imm`, `ea - imm`
 
 Conceptually, an `ea` is a base address plus a sequence of **address-path** segments: `.field` selects a record field, and `[index]` selects an array element. Both forms produce an address; dereference requires parentheses as described in 6.1.
@@ -831,6 +852,16 @@ Argument values (v0.1):
 - `imm` expression: passed as a 16-bit immediate.
 - `ea` expression: passed as the 16-bit address value.
 - `(ea)` dereference: reads from memory and passes the loaded value (word or byte depending on the parameter type; `byte` is zero-extended).
+
+Call-site complexity budget (v0.2):
+
+- Call-site arguments should be simple and staged.
+- Direct `ea`/`(ea)` call-site forms are limited to runtime-atom-free addressing:
+  - `name`, `name.field`, `name +/- const`, `name[const]`
+  - `(name)`, `(name.field)`, `(name +/- const)`, `(name[const])`
+- Runtime-indexed argument forms are compile errors at call sites in v0.2.
+  - Examples: `fn arr[idx]`, `fn (arr[idx])`, `fn grid[row][col]`
+- To pass a runtime-indexed value or address, compute it first and pass a simple register argument.
 
 Calls follow the calling convention in 8.2 (compiler emits the required pushes, call, and any temporary saves/restores).
 
@@ -1317,6 +1348,7 @@ This appendix is a migration scaffold. Normative behavior remains in Sections 1-
 - [ ] Composite storage semantics are power-of-2 for arrays/records/unions; padding is storage-visible for layout, `sizeof`, and indexing.
 - [ ] Runtime index scaling is shift-only (`ADD HL,HL` chains); no multiply-based lowering for indexed composite access.
 - [ ] `arr[HL]` is a 16-bit direct index; indirect byte-at-HL indexing uses `arr[(HL)]`.
+- [ ] Runtime-atom expression budget is fully specified (max 1 runtime atom per source-level `ea` expression in v0.2).
 - [ ] Typed scalar variables use value semantics; legacy scalar paren-dereference examples are removed from normative guidance.
 - [ ] Enum members require qualification (`EnumType.Member`); unqualified members are compile errors.
 - [ ] `sizeof` semantics are storage-size semantics (including composite padding), replacing v0.1 packed-oriented behavior.
@@ -1327,6 +1359,7 @@ This appendix is a migration scaffold. Normative behavior remains in Sections 1-
 
 - [ ] Add a normative migration subsection that maps each breaking change to required source updates.
 - [ ] Add before/after examples for the highest-impact syntax and semantic changes (`arr[HL]`, `sizeof`, scalar value semantics, call-boundary expectations).
+- [ ] Add before/after examples for staged dynamic addressing (single-expression cap vs multi-line staging).
 - [ ] Add diagnostics guidance for common v0.1 -> v0.2 upgrade failures.
 
 ### C.3 Transition-Record Retirement Criteria
@@ -1334,4 +1367,3 @@ This appendix is a migration scaffold. Normative behavior remains in Sections 1-
 - [ ] Every C.1 item is covered by normative language in this file.
 - [ ] `docs/v01-scope-decisions.md` is explicitly marked archival-only.
 - [ ] `docs/README.md` continues to identify this file as the sole canonical source.
-````

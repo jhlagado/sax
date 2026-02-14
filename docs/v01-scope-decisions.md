@@ -12,6 +12,7 @@ The following behavior changes are intentional and accepted for v0.2:
 
 - **Storage semantics changed to power-of-2 for composites.** Arrays/records/unions use rounded storage sizes; padding is storage-visible in layout, `sizeof`, and indexing.
 - **`arr[HL]` meaning changed.** It is now a 16-bit direct index; indirect byte-at-HL is written as `arr[(HL)]`.
+- **Address-expression complexity is capped.** v0.2 adopts a runtime-atom budget (max 1 runtime atom per source-level `ea` expression).
 - **`sizeof` meaning changed.** Existing v0.1 `sizeof` behavior (packed-size oriented) is replaced by v0.2 storage-size semantics.
 - **Typed scalar variable semantics changed to values.** Legacy scalar paren-dereference forms from v0.1-era examples are not the v0.2 model.
 - **Typed internal call boundaries changed to preservation-safe contracts.** `void` calls expose no boundary-visible clobbers; non-void calls expose only `HL` as return channel.
@@ -78,7 +79,7 @@ end
 **Current:** Compile error.
 **Diagnostic:** `Nested indexed addresses are not supported yet.`
 
-**Decision:** ✅ **v0.2 delivery** — requires address computation chain; inherits power-of-2 behavior from §1.1.
+**Decision:** ✅ **v0.2 delivery** — nested addressing is supported with a **single-runtime-atom expression budget** (see §1.4); inherits power-of-2 behavior from §1.1.
 
 **Power-of-2 at each level:** Storage sizing is power-of-2 at each nesting level:
 
@@ -100,6 +101,12 @@ globals
 | `grid[row_index][col_index]` | Sprite          | 5 bytes          | 8 bytes   | Yes      |
 
 **Memory impact:** Padding compounds. A `Sprite[4][6]` array naturally uses 120 bytes but with padding uses 4 × 64 = 256 bytes total.
+
+**Runtime complexity cap (v0.2):**
+
+- `grid[row_index][5]` is in scope (`1` runtime atom).
+- `grid[2][col_index]` is in scope (`1` runtime atom).
+- `grid[row_index][col_index]` is deferred (would be `2` runtime atoms in one source expression).
 
 **To suppress warnings:** Design types with power-of-2 sizes from the start. Padding is automatic and unavoidable — the warning simply informs you it's happening. If you don't want warnings, structure your data in powers of 2.
 
@@ -155,9 +162,38 @@ LD arr[idx], A
 
 **Rationale:** This keeps variable indexing ergonomic while preserving predictable workspace behavior and supporting the full 16-bit index range.
 
+### 1.4 Runtime-Atom Expression Budget (v0.2)
+
+**Decision:** ✅ **v0.2 delivery** — cap a single source-level addressing expression at **one runtime atom**.
+
+**Definition:**
+
+- A **runtime atom** is one runtime-varying source participating in address computation:
+  - scalar variable source (`idx`)
+  - register source (`A`..`L`, `HL`/`DE`/`BC`)
+  - indirect register source (`(HL)`, `(IX±d)`, `(IY±d)`)
+
+**Counting rules:**
+
+- Constants and constant-only arithmetic contribute `0` atoms.
+- `.field` and `[const_expr]` segments contribute `0` atoms.
+- Each dynamic source contributes `1` atom.
+- If total atoms in one expression exceed `1`, emit a compile error and require staged lowering across multiple lines.
+
+**Examples:**
+
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4]`
+- Allowed (`1` atom): `arr[CONST1 + CONST2 * 4][idx]`
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4][0]`
+- Allowed (`0` atoms): `arr[CONST1 + CONST2 * 4].name`
+- Rejected (`2` atoms): `arr[i][j]`
+- Rejected (`2` atoms): `arr[i + j]`
+
+**Rationale:** This keeps hidden lowering bounded and predictable for an assembler-first model while still allowing expressive constant-depth address paths.
+
 ---
 
-### 1.4 16-bit Register Indexing
+### 1.5 16-bit Register Indexing
 
 **Current:** Only 8-bit indices supported (A-L registers, 0-255 range).
 
@@ -567,6 +603,7 @@ Function calls have defined register conventions.
 **Notes:**
 
 - `name[const]` is allowed: it is fixed-offset addressing resolved at compile time.
+- Runtime-atom budget for call-site `ea`/`(ea)` arguments is `0` in v0.2 (only runtime-atom-free forms above are accepted directly).
 - Dynamic or nested indexed arguments are deferred until their lowering can be guaranteed preservation-safe with low surprise.
 - Multi-step style is preferred: compute first, then pass a simple register/slot/address argument.
 
@@ -1041,9 +1078,10 @@ LD B, 1           ; ⚠ Warning: inconsistent case, expected 'ld'
 | Feature                            | Decision         | Complexity | Section |
 | ---------------------------------- | ---------------- | ---------- | ------- |
 | Non-constant indexing (power-of-2) | ✅ v0.2 delivery | Medium     | §1.1    |
-| Nested `grid[row][col]`            | ✅ v0.2 delivery | High       | §1.2    |
+| Nested indexing (`grid[...]`)      | ✅ v0.2 delivery | High       | §1.2    |
 | Array index semantics              | ✅ v0.2 delivery | Medium     | §1.3    |
-| 16-bit register indexing           | ✅ v0.2 delivery | Low        | §1.4    |
+| Runtime-atom expression budget     | ✅ v0.2 delivery | Low        | §1.4    |
+| 16-bit register indexing           | ✅ v0.2 delivery | Low        | §1.5    |
 | Local labels in ops                | ✅ v0.2 delivery | Medium     | §2.1    |
 | `var` in ops                       | ❌ Never         | —          | §2.2    |
 | IX/IY matchers (`idx16`)           | ✅ v0.2 delivery | Medium     | §2.3    |
