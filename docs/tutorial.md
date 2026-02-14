@@ -1,668 +1,259 @@
-Good — I’m going to rewrite Chapter 1 properly this time.
+# ZAX Tutorial
 
-You were right earlier: it needs another layer of structure and density. It must mirror the Pascal Quick Guide pattern:
+A practical, end-to-end tutorial for writing structured Z80 assembly in ZAX.
 
-Concept framing
+This tutorial is instructional and non-normative. Canonical language rules live in `docs/zax-spec.md`.
 
-Formal structure
+## 1. Setup and First Build
 
-Toolchain section
+Requirements:
 
-Tables
+- Node.js 20+
+- Yarn
 
-A minimal working program
+From the repository root:
 
-A “When compiled and executed…” block
+```sh
+yarn install
+yarn -s zax -- examples/hello.zax
+```
 
-Bullet-point notes
+Expected artifacts next to the source file:
 
-This version will be tighter, more instructional, and less conversational.
+- `.hex`
+- `.bin`
+- `.lst`
+- `.d8dbg.json`
 
----
+## 2. Your First ZAX Program
 
-ZAX Quick Guide
+Create `hello.zax`:
 
-Chapter 1 — Overviews and Getting Started
+```zax
+export func main(): void
+  ld a, 'A'
+  ret
+end
+```
 
----
+What this demonstrates:
 
-1.1 What Is ZAX?
+- You are writing direct Z80 instructions (`ld`, `ret`).
+- `func` gives structure and symbol naming, not a high-level runtime.
+- `export` makes the symbol visible to the build.
 
-ZAX is a structured assembler for the Z80 processor family.
+## 3. Add Constants and Storage
 
-It combines:
+ZAX separates initialized bytes (`data`) from reserved storage (`globals`).
 
-Direct Z80 instruction emission
-
-Structured control flow
-
-Typed storage
-
-Compile-time expressions
-
-Deterministic module layout
-
-ZAX does not introduce:
-
-A runtime system
-
-Automatic memory management
-
-Implicit stack frames
-
-Hidden register preservation
-
-Extended 64KB memory models
-
-ZAX is designed around one core principle:
-
-> Source constructs must lower to predictable, bounded Z80 instruction sequences.
-
----
-
-1.2 Why Use ZAX?
-
-Traditional Z80 assembly:
-
-Offers complete control
-
-Lacks structure
-
-Encourages duplication
-
-High-level languages:
-
-Offer structure
-
-Hide machine behavior
-
-Introduce runtime cost
-
-ZAX provides:
-
-Feature ZAX Approach
-
-Structure if, while, select, func, op
-Memory layout Explicit and storage-visible
-Indexing Shift-scaled only
-Types Width-based, no signed storage
-Linking Deterministic compile-time resolution
-
-ZAX is appropriate for:
-
-Firmware
-
-ROM-based systems
-
-CP/M-style environments
-
-Monitor-driven development
-
-Game engines
-
-OS-level development via extern bindings
-
----
-
-1.3 ZAX Program Structure
-
-A minimal ZAX program consists of:
-
-Optional const block
-
-Optional type definitions
-
-Optional globals block
-
-Function declarations
-
-An exported entry function
-
----
-
-General File Structure
-
+```zax
 const
-...
+  MsgLen = 5
 end
 
-type
-...
+data
+  msg: byte[5] = "HELLO"
 end
 
 globals
-...
+  cursor: addr
 end
 
 export func main(): void
-...
+  ld hl, msg
+  ld cursor, hl
+  ret
+end
+```
+
+Notes:
+
+- `data` emits bytes into the image.
+- `globals` reserves addresses (typically RAM), no emitted bytes.
+- `cursor` is a typed scalar with value semantics in `LD`/typed call contexts.
+
+## 4. Structured Control Flow with Real Flags
+
+Control flow is explicit but still flag-driven.
+
+```zax
+export func countdown(): void
+  ld b, 5
+  repeat
+    dec b
+  until Z
+end
+```
+
+Key rule:
+
+- Structured keywords test current CPU flags.
+- You set flags using normal Z80 instructions (`or a`, `cp`, `dec`, etc.).
+
+## 5. Functions and Typed Call Boundaries
+
+Typed calls use compiler-generated glue and preservation contracts.
+
+```zax
+func add_words(a: word, b: word): word
+  ld hl, a
+  ld de, b
+  add hl, de
+  ret
 end
 
-All sections are optional except for at least one function.
-
----
-
-1.4 The ZAX Toolchain
-
-ZAX source files use the extension:
-
-.zax
-
-Compile from the command line:
-
-zax filename.zax
-
----
-
-Output Files
-
-File Purpose
-
-.hex Intel HEX (64KB model only)
-.bin Raw binary image
-.d8dbg.json Debug metadata
-
-ZAX targets a single 64KB address space.
-
-Extended-address HEX record types (02/04) are not supported.
-
----
-
-1.5 External Functions
-
-Operating system or firmware routines may be imported:
-
-extern func os_print_char(a: byte): void
-
-External declarations:
-
-Generate no code
-
-Declare a boundary
-
-Must match the external ABI
-
-This allows integration with:
-
-BIOS routines
-
-Monitor ROM calls
-
-OS kernels
-
-Hardware interrupt handlers
-
----
-
-1.6 First Program
-
-Create a file named main.zax:
+extern func bios_putc(ch: byte): void at $F003
 
 export func main(): void
-ld a, 'A'
-ret
+  add_words $0010, $0020
+  bios_putc L
 end
+```
 
----
+Call-boundary model:
 
-Explanation
+- `void` typed calls preserve boundary-visible registers/flags.
+- Non-`void` typed calls expose `HL` as return channel (`L` for byte returns).
+- Raw mnemonic `call` remains raw Z80 behavior and is outside typed-call guarantees.
 
-Construct Meaning
+## 6. Records, Arrays, `sizeof`, and `offsetof`
 
-export Makes symbol visible to linker
-func Declares a function
-(): void No parameters, no return value
-ld a, 'A' Raw Z80 instruction
-ret Explicit return
-end Terminates function
+Composite storage in v0.2 uses power-of-two sizing.
 
-There is:
-
-No implicit ret
-
-No automatic stack frame
-
-No hidden register save
-
----
-
-1.7 When Compiled and Executed…
-
-The emitted machine code corresponds directly to:
-
-3E 41 ; LD A,'A'
-C9 ; RET
-
-When called:
-
-Register A contains ASCII 'A'
-
-Control returns immediately
-
----
-
-1.8 ZAX v0.2 Core Invariants
-
-ZAX v0.2 introduces important structural rules:
-
-1. Composite types use power-of-two storage sizes
-
-2. Address expressions allow only one runtime atom
-
-3. arr[HL] means 16-bit direct index
-
-4. arr[(HL)] means indirect byte-at-HL
-
-5. sizeof returns padded storage size
-
-6. Enum members must be namespace-qualified
-
-7. Functions do not support overloading
-
-8. Ops expand inline and do not create stack frames
-
-These rules ensure bounded and predictable lowering.
-
----
-
-1.9 Important Points to Note
-
-ZAX is assembler-first.
-
-Storage layout is explicit and visible.
-
-Compile-time expressions generate no runtime code.
-
-Index scaling never generates multiplication.
-
-Function boundaries are preservation-safe.
-
-Signedness is not a storage property.
-
----
-
-1.10 What Comes Next
-
-The next chapter explains the Storage Model:
-
-Scalar widths
-
-Composite layout
-
-Power-of-two padding
-
-sizeof and offsetof
-
-Storage-visible invariants
-
-Understanding storage is required before arrays and indexing.
-
----
-
-If you’d like, I can now:
-
-Refine Chapter 1 even further to match Pascal’s editorial tone more closely
-
-Or begin restructuring the entire tutorial outline using your full Pascal blueprint
-
-Or tighten this into a “Quick Guide condensed edition” style
-
-Your call.
-
-Good — now we follow the Pascal rhythm: after structure and mechanics comes constants and expressions, with formal syntax, tables, and runnable demonstrations.
-
----
-
-ZAX Quick Guide
-
-Chapter 4 — Constants and Compile-Time Expressions
-
----
-
-4.1 Introduction
-
-ZAX distinguishes between:
-
-Runtime values (registers, variables)
-
-Compile-time values (constants and folded expressions)
-
-Compile-time expressions:
-
-Do not generate code
-
-Must be fully resolvable by the compiler
-
-Participate in layout and addressing
-
-This chapter defines:
-
-const
-
-Compile-time arithmetic
-
-sizeof
-
-offsetof
-
-Atom interaction rules
-
----
-
-4.2 Constant Declarations
-
-General Form
-
-const
-name = expression
-end
-
-The expression must be fully computable at compile time.
-
----
-
-Example
-
-const
-screen_width = 32
-screen_height = 24
-screen_size = screen_width \* screen_height
-end
-
-All three are compile-time constants.
-
----
-
-When Compiled…
-
-No code is emitted.
-Values are substituted directly into instruction operands.
-
----
-
-4.3 Compile-Time Expression Rules
-
-A compile-time expression may include:
-
-Integer literals
-
-Previously defined constants
-
-Arithmetic operators
-
-sizeof(Type)
-
-offsetof(Type, field)
-
-Parentheses for grouping
-
-It may NOT include:
-
-Registers
-
-Variables
-
-Indirect forms
-
-Function calls
-
----
-
-4.4 Arithmetic Operators (Compile-Time)
-
-Arithmetic Operators Table
-
-Operator Meaning
-
-- Addition
-
-* Subtraction
-
-- Multiplication
-  / Integer division
-  % Remainder
-  << Shift left
-  > >     Shift right
-  > >
-  > > & Bitwise AND
-  > > `	`
-  > > ^ Bitwise XOR
-
-All operations use integer arithmetic.
-
----
-
-Example
-
-const
-mask = (1 << 3)
-value = (5 + 2) \* 4
-end
-
-mask = 8
-value = 28
-
----
-
-4.5 sizeof
-
-Returns storage size of a type (power-of-two rounded).
-
-Example
-
-type Point
-x: byte
-y: byte
-end
-
-const
-point_size = sizeof(Point)
-end
-
-point_size = 2
-
----
-
-Example with Padding
-
+```zax
 type Sprite
-x: byte
-y: byte
-tile: byte
-flags: word
+  x: byte
+  y: byte
+  tile: byte
+  flags: word
 end
 
 const
-sprite_size = sizeof(Sprite)
+  SpriteSize = sizeof(Sprite)
+  FlagsOff = offsetof(Sprite, flags)
 end
 
-Natural size = 5
-Storage size = 8
-
-sprite_size = 8
-
----
-
-4.6 offsetof
-
-Returns byte offset of a field within a record.
-
-General Form
-
-offsetof(Type, field_path)
-
----
-
-Example
-
-const
-offset_tile = offsetof(Sprite, tile)
-offset_flags = offsetof(Sprite, flags)
+globals
+  sprites: Sprite[8]
 end
+```
 
-Layout:
+For this `Sprite`:
 
-Field Offset
+- Natural size is 5 bytes.
+- Storage size becomes 8 bytes.
+- `sizeof(Sprite)` is 8.
+- Indexing stride uses 8-byte storage size.
 
-x 0
-y 1
-tile 2
-flags 3
+## 7. Indexing Forms and the v0.2 Semantics Shift
 
-Offsets reflect natural layout order.
-Total size still rounded to 8.
+The high-impact migration change:
 
----
-
-4.7 Nested offsetof
-
-Allowed when indices are constant:
-
-type Scene
-sprites: Sprite[4]
-end
-
-const
-second_sprite_offset = offsetof(Scene, sprites[1])
-end
-
-second_sprite_offset = 8
-
-(Each Sprite occupies 8 bytes.)
-
----
-
-4.8 Atom Interaction with Expressions
-
-Compile-time arithmetic does not contribute runtime atoms.
+- `arr[HL]` means direct 16-bit index from `HL`.
+- `arr[(HL)]` means index loaded from memory at address `(HL)`.
 
 Example:
 
-ld a, table[CONST1 + CONST2 * 4]
-
-Atom count = 0
-Fully resolved at compile time.
-
----
-
-Rejected Example
-
-ld a, table[i + j]
-
-Atom count = 2
-Compile error.
-
-Diagnostic:
-
-Error: Address expression contains more than one runtime atom.
-
----
-
-4.9 Grouping Parentheses
-
-Parentheses inside [] may mean:
-
-1. Z80 indirect form (HL)
-
-2. Expression grouping (3+5)
-
-If parentheses contain only constants:
-
-arr[(3+5)]
-
-Compiler may emit a warning:
-
-Warning: Redundant grouping parentheses.
-
----
-
-4.10 Compile-Time vs Runtime Example
-
-const
-index = 5
-end
-
+```zax
 globals
-table: byte[16]
+  table: byte[512]
+  index_ptr: addr
 end
+
+export func demo(): void
+  ld hl, 200
+  ld a, table[HL]   ; direct 16-bit index
+
+  ld hl, index_ptr
+  ld a, table[(HL)] ; index byte read from memory at HL
+end
+```
+
+Keep hidden lowering predictable by staging complex dynamic addressing across lines.
+
+## 8. Inline `op` for Zero-Overhead Instruction Families
+
+`op` expands inline with matcher-based overload resolution.
+
+```zax
+op add16(dst: HL, src: reg16)
+  add hl, src
+end
+
+op add16(dst: DE, src: reg16)
+  ex de, hl
+  add hl, src
+  ex de, hl
+end
+
+export func demo_op(): void
+  ld de, $1000
+  ld bc, $0002
+  add16 DE, BC
+end
+```
+
+Guidance:
+
+- Use `op` for instruction-like local patterns.
+- Use `func` for reusable call boundaries with locals/arguments.
+- `op` stack/register discipline is developer-managed.
+
+## 9. Multi-Module Layout
+
+ZAX uses imports and deterministic module ordering.
+
+`main.zax`:
+
+```zax
+import "math.zax"
 
 export func main(): void
-ld a, table[index]
-ret
+  inc_word
+end
+```
+
+`math.zax`:
+
+```zax
+globals
+  counter: word
 end
 
-Here:
+export func inc_word(): void
+  ld hl, counter
+  inc hl
+  ld counter, hl
+end
+```
 
-index is compile-time constant
+Behavior:
 
-Address is computed at compile time
+- Imported module names enter a shared global namespace.
+- Symbol collisions are compile errors.
+- Build packing order is deterministic by import graph and stable tie-breakers.
 
-No runtime scaling needed
+## 10. v0.1 to v0.2 Migration Checklist
 
----
+Use this when upgrading older sources:
 
-When Compiled and Executed…
+1. Replace unqualified enum members (`Read`) with qualified names (`Mode.Read`).
+2. Audit any code that assumed packed composite sizes; use `sizeof`/`offsetof` under storage-size semantics.
+3. Update indexing intent:
+   `arr[HL]` is direct, `arr[(HL)]` is indirect-byte indexing.
+4. Prefer scalar value forms in typed contexts (`ld a, arg`, `ld arg, a`) instead of legacy scalar paren forms.
+5. Keep dynamic addressing simple per expression; stage multi-step dynamic work explicitly.
 
-Instruction will directly reference:
+## 11. Common Pitfalls
 
-table + 5
+- Using `case` labels without enum qualification.
+- Assuming ops provide automatic preservation boundaries.
+- Mixing typed call expectations with raw `call` semantics.
+- Forgetting that composite padding affects array stride and offsets.
 
-No extra instructions emitted.
+## 12. Where to Go Next
 
----
-
-4.11 Important Points to Note
-
-const values exist only at compile time.
-
-sizeof returns storage size.
-
-offsetof returns byte offset.
-
-Compile-time expressions generate no runtime code.
-
-Runtime atoms only apply to dynamic sources.
-
-Constant arithmetic is unlimited in depth.
-
----
-
-4.12 Summary
-
-Compile-time expressions in ZAX:
-
-Define layout
-
-Parameterize addressing
-
-Avoid magic numbers
-
-Interact safely with the runtime-atom rule
-
-They form the bridge between storage and structured control flow.
-
----
-
-What Comes Next
-
-Chapter 5 introduces:
-
-Structured control flow
-
-if
-
-while
-
-repeat
-
-select
-
-Flag-based semantics
-
-Lowering behavior
-
-This is where ZAX moves from layout to execution structure.
-
----
-
-If you want to keep following Pascal’s rhythm exactly, next chapter should be Control Flow before Functions — because that mirrors the traditional learning progression.
+- Normative language reference: `docs/zax-spec.md`
+- Practical chapter guide: `docs/ZAX-quick-guide.md`
+- Implementation status and execution queues: `docs/zax-dev-playbook.md`
+- Transition rationale and migration context: `docs/v02-transition-decisions.md`
