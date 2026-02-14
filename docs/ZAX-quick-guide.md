@@ -77,6 +77,7 @@ Useful contract options:
 
 - `--case-style <m>` (`off|upper|lower|consistent`) for case-style linting
 - `--op-stack-policy <m>` (`off|warn|error`) for optional op stack-policy diagnostics at typed call boundaries
+- `--type-padding-warn` to emit warnings when composite type storage is padded to power-of-2 size
 
 ## Chapter 2 - Storage Model
 
@@ -106,6 +107,8 @@ end
 ```
 
 Natural size is `5`, storage size is `8`.
+
+The compiler warns when a composite type is implicitly padded. Explicit padding to a power-of-2 size suppresses the warning.
 
 ### 2.3 Why This Rule Exists
 

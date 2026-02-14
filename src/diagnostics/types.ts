@@ -81,6 +81,9 @@ export const DiagnosticIds = {
   /** Type/layout error (unknown type, recursion, missing array length, etc.). */
   TypeError: 'ZAX403',
 
+  /** Type storage size is power-of-2 padded (informational warning). */
+  TypePaddingWarning: 'ZAX404',
+
   /** Case-style lint warning for keyword/register casing policy. */
   CaseStyleLint: 'ZAX500',
 } as const;

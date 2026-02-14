@@ -10,73 +10,77 @@ import type {
 } from '../frontend/ast.js';
 import type { CompileEnv } from './env.js';
 
-/**
- * Compute the packed size (in bytes) of a type expression.
- *
- * PR3 implementation note:
- * - Supports scalar types (`byte`, `word`, `addr`), arrays, and record types.
- * - Named types are resolved via `env.types`.
- */
-export function sizeOfTypeExpr(
+export interface TypeStorageInfo {
+  preRoundSize: number;
+  storageSize: number;
+}
+
+function nextPow2(value: number): number {
+  if (value <= 1) return value;
+  let pow = 1;
+  while (pow < value) pow <<= 1;
+  return pow;
+}
+
+function scalarSize(name: string): number | undefined {
+  switch (name) {
+    case 'byte':
+      return 1;
+    case 'word':
+    case 'addr':
+    case 'ptr':
+      return 2;
+    default:
+      return undefined;
+  }
+}
+
+type TypeSizeResolver = (te: TypeExprNode) => TypeStorageInfo | undefined;
+
+function typeStorageInfoForDecl(
+  decl: TypeDeclNode | UnionDeclNode,
+  resolveTypeExpr: TypeSizeResolver,
+): TypeStorageInfo | undefined {
+  if (decl.kind === 'UnionDecl') {
+    let maxStorage = 0;
+    for (const f of decl.fields) {
+      const fs = resolveTypeExpr(f.typeExpr);
+      if (!fs) return undefined;
+      if (fs.storageSize > maxStorage) maxStorage = fs.storageSize;
+    }
+    return { preRoundSize: maxStorage, storageSize: nextPow2(maxStorage) };
+  }
+
+  const te = decl.typeExpr;
+  if (te.kind === 'RecordType') {
+    let sum = 0;
+    for (const f of te.fields) {
+      const fs = resolveTypeExpr(f.typeExpr);
+      if (!fs) return undefined;
+      sum += fs.storageSize;
+    }
+    return { preRoundSize: sum, storageSize: nextPow2(sum) };
+  }
+  return resolveTypeExpr(te);
+}
+
+export function storageInfoForTypeExpr(
   typeExpr: TypeExprNode,
   env: CompileEnv,
   diagnostics?: Diagnostic[],
-): number | undefined {
-  const nextPow2 = (value: number): number => {
-    if (value <= 1) return value;
-    let pow = 1;
-    while (pow < value) pow <<= 1;
-    return pow;
-  };
+): TypeStorageInfo | undefined {
   const visiting = new Set<string>();
-  const memo = new Map<string, number>();
+  const memo = new Map<string, TypeStorageInfo>();
 
   const diag = (file: string, message: string) => {
     diagnostics?.push({ id: DiagnosticIds.TypeError, severity: 'error', message, file });
   };
 
-  const scalarSize = (name: string): number | undefined => {
-    switch (name) {
-      case 'byte':
-        return 1;
-      case 'word':
-      case 'addr':
-      case 'ptr':
-        return 2;
-      default:
-        return undefined;
-    }
-  };
-
-  const sizeOfDecl = (decl: TypeDeclNode | UnionDeclNode): number | undefined => {
-    if (decl.kind === 'UnionDecl') {
-      let max = 0;
-      for (const f of decl.fields) {
-        const fs = sizeOf(f.typeExpr);
-        if (fs === undefined) return undefined;
-        if (fs > max) max = fs;
-      }
-      return nextPow2(max);
-    }
-
-    const te = decl.typeExpr;
-    if (te.kind === 'RecordType') {
-      let sum = 0;
-      for (const f of te.fields) {
-        const fs = sizeOf(f.typeExpr);
-        if (fs === undefined) return undefined;
-        sum += fs;
-      }
-      return nextPow2(sum);
-    }
-    return sizeOf(te);
-  };
-
-  const sizeOf = (te: TypeExprNode): number | undefined => {
+  const sizeOf = (te: TypeExprNode): TypeStorageInfo | undefined => {
     switch (te.kind) {
       case 'TypeName': {
         const s = scalarSize(te.name);
-        if (s !== undefined) return s;
+        if (s !== undefined) return { preRoundSize: s, storageSize: s };
 
         const cached = memo.get(te.name);
         if (cached !== undefined) return cached;
@@ -92,16 +96,16 @@ export function sizeOfTypeExpr(
             diag(te.span.file, `Unknown type "${te.name}".`);
             return undefined;
           }
-          const sz = sizeOfDecl(decl);
-          if (sz !== undefined) memo.set(te.name, sz);
-          return sz;
+          const info = typeStorageInfoForDecl(decl, sizeOf);
+          if (info) memo.set(te.name, info);
+          return info;
         } finally {
           visiting.delete(te.name);
         }
       }
       case 'ArrayType': {
         const es = sizeOf(te.element);
-        if (es === undefined) return undefined;
+        if (!es) return undefined;
         if (te.length === undefined) {
           diag(
             te.span.file,
@@ -109,21 +113,52 @@ export function sizeOfTypeExpr(
           );
           return undefined;
         }
-        return nextPow2(es * te.length);
+        const preRound = es.storageSize * te.length;
+        return { preRoundSize: preRound, storageSize: nextPow2(preRound) };
       }
       case 'RecordType': {
         let sum = 0;
         for (const f of te.fields) {
           const fs = sizeOf(f.typeExpr);
-          if (fs === undefined) return undefined;
-          sum += fs;
+          if (!fs) return undefined;
+          sum += fs.storageSize;
         }
-        return nextPow2(sum);
+        return { preRoundSize: sum, storageSize: nextPow2(sum) };
       }
     }
   };
 
   return sizeOf(typeExpr);
+}
+
+export function storageInfoForTypeDecl(
+  decl: TypeDeclNode | UnionDeclNode,
+  env: CompileEnv,
+  diagnostics?: Diagnostic[],
+): TypeStorageInfo | undefined {
+  return storageInfoForTypeExpr(
+    decl.kind === 'UnionDecl'
+      ? { kind: 'TypeName', span: decl.span, name: decl.name }
+      : decl.typeExpr,
+    env,
+    diagnostics,
+  );
+}
+
+/**
+ * Compute the packed size (in bytes) of a type expression.
+ *
+ * PR3 implementation note:
+ * - Supports scalar types (`byte`, `word`, `addr`), arrays, and record types.
+ * - Named types are resolved via `env.types`.
+ */
+export function sizeOfTypeExpr(
+  typeExpr: TypeExprNode,
+  env: CompileEnv,
+  diagnostics?: Diagnostic[],
+): number | undefined {
+  const info = storageInfoForTypeExpr(typeExpr, env, diagnostics);
+  return info?.storageSize;
 }
 
 /**
@@ -146,19 +181,6 @@ export function offsetOfPathInTypeExpr(
     | { kind: 'Array'; element: TypeExprNode; length: number }
     | { kind: 'Record'; fields: RecordFieldNode[] }
     | { kind: 'Union'; fields: RecordFieldNode[] };
-
-  const scalarSize = (name: string): number | undefined => {
-    switch (name) {
-      case 'byte':
-        return 1;
-      case 'word':
-      case 'addr':
-      case 'ptr':
-        return 2;
-      default:
-        return undefined;
-    }
-  };
 
   const diag = (file: string, message: string) => {
     diagnostics?.push({ id: DiagnosticIds.TypeError, severity: 'error', message, file });

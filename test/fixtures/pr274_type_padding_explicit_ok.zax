@@ -1,0 +1,19 @@
+section code at $0000
+section var at $1000
+
+type Sprite
+  x: byte
+  y: byte
+  tile: byte
+  flags: word
+  _pad_word: word
+  _pad_byte: byte
+end
+
+globals
+  one: Sprite
+
+export func main(): void
+  ld a, one.x
+  ret
+end
