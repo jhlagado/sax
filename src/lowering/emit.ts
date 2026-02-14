@@ -709,6 +709,118 @@ export function emitProgram(
     return undefined;
   };
 
+  const formatOpMatcher = (matcher: OpMatcherNode): string => {
+    switch (matcher.kind) {
+      case 'MatcherReg8':
+        return 'reg8';
+      case 'MatcherReg16':
+        return 'reg16';
+      case 'MatcherIdx16':
+        return 'idx16';
+      case 'MatcherCc':
+        return 'cc';
+      case 'MatcherImm8':
+        return 'imm8';
+      case 'MatcherImm16':
+        return 'imm16';
+      case 'MatcherEa':
+        return 'ea';
+      case 'MatcherMem8':
+        return 'mem8';
+      case 'MatcherMem16':
+        return 'mem16';
+      case 'MatcherFixed':
+        return matcher.token;
+      default:
+        return 'unknown';
+    }
+  };
+
+  const formatImmExprForOpDiag = (expr: ImmExprNode): string => {
+    switch (expr.kind) {
+      case 'ImmLiteral':
+        return String(expr.value);
+      case 'ImmName':
+        return expr.name;
+      case 'ImmSizeof':
+        return 'sizeof(...)';
+      case 'ImmOffsetof':
+        return 'offsetof(...)';
+      case 'ImmUnary':
+        return `${expr.op}${formatImmExprForOpDiag(expr.expr)}`;
+      case 'ImmBinary':
+        return `${formatImmExprForOpDiag(expr.left)} ${expr.op} ${formatImmExprForOpDiag(expr.right)}`;
+      default:
+        return 'imm';
+    }
+  };
+
+  const formatEaExprForOpDiag = (ea: EaExprNode): string => {
+    switch (ea.kind) {
+      case 'EaName':
+        return ea.name;
+      case 'EaField':
+        return `${formatEaExprForOpDiag(ea.base)}.${ea.field}`;
+      case 'EaAdd':
+        return `${formatEaExprForOpDiag(ea.base)} + ${formatImmExprForOpDiag(ea.offset)}`;
+      case 'EaSub':
+        return `${formatEaExprForOpDiag(ea.base)} - ${formatImmExprForOpDiag(ea.offset)}`;
+      case 'EaIndex': {
+        let idx = '';
+        switch (ea.index.kind) {
+          case 'IndexImm':
+            idx = formatImmExprForOpDiag(ea.index.value);
+            break;
+          case 'IndexReg8':
+          case 'IndexReg16':
+            idx = ea.index.reg;
+            break;
+          case 'IndexMemHL':
+            idx = '(HL)';
+            break;
+          case 'IndexMemIxIy':
+            idx = ea.index.disp
+              ? `${ea.index.base}${ea.index.disp.kind === 'ImmUnary' ? '' : '+'}${formatImmExprForOpDiag(ea.index.disp)}`
+              : ea.index.base;
+            break;
+          case 'IndexEa':
+            idx = formatEaExprForOpDiag(ea.index.expr);
+            break;
+        }
+        return `${formatEaExprForOpDiag(ea.base)}[${idx}]`;
+      }
+      default:
+        return 'ea';
+    }
+  };
+
+  const formatAsmOperandForOpDiag = (operand: AsmOperandNode): string => {
+    switch (operand.kind) {
+      case 'Reg':
+        return operand.name;
+      case 'Imm':
+        return formatImmExprForOpDiag(operand.expr);
+      case 'Ea':
+        return formatEaExprForOpDiag(operand.expr);
+      case 'Mem':
+        return `(${formatEaExprForOpDiag(operand.expr)})`;
+      case 'PortC':
+        return '(C)';
+      case 'PortImm8':
+        return `(${formatImmExprForOpDiag(operand.expr)})`;
+      default:
+        return '?';
+    }
+  };
+
+  const formatOpSignature = (opDecl: OpDeclNode): string => {
+    const params = opDecl.params.map((p) => `${p.name}: ${formatOpMatcher(p.matcher)}`).join(', ');
+    return `${opDecl.name}(${params})`;
+  };
+
+  const formatOpDefinitionForDiag = (opDecl: OpDeclNode): string =>
+    `${formatOpSignature(opDecl)} (${opDecl.span.file}:${opDecl.span.start.line})`;
+
   const cloneImmExpr = (expr: ImmExprNode): ImmExprNode => {
     const cloneOffsetofPath = (path: any): any => ({
       ...path,
@@ -2340,7 +2452,12 @@ export function emitProgram(
           spValid: true,
           spInvalidDueToMutation: false,
         };
-        const opExpansionStack: string[] = [];
+        type OpExpansionFrame = {
+          key: string;
+          name: string;
+          declSpan: SourceSpan;
+        };
+        const opExpansionStack: OpExpansionFrame[] = [];
 
         const syncFromFlow = (): void => {
           spDeltaTracked = flow.spDelta;
@@ -2824,7 +2941,23 @@ export function emitProgram(
 
           const opCandidates = opsByName.get(asmItem.head.toLowerCase());
           if (opCandidates && opCandidates.length > 0) {
-            const matches = opCandidates.filter((candidate) => {
+            const arityMatches = opCandidates.filter(
+              (candidate) => candidate.params.length === asmItem.operands.length,
+            );
+            if (arityMatches.length === 0) {
+              const available = opCandidates
+                .map((candidate) => `  - ${formatOpSignature(candidate)}`)
+                .join('\n');
+              diagAt(
+                diagnostics,
+                asmItem.span,
+                `No op overload of "${asmItem.head}" accepts ${asmItem.operands.length} operand(s).\n` +
+                  `available overloads:\n${available}`,
+              );
+              return;
+            }
+
+            const matches = arityMatches.filter((candidate) => {
               if (candidate.params.length !== asmItem.operands.length) return false;
               for (let idx = 0; idx < candidate.params.length; idx++) {
                 const param = candidate.params[idx]!;
@@ -2834,29 +2967,52 @@ export function emitProgram(
               return true;
             });
             if (matches.length === 0) {
+              const operandSummary = asmItem.operands.map(formatAsmOperandForOpDiag).join(', ');
+              const available = arityMatches
+                .map((candidate) => `  - ${formatOpDefinitionForDiag(candidate)}`)
+                .join('\n');
               diagAt(
                 diagnostics,
                 asmItem.span,
-                `No matching op overload for "${asmItem.head}" with provided operands.`,
+                `No matching op overload for "${asmItem.head}" with provided operands.\n` +
+                  `call-site operands: (${operandSummary})\n` +
+                  `available overloads:\n${available}`,
               );
               return;
             }
             const selected = selectMostSpecificOpOverload(matches, asmItem.operands);
             if (!selected) {
+              const operandSummary = asmItem.operands.map(formatAsmOperandForOpDiag).join(', ');
+              const equallySpecific = matches
+                .map((candidate) => `  - ${formatOpDefinitionForDiag(candidate)}`)
+                .join('\n');
               diagAt(
                 diagnostics,
                 asmItem.span,
-                `Ambiguous op overload for "${asmItem.head}" (${matches.length} matches).`,
+                `Ambiguous op overload for "${asmItem.head}" (${matches.length} matches).\n` +
+                  `call-site operands: (${operandSummary})\n` +
+                  `equally specific candidates:\n${equallySpecific}`,
               );
               return;
             }
             const opDecl = selected;
             const opKey = opDecl.name.toLowerCase();
-            if (opExpansionStack.includes(opKey)) {
+            const cycleStart = opExpansionStack.findIndex((entry) => entry.key === opKey);
+            if (cycleStart !== -1) {
+              const cycleChain = [
+                ...opExpansionStack
+                  .slice(cycleStart)
+                  .map(
+                    (entry) =>
+                      `${entry.name} (${entry.declSpan.file}:${entry.declSpan.start.line})`,
+                  ),
+                `${opDecl.name} (${opDecl.span.file}:${opDecl.span.start.line})`,
+              ].join(' -> ');
               diagAt(
                 diagnostics,
                 asmItem.span,
-                `Cyclic op expansion detected for "${opDecl.name}".`,
+                `Cyclic op expansion detected for "${opDecl.name}".\n` +
+                  `expansion chain: ${cycleChain}`,
               );
               return;
             }
@@ -2938,7 +3094,11 @@ export function emitProgram(
               return cloneOperand(operand);
             };
 
-            opExpansionStack.push(opKey);
+            opExpansionStack.push({
+              key: opKey,
+              name: opDecl.name,
+              declSpan: opDecl.span,
+            });
             try {
               const localLabelMap = new Map<string, string>();
               for (const bodyItem of opDecl.body.items) {
