@@ -21,6 +21,7 @@ type CliOptions = {
   emitHex: boolean;
   emitD8m: boolean;
   emitListing: boolean;
+  emitAsm: boolean;
   caseStyle: CaseStyleMode;
   opStackPolicy: OpStackPolicyMode;
   typePaddingWarnings: boolean;
@@ -39,6 +40,7 @@ function usage(): string {
     '      --nobin           Suppress .bin',
     '      --nohex           Suppress .hex',
     '      --nod8m           Suppress .d8dbg.json',
+    '      --noasm           Suppress .asm lowering trace',
     '      --case-style <m>  Case-style lint mode: off|upper|lower|consistent',
     '      --op-stack-policy <m> Op stack-policy mode: off|warn|error',
     '      --type-padding-warn Emit warnings for power-of-2 type storage padding',
@@ -65,6 +67,7 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
   let emitHex = true;
   let emitD8m = true;
   let emitListing = true;
+  let emitAsm = true;
   let caseStyle: CaseStyleMode = 'off';
   let opStackPolicy: OpStackPolicyMode = 'off';
   let typePaddingWarnings = false;
@@ -127,6 +130,10 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
     }
     if (a === '--nod8m') {
       emitD8m = false;
+      continue;
+    }
+    if (a === '--noasm') {
+      emitAsm = false;
       continue;
     }
     if (a === '--case-style' || a.startsWith('--case-style=')) {
@@ -206,6 +213,7 @@ function parseArgs(argv: string[]): CliOptions | CliExit {
     emitHex,
     emitD8m,
     emitListing,
+    emitAsm,
     caseStyle,
     opStackPolicy,
     typePaddingWarnings,
@@ -239,6 +247,7 @@ async function writeArtifacts(
   const binPath = `${base}.bin`;
   const d8mPath = `${base}.d8dbg.json`;
   const lstPath = `${base}.lst`;
+  const asmPath = `${base}.asm`;
 
   const writes: Array<Promise<void>> = [];
   const ensureDir = async (p: string) => mkdir(dirname(p), { recursive: true });
@@ -262,6 +271,11 @@ async function writeArtifacts(
   if (lst && lst.kind === 'lst') {
     await ensureDir(lstPath);
     writes.push(writeFile(lstPath, lst.text, 'utf8'));
+  }
+  const asm = byKind.get('asm');
+  if (asm && asm.kind === 'asm') {
+    await ensureDir(asmPath);
+    writes.push(writeFile(asmPath, asm.text, 'utf8'));
   }
 
   await Promise.all(writes);
@@ -315,6 +329,7 @@ export async function runCli(argv: string[]): Promise<number> {
         emitHex: parsed.emitHex,
         emitD8m: parsed.emitD8m,
         emitListing: parsed.emitListing,
+        emitAsm: parsed.emitAsm,
         caseStyle: parsed.caseStyle,
         opStackPolicy: parsed.opStackPolicy,
         typePaddingWarnings: parsed.typePaddingWarnings,

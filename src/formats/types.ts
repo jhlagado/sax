@@ -23,7 +23,23 @@ export interface EmittedByteMap {
    * Addresses are absolute in the final 16-bit address space.
    */
   sourceSegments?: EmittedSourceSegment[];
+  /**
+   * Optional deterministic lowering trace for emitted code bytes.
+   *
+   * This is used by the `.asm` writer to produce human-inspectable output without a disassembler.
+   */
+  asmTrace?: EmittedAsmTraceEntry[];
 }
+
+/**
+ * Lowering trace entry for generated assembly output.
+ *
+ * `offset` is absolute in the final 16-bit address space.
+ */
+export type EmittedAsmTraceEntry =
+  | { kind: 'comment'; offset: number; text: string }
+  | { kind: 'label'; offset: number; name: string }
+  | { kind: 'instruction'; offset: number; text: string; bytes: number[] };
 
 /**
  * Source-attributed emitted range used by debug-map writers.
@@ -114,6 +130,16 @@ export interface WriteListingOptions {
 }
 
 /**
+ * Options for `.asm` source emission.
+ */
+export interface WriteAsmOptions {
+  /**
+   * Line ending to use when emitting text formats.
+   */
+  lineEnding?: '\n' | '\r\n';
+}
+
+/**
  * In-memory Intel HEX artifact.
  */
 export interface HexArtifact {
@@ -141,6 +167,15 @@ export interface ListingArtifact {
 }
 
 /**
+ * In-memory `.asm` artifact.
+ */
+export interface AsmArtifact {
+  kind: 'asm';
+  path?: string;
+  text: string;
+}
+
+/**
  * In-memory D8 Debug Map (D8M) artifact.
  */
 export interface D8mArtifact {
@@ -152,7 +187,7 @@ export interface D8mArtifact {
 /**
  * Union of all artifact kinds produced by the compiler.
  */
-export type Artifact = HexArtifact | BinArtifact | ListingArtifact | D8mArtifact;
+export type Artifact = HexArtifact | BinArtifact | ListingArtifact | D8mArtifact | AsmArtifact;
 
 /**
  * Minimal D8 Debug Map (D8M) v1 JSON shape.
@@ -178,4 +213,5 @@ export interface FormatWriters {
     symbols: SymbolEntry[],
     opts?: WriteListingOptions,
   ): ListingArtifact;
+  writeAsm?(map: EmittedByteMap, symbols: SymbolEntry[], opts?: WriteAsmOptions): AsmArtifact;
 }

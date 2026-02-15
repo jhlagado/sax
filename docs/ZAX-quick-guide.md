@@ -72,6 +72,7 @@ Common outputs:
 - `.bin`
 - `.d8dbg.json`
 - `.lst`
+- `.asm` (deterministic lowered trace for codegen inspection)
 
 Useful contract options:
 

@@ -2,7 +2,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { Diagnostic, DiagnosticId } from '../diagnostics/types.js';
 import { DiagnosticIds } from '../diagnostics/types.js';
-import type { EmittedByteMap, EmittedSourceSegment, SymbolEntry } from '../formats/types.js';
+import type {
+  EmittedAsmTraceEntry,
+  EmittedByteMap,
+  EmittedSourceSegment,
+  SymbolEntry,
+} from '../formats/types.js';
 import type {
   AlignDirectiveNode,
   AsmItemNode,
@@ -131,6 +136,7 @@ export function emitProgram(
   const hexBytes = new Map<number, number>();
   type SourceSegmentTag = Omit<EmittedSourceSegment, 'start' | 'end'>;
   const codeSourceSegments: EmittedSourceSegment[] = [];
+  const codeAsmTrace: EmittedAsmTraceEntry[] = [];
   let currentCodeSegmentTag: SourceSegmentTag | undefined;
   const absoluteSymbols: SymbolEntry[] = [];
   const symbols: SymbolEntry[] = [];
@@ -338,6 +344,112 @@ export function emitProgram(
     codeSourceSegments.push({ ...currentCodeSegmentTag, start, end });
   };
 
+  const toHexByte = (n: number): string =>
+    `$${(n & 0xff).toString(16).toUpperCase().padStart(2, '0')}`;
+  const toHexWord = (n: number): string =>
+    `$${(n & 0xffff).toString(16).toUpperCase().padStart(4, '0')}`;
+
+  const formatImmExprForAsm = (expr: ImmExprNode): string => {
+    switch (expr.kind) {
+      case 'ImmLiteral':
+        return toHexWord(expr.value);
+      case 'ImmName':
+        return expr.name;
+      case 'ImmSizeof':
+        return 'sizeof(...)';
+      case 'ImmOffsetof':
+        return 'offsetof(...)';
+      case 'ImmUnary':
+        return `${expr.op}${formatImmExprForAsm(expr.expr)}`;
+      case 'ImmBinary':
+        return `${formatImmExprForAsm(expr.left)} ${expr.op} ${formatImmExprForAsm(expr.right)}`;
+      default:
+        return 'imm';
+    }
+  };
+
+  const formatEaExprForAsm = (ea: EaExprNode): string => {
+    switch (ea.kind) {
+      case 'EaName':
+        return ea.name;
+      case 'EaField':
+        return `${formatEaExprForAsm(ea.base)}.${ea.field}`;
+      case 'EaAdd':
+        return `${formatEaExprForAsm(ea.base)} + ${formatImmExprForAsm(ea.offset)}`;
+      case 'EaSub':
+        return `${formatEaExprForAsm(ea.base)} - ${formatImmExprForAsm(ea.offset)}`;
+      case 'EaIndex': {
+        let idx = '';
+        switch (ea.index.kind) {
+          case 'IndexImm':
+            idx = formatImmExprForAsm(ea.index.value);
+            break;
+          case 'IndexReg8':
+          case 'IndexReg16':
+            idx = ea.index.reg;
+            break;
+          case 'IndexMemHL':
+            idx = '(HL)';
+            break;
+          case 'IndexMemIxIy':
+            idx = ea.index.disp
+              ? `${ea.index.base}${ea.index.disp.kind === 'ImmUnary' ? '' : '+'}${formatImmExprForAsm(ea.index.disp)}`
+              : ea.index.base;
+            break;
+          case 'IndexEa':
+            idx = formatEaExprForAsm(ea.index.expr);
+            break;
+        }
+        return `${formatEaExprForAsm(ea.base)}[${idx}]`;
+      }
+      default:
+        return 'ea';
+    }
+  };
+
+  const formatAsmOperandForTrace = (operand: AsmOperandNode): string => {
+    switch (operand.kind) {
+      case 'Reg':
+        return operand.name;
+      case 'Imm':
+        return formatImmExprForAsm(operand.expr);
+      case 'Ea':
+        return formatEaExprForAsm(operand.expr);
+      case 'Mem':
+        return `(${formatEaExprForAsm(operand.expr)})`;
+      case 'PortC':
+        return '(C)';
+      case 'PortImm8':
+        return `(${formatImmExprForAsm(operand.expr)})`;
+      default:
+        return '?';
+    }
+  };
+
+  const formatAsmInstrForTrace = (head: string, operands: AsmOperandNode[]): string => {
+    const lowerHead = head.toLowerCase();
+    if (operands.length === 0) return lowerHead;
+    return `${lowerHead} ${operands.map(formatAsmOperandForTrace).join(', ')}`;
+  };
+
+  const traceInstruction = (offset: number, bytesOut: Uint8Array, text: string): void => {
+    if (bytesOut.length === 0) return;
+    codeAsmTrace.push({
+      kind: 'instruction',
+      offset,
+      text,
+      bytes: [...bytesOut],
+    });
+  };
+
+  const traceLabel = (offset: number, name: string): void => {
+    codeAsmTrace.push({ kind: 'label', offset, name });
+  };
+
+  const traceComment = (offset: number, text: string): void => {
+    codeAsmTrace.push({ kind: 'comment', offset, text });
+  };
+
   const emitCodeBytes = (bs: Uint8Array, file: string) => {
     const start = codeOffset;
     for (const b of bs) {
@@ -345,6 +457,12 @@ export function emitProgram(
       codeOffset++;
     }
     recordCodeSourceRange(start, codeOffset);
+  };
+
+  const emitRawCodeBytes = (bs: Uint8Array, file: string, traceText: string): void => {
+    const start = codeOffset;
+    emitCodeBytes(bs, file);
+    traceInstruction(start, bs, traceText);
   };
 
   const applySpTracking = (headRaw: string, operands: AsmOperandNode[]) => {
@@ -389,6 +507,7 @@ export function emitProgram(
   };
 
   const emitInstr = (head: string, operands: AsmOperandNode[], span: SourceSpan) => {
+    const start = codeOffset;
     const encoded = encodeInstruction(
       { kind: 'AsmInstruction', span, head, operands } as any,
       env,
@@ -396,6 +515,7 @@ export function emitProgram(
     );
     if (!encoded) return false;
     emitCodeBytes(encoded, span.file);
+    traceInstruction(start, encoded, formatAsmInstrForTrace(head, operands));
     applySpTracking(head, operands);
     return true;
   };
@@ -514,6 +634,7 @@ export function emitProgram(
     baseLower: string,
     addend: number,
     span: SourceSpan,
+    asmText?: string,
   ): void => {
     const start = codeOffset;
     codeBytes.set(codeOffset++, opcode);
@@ -521,6 +642,11 @@ export function emitProgram(
     codeBytes.set(codeOffset++, 0x00);
     recordCodeSourceRange(start, codeOffset);
     fixups.push({ offset: start + 1, baseLower, addend, file: span.file });
+    traceInstruction(
+      start,
+      Uint8Array.of(opcode, 0x00, 0x00),
+      asmText ?? `db ${toHexByte(opcode)}, lo(${baseLower}), hi(${baseLower})`,
+    );
   };
 
   const emitAbs16FixupEd = (
@@ -528,6 +654,7 @@ export function emitProgram(
     baseLower: string,
     addend: number,
     span: SourceSpan,
+    asmText?: string,
   ): void => {
     const start = codeOffset;
     codeBytes.set(codeOffset++, 0xed);
@@ -536,6 +663,11 @@ export function emitProgram(
     codeBytes.set(codeOffset++, 0x00);
     recordCodeSourceRange(start, codeOffset);
     fixups.push({ offset: start + 2, baseLower, addend, file: span.file });
+    traceInstruction(
+      start,
+      Uint8Array.of(0xed, opcode2, 0x00, 0x00),
+      asmText ?? `db $ED, ${toHexByte(opcode2)}, lo(${baseLower}), hi(${baseLower})`,
+    );
   };
 
   const emitAbs16FixupPrefixed = (
@@ -544,6 +676,7 @@ export function emitProgram(
     baseLower: string,
     addend: number,
     span: SourceSpan,
+    asmText?: string,
   ): void => {
     const start = codeOffset;
     codeBytes.set(codeOffset++, prefix);
@@ -552,6 +685,12 @@ export function emitProgram(
     codeBytes.set(codeOffset++, 0x00);
     recordCodeSourceRange(start, codeOffset);
     fixups.push({ offset: start + 2, baseLower, addend, file: span.file });
+    traceInstruction(
+      start,
+      Uint8Array.of(prefix, opcode2, 0x00, 0x00),
+      asmText ??
+        `db ${toHexByte(prefix)}, ${toHexByte(opcode2)}, lo(${baseLower}), hi(${baseLower})`,
+    );
   };
 
   const emitRel8Fixup = (
@@ -560,6 +699,7 @@ export function emitProgram(
     addend: number,
     span: SourceSpan,
     mnemonic: string,
+    asmText?: string,
   ): void => {
     const start = codeOffset;
     codeBytes.set(codeOffset++, opcode);
@@ -573,6 +713,7 @@ export function emitProgram(
       file: span.file,
       mnemonic,
     });
+    traceInstruction(start, Uint8Array.of(opcode, 0x00), asmText ?? `${mnemonic} ${baseLower}`);
   };
 
   const conditionOpcodeFromName = (nameRaw: string): number | undefined => {
@@ -1717,7 +1858,7 @@ export function emitProgram(
 
       // If the index is sourced from (HL), read it before clobbering HL.
       if (ea.index.kind === 'IndexMemHL') {
-        emitCodeBytes(Uint8Array.of(0x7e), span.file); // ld a, (hl)
+        emitRawCodeBytes(Uint8Array.of(0x7e), span.file, 'ld a, (hl)');
       }
       if (ea.index.kind === 'IndexMemIxIy') {
         const memExpr: EaExprNode =
@@ -1980,12 +2121,12 @@ export function emitProgram(
     if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
     if (want === 'word') {
       // ld hl, (stack-ea via HL): ld a,(hl); inc hl; ld h,(hl); ld l,a
-      emitCodeBytes(Uint8Array.of(0x7e), span.file);
+      emitRawCodeBytes(Uint8Array.of(0x7e), span.file, 'ld a, (hl)');
       if (!emitInstr('inc', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
-      emitCodeBytes(Uint8Array.of(0x66, 0x6f), span.file);
+      emitRawCodeBytes(Uint8Array.of(0x66, 0x6f), span.file, 'ld h, (hl) ; ld l, a');
       return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
     }
-    emitCodeBytes(Uint8Array.of(0x7e), span.file);
+    emitRawCodeBytes(Uint8Array.of(0x7e), span.file, 'ld a, (hl)');
     return pushZeroExtendedReg8('A', span);
   };
 
@@ -2106,7 +2247,7 @@ export function emitProgram(
       const d = reg8Code.get(dst.name.toUpperCase());
       if (d !== undefined) {
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x46 + (d << 3)), inst.span.file);
+        emitRawCodeBytes(Uint8Array.of(0x46 + (d << 3)), inst.span.file, 'ld r, (hl)');
         return true;
       }
 
@@ -2118,7 +2259,11 @@ export function emitProgram(
           return true;
         }
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x7e, 0x23, 0x66, 0x6f), inst.span.file);
+        emitRawCodeBytes(
+          Uint8Array.of(0x7e, 0x23, 0x66, 0x6f),
+          inst.span.file,
+          'ld a, (hl) ; inc hl ; ld h, (hl) ; ld l, a',
+        );
         return true;
       }
       if (r16 === 'DE') {
@@ -2128,7 +2273,11 @@ export function emitProgram(
           return true;
         }
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x7e, 0x23, 0x56, 0x5f), inst.span.file);
+        emitRawCodeBytes(
+          Uint8Array.of(0x7e, 0x23, 0x56, 0x5f),
+          inst.span.file,
+          'ld a, (hl) ; inc hl ; ld d, (hl) ; ld e, a',
+        );
         return true;
       }
       if (r16 === 'BC') {
@@ -2138,7 +2287,11 @@ export function emitProgram(
           return true;
         }
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x7e, 0x23, 0x46, 0x4f), inst.span.file);
+        emitRawCodeBytes(
+          Uint8Array.of(0x7e, 0x23, 0x46, 0x4f),
+          inst.span.file,
+          'ld a, (hl) ; inc hl ; ld b, (hl) ; ld c, a',
+        );
         return true;
       }
       if (r16 === 'SP') {
@@ -2163,7 +2316,11 @@ export function emitProgram(
           return true;
         }
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x7e, 0x23, 0x66, 0x6f), inst.span.file);
+        emitRawCodeBytes(
+          Uint8Array.of(0x7e, 0x23, 0x66, 0x6f),
+          inst.span.file,
+          'ld a, (hl) ; inc hl ; ld h, (hl) ; ld l, a',
+        );
         if (
           !emitInstr('push', [{ kind: 'Reg', span: inst.span, name: 'HL' }], inst.span) ||
           !emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: r16 }], inst.span)
@@ -2211,7 +2368,7 @@ export function emitProgram(
         ) {
           return false;
         }
-        emitCodeBytes(Uint8Array.of(0x70 + s8), inst.span.file);
+        emitRawCodeBytes(Uint8Array.of(0x70 + s8), inst.span.file, 'ld (hl), r');
         return true;
       }
 
@@ -2228,7 +2385,11 @@ export function emitProgram(
         if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
         if (!emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span))
           return false;
-        emitCodeBytes(Uint8Array.of(0x73, 0x23, 0x72), inst.span.file);
+        emitRawCodeBytes(
+          Uint8Array.of(0x73, 0x23, 0x72),
+          inst.span.file,
+          'ld (hl), e ; inc hl ; ld (hl), d',
+        );
         return true;
       }
       if (r16 === 'DE') {
@@ -2238,7 +2399,11 @@ export function emitProgram(
           return true;
         }
         if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x73, 0x23, 0x72), inst.span.file);
+        emitRawCodeBytes(
+          Uint8Array.of(0x73, 0x23, 0x72),
+          inst.span.file,
+          'ld (hl), e ; inc hl ; ld (hl), d',
+        );
         return true;
       }
       if (r16 === 'BC') {
@@ -2248,7 +2413,11 @@ export function emitProgram(
           return true;
         }
         if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x71, 0x23, 0x70), inst.span.file);
+        emitRawCodeBytes(
+          Uint8Array.of(0x71, 0x23, 0x70),
+          inst.span.file,
+          'ld (hl), c ; inc hl ; ld (hl), b',
+        );
         return true;
       }
       if (r16 === 'SP') {
@@ -2277,7 +2446,11 @@ export function emitProgram(
           return false;
         }
         if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x73, 0x23, 0x72), inst.span.file);
+        emitRawCodeBytes(
+          Uint8Array.of(0x73, 0x23, 0x72),
+          inst.span.file,
+          'ld (hl), e ; inc hl ; ld (hl), d',
+        );
         return true;
       }
     }
@@ -2289,19 +2462,27 @@ export function emitProgram(
       if (!scalar) return false;
       if (scalar === 'byte') {
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x7e), inst.span.file); // ld a, (hl)
+        emitRawCodeBytes(Uint8Array.of(0x7e), inst.span.file, 'ld a, (hl)');
         if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
-        emitCodeBytes(Uint8Array.of(0x77), inst.span.file); // ld (hl), a
+        emitRawCodeBytes(Uint8Array.of(0x77), inst.span.file, 'ld (hl), a');
         return true;
       }
       if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
-      emitCodeBytes(Uint8Array.of(0x7e, 0x23, 0x66, 0x6f), inst.span.file);
+      emitRawCodeBytes(
+        Uint8Array.of(0x7e, 0x23, 0x66, 0x6f),
+        inst.span.file,
+        'ld a, (hl) ; inc hl ; ld h, (hl) ; ld l, a',
+      );
       if (!emitInstr('push', [{ kind: 'Reg', span: inst.span, name: 'HL' }], inst.span))
         return false;
       if (!materializeEaAddressToHL(dst.expr, inst.span)) return false;
       if (!emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span))
         return false;
-      emitCodeBytes(Uint8Array.of(0x73, 0x23, 0x72), inst.span.file);
+      emitRawCodeBytes(
+        Uint8Array.of(0x73, 0x23, 0x72),
+        inst.span.file,
+        'ld (hl), e ; inc hl ; ld (hl), d',
+      );
       return true;
     }
 
@@ -2896,10 +3077,12 @@ export function emitProgram(
         let emitSyntheticEpilogue = frameSize > 0;
 
         // Function entry label.
+        traceComment(codeOffset, `func ${item.name} begin`);
         if (taken.has(item.name)) {
           diag(diagnostics, item.span.file, `Duplicate symbol name "${item.name}".`);
         } else {
           taken.add(item.name);
+          traceLabel(codeOffset, item.name);
           pending.push({
             kind: 'label',
             name: item.name,
@@ -3057,6 +3240,7 @@ export function emitProgram(
             return;
           }
           taken.add(name);
+          traceLabel(codeOffset, name);
           pending.push({
             kind: 'label',
             name,
@@ -3068,10 +3252,10 @@ export function emitProgram(
           });
         };
         const emitJumpTo = (label: string, span: SourceSpan): void => {
-          emitAbs16Fixup(0xc3, label.toLowerCase(), 0, span);
+          emitAbs16Fixup(0xc3, label.toLowerCase(), 0, span, `jp ${label}`);
         };
         const emitJumpCondTo = (op: number, label: string, span: SourceSpan): void => {
-          emitAbs16Fixup(op, label.toLowerCase(), 0, span);
+          emitAbs16Fixup(op, label.toLowerCase(), 0, span, `jp cc, ${label}`);
         };
         const emitJumpIfFalse = (cc: string, label: string, span: SourceSpan): boolean => {
           if (cc === '__missing__') return false;
@@ -3140,11 +3324,11 @@ export function emitProgram(
           mismatchLabel: string,
           span: SourceSpan,
         ): void => {
-          emitCodeBytes(Uint8Array.of(0x7d), span.file); // ld a, l
-          emitCodeBytes(Uint8Array.of(0xfe, value & 0xff), span.file); // cp imm8
+          emitRawCodeBytes(Uint8Array.of(0x7d), span.file, 'ld a, l');
+          emitRawCodeBytes(Uint8Array.of(0xfe, value & 0xff), span.file, 'cp imm8');
           emitJumpCondTo(0xc2, mismatchLabel, span); // jp nz, mismatch
-          emitCodeBytes(Uint8Array.of(0x7c), span.file); // ld a, h
-          emitCodeBytes(Uint8Array.of(0xfe, (value >> 8) & 0xff), span.file); // cp imm8
+          emitRawCodeBytes(Uint8Array.of(0x7c), span.file, 'ld a, h');
+          emitRawCodeBytes(Uint8Array.of(0xfe, (value >> 8) & 0xff), span.file, 'cp imm8');
           emitJumpCondTo(0xc2, mismatchLabel, span); // jp nz, mismatch
         };
         const emitSelectCompareReg8ToImm8 = (
@@ -3152,7 +3336,7 @@ export function emitProgram(
           mismatchLabel: string,
           span: SourceSpan,
         ): void => {
-          emitCodeBytes(Uint8Array.of(0xfe, value & 0xff), span.file); // cp imm8
+          emitRawCodeBytes(Uint8Array.of(0xfe, value & 0xff), span.file, 'cp imm8');
           emitJumpCondTo(0xc2, mismatchLabel, span); // jp nz, mismatch
         };
         const loadSelectorIntoHL = (selector: AsmOperandNode, span: SourceSpan): boolean => {
@@ -3957,7 +4141,11 @@ export function emitProgram(
                 );
                 return false;
               }
-              emitCodeBytes(Uint8Array.of(opcode, value & 0xff), asmItem.span.file);
+              emitRawCodeBytes(
+                Uint8Array.of(opcode, value & 0xff),
+                asmItem.span.file,
+                `${mnemonic} ${value}`,
+              );
               return true;
             };
             if (head === 'jr') {
@@ -4274,10 +4462,7 @@ export function emitProgram(
               return;
             }
 
-            const encoded = encodeInstruction(asmItem, env, diagnostics);
-            if (!encoded) return;
-            emitCodeBytes(encoded, asmItem.span.file);
-            applySpTracking(asmItem.head, asmItem.operands);
+            if (!emitInstr(asmItem.head, asmItem.operands, asmItem.span)) return;
 
             if ((head === 'jp' || head === 'jr') && asmItem.operands.length === 1) {
               flow.reachable = false;
@@ -4595,7 +4780,7 @@ export function emitProgram(
                     return asmItems.length;
                   }
                   if (selectorIsReg8) {
-                    emitCodeBytes(Uint8Array.of(0x7d), it.span.file); // ld a, l
+                    emitRawCodeBytes(Uint8Array.of(0x7d), it.span.file, 'ld a, l');
                   }
                   for (const arm of caseArms) {
                     const miss = newHiddenLabel('__zax_select_next');
@@ -4740,6 +4925,7 @@ export function emitProgram(
               line: item.span.start.line,
               scope: 'local',
             });
+            traceLabel(codeOffset, epilogueLabel);
             for (let k = 0; k < frameSize / 2; k++) {
               if (!emitInstr('pop', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span))
                 break;
@@ -4747,6 +4933,7 @@ export function emitProgram(
             emitInstr('ret', [], item.span);
           });
         }
+        traceComment(codeOffset, `func ${item.name} end`);
         continue;
       }
 
@@ -5123,12 +5310,18 @@ export function emitProgram(
           (segment) => segment.start >= 0 && segment.end <= 0x10000 && segment.end > segment.start,
         )
     : [];
+  const asmTrace = codeOk
+    ? codeAsmTrace
+        .map((entry) => ({ ...entry, offset: codeBase + entry.offset }))
+        .filter((entry) => entry.offset >= 0 && entry.offset <= 0xffff)
+    : [];
 
   return {
     map: {
       bytes,
       writtenRange,
       ...(sourceSegments.length > 0 ? { sourceSegments } : {}),
+      ...(asmTrace.length > 0 ? { asmTrace } : {}),
     },
     symbols,
   };
