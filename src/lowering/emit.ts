@@ -2374,7 +2374,11 @@ export function emitProgram(
       const d = reg8Code.get(dst.name.toUpperCase());
       if (d !== undefined) {
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
-        emitRawCodeBytes(Uint8Array.of(0x46 + (d << 3)), inst.span.file, 'ld r, (hl)');
+        emitRawCodeBytes(
+          Uint8Array.of(0x46 + (d << 3)),
+          inst.span.file,
+          `ld ${dst.name.toUpperCase()}, (hl)`,
+        );
         return true;
       }
 
@@ -2501,7 +2505,11 @@ export function emitProgram(
         ) {
           return false;
         }
-        emitRawCodeBytes(Uint8Array.of(0x70 + s8), inst.span.file, 'ld (hl), r');
+        emitRawCodeBytes(
+          Uint8Array.of(0x70 + s8),
+          inst.span.file,
+          `ld (hl), ${src.name.toUpperCase()}`,
+        );
         return true;
       }
 
