@@ -40,6 +40,12 @@ function normalizePath(p: string): string {
   return resolve(p);
 }
 
+function hasMainFunction(program: ProgramNode): boolean {
+  return program.files.some((moduleFile) =>
+    moduleFile.items.some((item) => item.kind === 'FuncDecl' && item.name.toLowerCase() === 'main'),
+  );
+}
+
 function canonicalModuleId(modulePath: string): string {
   const base = basename(modulePath);
   const ext = extname(base);
@@ -307,6 +313,19 @@ export const compile: CompileFn = async (
     return { diagnostics, artifacts: [] };
   }
 
+  if ((options.requireMain ?? false) && !hasMainFunction(program)) {
+    diagnostics.push({
+      id: DiagnosticIds.SemanticsError,
+      severity: 'error',
+      message: 'Program must define a callable "main" entry function.',
+      file: program.entryFile,
+      ...(program.span?.start
+        ? { line: program.span.start.line, column: program.span.start.column }
+        : {}),
+    });
+    return { diagnostics, artifacts: [] };
+  }
+
   lintCaseStyle(program, sourceTexts, options.caseStyle ?? 'off', diagnostics);
 
   const env = buildEnv(program, diagnostics, {
@@ -322,6 +341,7 @@ export const compile: CompileFn = async (
     ...(options.rawTypedCallWarnings !== undefined
       ? { rawTypedCallWarnings: options.rawTypedCallWarnings }
       : {}),
+    ...(options.defaultCodeBase !== undefined ? { defaultCodeBase: options.defaultCodeBase } : {}),
   });
   if (hasErrors(diagnostics)) {
     return { diagnostics, artifacts: [] };
@@ -337,7 +357,20 @@ export const compile: CompileFn = async (
     artifacts.push(deps.formats.writeHex(map, symbols));
   }
   if (emit.emitD8m) {
-    artifacts.push(deps.formats.writeD8m(map, symbols, { rootDir: dirname(entryPath) }));
+    const mainEntry = symbols.find((s) => s.kind === 'label' && s.name.toLowerCase() === 'main') as
+      | { kind: 'label'; name: string; address: number }
+      | undefined;
+    artifacts.push(
+      deps.formats.writeD8m(map, symbols, {
+        rootDir: dirname(entryPath),
+        ...(mainEntry
+          ? {
+              entrySymbol: mainEntry.name,
+              entryAddress: mainEntry.address & 0xffff,
+            }
+          : {}),
+      }),
+    );
   }
   if (emit.emitListing) {
     if (deps.formats.writeListing) {

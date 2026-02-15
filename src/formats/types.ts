@@ -111,6 +111,14 @@ export interface WriteD8mOptions {
    * When provided, file paths are made project-relative and use `/` separators.
    */
   rootDir?: string;
+  /**
+   * Optional runnable entry symbol metadata for harnesses.
+   */
+  entrySymbol?: string;
+  /**
+   * Optional resolved entry address metadata for harnesses.
+   */
+  entryAddress?: number;
 }
 
 /**

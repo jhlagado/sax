@@ -50,6 +50,11 @@ function stableSymbols(symbols: SymbolEntry[]): SymbolEntry[] {
   });
 }
 
+function formatAsmTraceComment(offset: number, bytes: number[]): string {
+  const renderedBytes = bytes.map((b) => toHexByte(b)).join(' ');
+  return `${toHexWord(offset)}: ${renderedBytes}`;
+}
+
 /**
  * Create a deterministic `.asm` artifact from lowering trace entries.
  */
@@ -79,8 +84,9 @@ export function writeAsm(
         lines.push(`${entry.name}:`);
         continue;
       }
-      const bytes = entry.bytes.map((b) => toHexByte(b)).join(' ');
-      lines.push(`${toHexWord(entry.offset)}: ${bytes.padEnd(11, ' ')}  ${entry.text}`);
+      lines.push(
+        `${entry.text.padEnd(30, ' ')} ; ${formatAsmTraceComment(entry.offset, entry.bytes)}`,
+      );
     }
   }
 

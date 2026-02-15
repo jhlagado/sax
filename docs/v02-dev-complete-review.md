@@ -39,6 +39,7 @@ Expected outcome:
 
 - explicit matrix for op expansion, prologue/epilogue, var/arg/global access
 - focused tests per risk row with stable diagnostics expectations
+- matrix reference: `docs/v02-hidden-lowering-risk-matrix.md`
 
 ### WS4: Opcode verification workflow (`NORMATIVE-SHOULD`)
 
