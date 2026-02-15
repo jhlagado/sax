@@ -116,6 +116,7 @@ export function emitProgram(
     includeDirs?: string[];
     opStackPolicy?: OpStackPolicyMode;
     rawTypedCallWarnings?: boolean;
+    defaultCodeBase?: number;
   },
 ): { map: EmittedByteMap; symbols: SymbolEntry[] } {
   type SectionKind = 'code' | 'data' | 'var';
@@ -5311,7 +5312,8 @@ export function emitProgram(
   const explicitVarBase = evalBase('var');
 
   const codeOk = explicitCodeBase !== undefined || !baseExprs.code;
-  const codeBase = explicitCodeBase ?? 0;
+  const fallbackCodeBase = options?.defaultCodeBase ?? 0;
+  const codeBase = explicitCodeBase ?? fallbackCodeBase;
 
   const dataBase =
     explicitDataBase ??

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +47,29 @@ describe('cli artifacts', () => {
     expect(await exists(join(work, 'main.d8dbg.json'))).toBe(true);
     expect(await exists(join(work, 'main.lst'))).toBe(true);
     expect(await exists(join(work, 'main.asm'))).toBe(true);
+
+    await rm(work, { recursive: true, force: true });
+  }, 20_000);
+
+  it('defaults CLI code base to $0100 when no section code base is provided', async () => {
+    const work = await mkdtemp(join(tmpdir(), 'zax-cli-default-code-base-'));
+    const entry = join(work, 'main.zax');
+    await writeFile(entry, 'export func main(): void\n  nop\nend\n', 'utf8');
+
+    const outHex = join(work, 'out.hex');
+    const res = await runCli(['-o', outHex, entry]);
+    expect(res.code).toBe(0);
+
+    const d8dbgPath = join(work, 'out.d8dbg.json');
+    const d8dbg = JSON.parse(await readFile(d8dbgPath, 'utf8')) as {
+      generator?: { entryAddress?: number; entrySymbol?: string };
+      symbols?: Array<{ name: string; kind: string; address?: number }>;
+    };
+    expect(d8dbg.generator?.entrySymbol).toBe('main');
+    expect(d8dbg.generator?.entryAddress).toBe(0x0100);
+    expect(
+      d8dbg.symbols?.some((s) => s.name === 'main' && s.kind === 'label' && s.address === 0x0100),
+    ).toBe(true);
 
     await rm(work, { recursive: true, force: true });
   }, 20_000);

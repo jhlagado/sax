@@ -341,6 +341,7 @@ export const compile: CompileFn = async (
     ...(options.rawTypedCallWarnings !== undefined
       ? { rawTypedCallWarnings: options.rawTypedCallWarnings }
       : {}),
+    ...(options.defaultCodeBase !== undefined ? { defaultCodeBase: options.defaultCodeBase } : {}),
   });
   if (hasErrors(diagnostics)) {
     return { diagnostics, artifacts: [] };

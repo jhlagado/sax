@@ -41,6 +41,8 @@ export interface CompilerOptions {
   rawTypedCallWarnings?: boolean;
   /** Require a callable `main` entry symbol for runnable builds. */
   requireMain?: boolean;
+  /** Default code section base address when no `section code at` is provided. */
+  defaultCodeBase?: number;
 }
 
 /**
