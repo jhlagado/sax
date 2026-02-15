@@ -14,7 +14,7 @@ pop DE                         ; 000C: D1
 add HL, DE                     ; 000D: 19
 push HL                        ; 000E: E5
 pop HL                         ; 000F: E1
-ld r, (hl)                     ; 0010: 7E
+ld A, (hl)                     ; 0010: 7E
 ld HL, (idxw)                  ; 0011: 2A 00 00
 push HL                        ; 0014: E5
 pop HL                         ; 0015: E1
@@ -24,14 +24,14 @@ pop DE                         ; 001A: D1
 add HL, DE                     ; 001B: 19
 push HL                        ; 001C: E5
 pop HL                         ; 001D: E1
-ld r, (hl)                     ; 001E: 7E
+ld A, (hl)                     ; 001E: 7E
 push HL                        ; 001F: E5
 ld HL, arr                     ; 0020: 21 00 00
 pop DE                         ; 0023: D1
 add HL, DE                     ; 0024: 19
 push HL                        ; 0025: E5
 pop HL                         ; 0026: E1
-ld r, (hl)                     ; 0027: 7E
+ld A, (hl)                     ; 0027: 7E
 ld a, (hl)                     ; 0028: 7E
 ld L, A                        ; 0029: 6F
 ld H, $0000                    ; 002A: 26 00
@@ -41,7 +41,7 @@ pop DE                         ; 0030: D1
 add HL, DE                     ; 0031: 19
 push HL                        ; 0032: E5
 pop HL                         ; 0033: E1
-ld r, (hl)                     ; 0034: 7E
+ld A, (hl)                     ; 0034: 7E
 ld HL, $0000                   ; 0035: 21 00 00
 push HL                        ; 0038: E5
 ld A, (idx)                    ; 0039: 3A 00 00
@@ -61,7 +61,7 @@ pop DE                         ; 004B: D1
 add HL, DE                     ; 004C: 19
 push HL                        ; 004D: E5
 pop HL                         ; 004E: E1
-ld r, (hl)                     ; 004F: 7E
+ld A, (hl)                     ; 004F: 7E
 ret                            ; 0050: C9
 ; func main end
 

@@ -2398,7 +2398,11 @@ export function emitProgram(
             'ld',
             [
               { kind: 'Reg', span: inst.span, name: 'A' },
-              { kind: 'Mem', span: inst.span, expr: { kind: 'EaName', span: inst.span, name: 'HL' } },
+              {
+                kind: 'Mem',
+                span: inst.span,
+                expr: { kind: 'EaName', span: inst.span, name: 'HL' },
+              },
             ],
             inst.span,
           )
@@ -2413,7 +2417,11 @@ export function emitProgram(
             'ld',
             [
               { kind: 'Reg', span: inst.span, name: 'H' },
-              { kind: 'Mem', span: inst.span, expr: { kind: 'EaName', span: inst.span, name: 'HL' } },
+              {
+                kind: 'Mem',
+                span: inst.span,
+                expr: { kind: 'EaName', span: inst.span, name: 'HL' },
+              },
             ],
             inst.span,
           )

@@ -39,6 +39,8 @@ export interface CompilerOptions {
   typePaddingWarnings?: boolean;
   /** Emit warnings when raw `call` targets a typed callable symbol. */
   rawTypedCallWarnings?: boolean;
+  /** Require a callable `main` entry symbol for runnable builds. */
+  requireMain?: boolean;
 }
 
 /**
