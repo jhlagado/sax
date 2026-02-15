@@ -5,7 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 import { compile } from '../src/compile.js';
 import { defaultFormatWriters } from '../src/formats/index.js';
-import type { Artifact, BinArtifact, HexArtifact, ListingArtifact } from '../src/formats/types.js';
+import type {
+  Artifact,
+  AsmArtifact,
+  BinArtifact,
+  HexArtifact,
+  ListingArtifact,
+} from '../src/formats/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -27,6 +33,10 @@ describe('examples', () => {
       case 'lst': {
         const lst = a as ListingArtifact;
         return { kind: 'lst', data: lst.text };
+      }
+      case 'asm': {
+        const asm = a as AsmArtifact;
+        return { kind: 'asm', data: asm.text };
       }
     }
   }

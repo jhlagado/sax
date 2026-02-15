@@ -32,6 +32,8 @@ This directory is intentionally small. Each document has a single purpose.
   - v0.2 completion declaration and closure summary.
 - `v03-planning-track.md`
   - Post-v0.2 planning scaffold for v0.3 sequencing.
+- `github-backlog-workflow.md`
+  - GitHub-only backlog operating model (Jira-style issue workflow using milestones + labels + acceptance gates).
 
 ## Consolidation Policy
 

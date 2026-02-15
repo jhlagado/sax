@@ -10,6 +10,7 @@ async function expectNoArtifacts(base: string): Promise<void> {
   expect(await exists(`${base}.bin`)).toBe(false);
   expect(await exists(`${base}.d8dbg.json`)).toBe(false);
   expect(await exists(`${base}.lst`)).toBe(false);
+  expect(await exists(`${base}.asm`)).toBe(false);
 }
 
 describe('cli failure contract matrix', () => {

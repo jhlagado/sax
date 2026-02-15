@@ -1473,6 +1473,7 @@ ZAX uses a single “primary output path” to derive sibling artifacts.
     - Flat binary: `artifactBase + ".bin"`
     - Listing: `artifactBase + ".lst"`
     - Debug map (D8M v1): `artifactBase + ".d8dbg.json"`
+    - Lowering trace source: `artifactBase + ".asm"`
 
 Listing note:
 
@@ -1503,6 +1504,7 @@ Keep switches intentionally small:
 - `--nobin` Suppress `.bin`
 - `--nohex` Suppress `.hex`
 - `--nod8m` Suppress `.d8dbg.json`
+- `--noasm` Suppress `.asm` lowering trace output
 - `-I, --include <dir>` Add import search path (repeatable)
 - `--case-style <mode>` Optional case-style linting for asm keywords/registers
   - supported: `off`, `upper`, `lower`, `consistent`
@@ -1532,6 +1534,7 @@ Debug80 expects to find:
 - `<artifactBase>.hex`
 - `<artifactBase>.lst` (unless suppressed)
 - `<artifactBase>.d8dbg.json`
+- `<artifactBase>.asm` (unless suppressed)
 
 Co-locating these artifacts via the `--output`/artifactBase rule is the simplest integration strategy.
 

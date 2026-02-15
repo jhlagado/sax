@@ -145,6 +145,7 @@ describe('cli contract matrix', () => {
     expect(await exists(join(work, 'main.hex'))).toBe(true);
     expect(await exists(join(work, 'main.d8dbg.json'))).toBe(true);
     expect(await exists(join(work, 'main.lst'))).toBe(true);
+    expect(await exists(join(work, 'main.asm'))).toBe(true);
 
     await rm(work, { recursive: true, force: true });
   }, 20_000);
@@ -163,6 +164,7 @@ describe('cli contract matrix', () => {
     expect(await exists(join(work, 'out.bin'))).toBe(false);
     expect(await exists(join(work, 'out.d8dbg.json'))).toBe(false);
     expect(await exists(join(work, 'out.lst'))).toBe(false);
+    expect(await exists(join(work, 'out.asm'))).toBe(false);
 
     await rm(work, { recursive: true, force: true });
   }, 20_000);

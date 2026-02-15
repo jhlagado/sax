@@ -209,16 +209,19 @@ export async function readArtifactSet(base: string): Promise<{
   hex: string;
   d8m: string;
   lst: string;
+  asm: string;
 }> {
   const bin = await readFile(`${base}.bin`);
   const hex = await readFile(`${base}.hex`, 'utf8');
   const d8m = await readFile(`${base}.d8dbg.json`, 'utf8');
   const lst = await readFile(`${base}.lst`, 'utf8');
+  const asm = await readFile(`${base}.asm`, 'utf8');
   return {
     bin: bin.toString('hex'),
     hex,
     d8m,
     lst,
+    asm,
   };
 }
 

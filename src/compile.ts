@@ -19,7 +19,7 @@ function hasErrors(diagnostics: Diagnostic[]): boolean {
 
 function withDefaults(
   options: CompilerOptions,
-): Required<Pick<CompilerOptions, 'emitBin' | 'emitHex' | 'emitD8m' | 'emitListing'>> {
+): Required<Pick<CompilerOptions, 'emitBin' | 'emitHex' | 'emitD8m' | 'emitListing' | 'emitAsm'>> {
   const anyPrimaryEmitSpecified = [options.emitBin, options.emitHex, options.emitD8m].some(
     (v) => v !== undefined,
   );
@@ -30,8 +30,10 @@ function withDefaults(
 
   // Listing is a sidecar artifact: default to on unless explicitly suppressed.
   const emitListing = options.emitListing ?? true;
+  // ASM trace is a sidecar artifact: default to on unless explicitly suppressed.
+  const emitAsm = options.emitAsm ?? true;
 
-  return { emitBin, emitHex, emitD8m, emitListing };
+  return { emitBin, emitHex, emitD8m, emitListing, emitAsm };
 }
 
 function normalizePath(p: string): string {
@@ -345,6 +347,18 @@ export const compile: CompileFn = async (
         id: DiagnosticIds.Unknown,
         severity: 'warning',
         message: 'emitListing=true but no listing writer is configured; skipping .lst artifact.',
+        file: program.entryFile,
+      });
+    }
+  }
+  if (emit.emitAsm) {
+    if (deps.formats.writeAsm) {
+      artifacts.push(deps.formats.writeAsm(map, symbols));
+    } else {
+      diagnostics.push({
+        id: DiagnosticIds.Unknown,
+        severity: 'warning',
+        message: 'emitAsm=true but no asm writer is configured; skipping .asm artifact.',
         file: program.entryFile,
       });
     }
