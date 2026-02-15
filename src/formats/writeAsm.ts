@@ -85,7 +85,7 @@ export function writeAsm(
         continue;
       }
       lines.push(
-        `${entry.text.padEnd(50, ' ')} ; ${formatAsmTraceComment(entry.offset, entry.bytes)}`,
+        `${entry.text.padEnd(30, ' ')} ; ${formatAsmTraceComment(entry.offset, entry.bytes)}`,
       );
     }
   }
