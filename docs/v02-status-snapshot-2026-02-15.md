@@ -41,6 +41,8 @@ Assessment: v0.2 implementation appears functionally complete for current confor
 
 ## 5. v0.2 Completion Checklist (Closeout Gate)
 
+Canonical checklist artifact: `docs/v02-done-checklist.md`
+
 Status key:
 
 - `[x]` complete
@@ -61,12 +63,12 @@ Status key:
 3. Docs and tracker hygiene
 
 - `[ ]` Update stale "in progress"/historical sections in `docs/zax-dev-playbook.md` to match current zero-open PR/issue state.
-- `[ ]` Add a concise "v0.2 done criteria" section (or dedicated checklist file) and link it from playbook/spec-facing docs.
+- `[x]` Add a dedicated done-checklist file (`docs/v02-done-checklist.md`) and link it from status docs.
 - `[ ]` Ensure quick guide/playbook wording is consistent for latest CLI warning flags.
 
 ## 6. Remaining Work to Finish v0.2
 
-### 5.1 In-scope closeout tasks
+### 6.1 In-scope closeout tasks
 
 1. **Status/doc reconciliation**
 
@@ -106,7 +108,7 @@ Status key:
 
 - Convert any legacy catch‑all issues into v0.2 change‑task‑shaped items with acceptance criteria/tests, or close them as obsolete.
 
-### 5.2 Explicitly out of scope for v0.2
+### 6.2 Explicitly out of scope for v0.2
 
 Not required for declaring v0.2 complete:
 
@@ -136,11 +138,11 @@ Estimated remaining effort to formally close v0.2: **1 to 2.5 days**.
 
 ## 8. Decisions Needed
 
-1. Should we add a dedicated `docs/v02-done-checklist.md` file, or keep checklist state in this snapshot?
-2. Should next PRs be restricted to closeout-only (no feature additions)?
-3. Should v0.3 planning start immediately after closeout declaration, or after a short stabilization window?
+1. Should next PRs be restricted to closeout-only (no feature additions)?
+2. Should v0.3 planning start immediately after closeout declaration, or after a short stabilization window?
 
 ## 9. Change Log
 
 - February 15, 2026: initial snapshot created.
 - February 15, 2026: revised with current zero-open PR/issue status, explicit closeout checklist, and updated timeline.
+- February 15, 2026: linked dedicated closeout checklist file and corrected section numbering.
