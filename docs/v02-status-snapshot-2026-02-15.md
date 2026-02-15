@@ -87,6 +87,25 @@ Status key:
   - `--type-padding-warn`
   - `--raw-typed-call-warn`
 
+4. **Behavioral edge verification**
+
+- Confirm negative immediate handling matches spec semantics (two’s-complement truncation in imm8/imm16 contexts).
+- Re-verify that example snippets in guides align to accepted parser syntax (enum forms, `select/case` shape, zero-arg `op()`).
+
+5. **Diagnostics stability pass**
+
+- Ensure diagnostic IDs remain stable for common v0.2 migration errors (enum qualification, `arr[(HL)]` vs `arr[HL]`, runtime-atom budget, call-boundary warnings).
+- Confirm no “subset/PR” wording remains in user-facing diagnostics.
+
+6. **Acceptance and determinism evidence**
+
+- Capture at least one multi-run determinism check (same inputs produce identical artifacts).
+- Ensure `examples/*.zax` compile cleanly on macOS/Linux/Windows as part of evidence bundle.
+
+7. **Issue-tracker hygiene**
+
+- Convert any legacy catch‑all issues into v0.2 change‑task‑shaped items with acceptance criteria/tests, or close them as obsolete.
+
 ### 5.2 Explicitly out of scope for v0.2
 
 Not required for declaring v0.2 complete:
