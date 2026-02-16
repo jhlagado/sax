@@ -40,6 +40,8 @@ This directory is intentionally small. Each document has a single purpose.
   - Hidden-lowering risk matrix with focused test coverage mapping for v0.2 closeout.
 - `v02-codegen-lowering-design.md`
   - Codegen/lowering design target: preservation-safe composition contracts and IX-frame direction.
+- `v02-codegen-worked-examples.md`
+  - Detailed `.zax` to lowered `.asm` examples covering IX-frame calls, locals, and preservation policy.
 
 ## Consolidation Policy
 
