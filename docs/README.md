@@ -36,6 +36,8 @@ This directory is intentionally small. Each document has a single purpose.
   - GitHub-only backlog operating model (Jira-style issue workflow using milestones + labels + acceptance gates).
 - `v02-codegen-golden-corpus.md`
   - Tiered `.asm` golden-corpus workflow for v0.2 codegen verification.
+- `v02-hidden-lowering-risk-matrix.md`
+  - Hidden-lowering risk matrix with focused test coverage mapping for v0.2 closeout.
 
 ## Consolidation Policy
 

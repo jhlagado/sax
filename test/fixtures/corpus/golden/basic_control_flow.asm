@@ -3,41 +3,41 @@
 
 ; func main begin
 main:
-0000: CA 00 00     jp cc, __zax_if_else_1
-0003: 00           nop
-0004: C3 00 00     jp __zax_if_end_2
+jp cc, __zax_if_else_1         ; 0000: CA 00 00
+nop                            ; 0003: 00
+jp __zax_if_end_2              ; 0004: C3 00 00
 __zax_if_else_1:
-0007: 00           nop
+nop                            ; 0007: 00
 __zax_if_end_2:
 __zax_while_cond_3:
-0008: CA 00 00     jp cc, __zax_while_end_4
-000B: 00           nop
-000C: C3 00 00     jp __zax_while_cond_3
+jp cc, __zax_while_end_4       ; 0008: CA 00 00
+nop                            ; 000B: 00
+jp __zax_while_cond_3          ; 000C: C3 00 00
 __zax_repeat_body_5:
 __zax_while_end_4:
-000F: 00           nop
-0010: C2 00 00     jp cc, __zax_repeat_body_5
-0013: C3 00 00     jp __zax_select_dispatch_6
+nop                            ; 000F: 00
+jp cc, __zax_repeat_body_5     ; 0010: C2 00 00
+jp __zax_select_dispatch_6     ; 0013: C3 00 00
 __zax_case_8:
-0016: 00           nop
-0017: C3 00 00     jp __zax_select_end_7
+nop                            ; 0016: 00
+jp __zax_select_end_7          ; 0017: C3 00 00
 __zax_select_else_9:
-001A: 00           nop
-001B: C3 00 00     jp __zax_select_end_7
+nop                            ; 001A: 00
+jp __zax_select_end_7          ; 001B: C3 00 00
 __zax_select_dispatch_6:
-001E: E5           push HL
-001F: 26 00        ld H, $0000
-0021: 6F           ld L, A
-0022: 7D           ld a, l
-0023: FE 00        cp imm8
-0025: C2 00 00     jp cc, __zax_select_next_10
-0028: E1           pop HL
-0029: C3 00 00     jp __zax_case_8
+push HL                        ; 001E: E5
+ld H, $0000                    ; 001F: 26 00
+ld L, A                        ; 0021: 6F
+ld a, l                        ; 0022: 7D
+cp imm8                        ; 0023: FE 00
+jp cc, __zax_select_next_10    ; 0025: C2 00 00
+pop HL                         ; 0028: E1
+jp __zax_case_8                ; 0029: C3 00 00
 __zax_select_next_10:
-002C: E1           pop HL
-002D: C3 00 00     jp __zax_select_else_9
+pop HL                         ; 002C: E1
+jp __zax_select_else_9         ; 002D: C3 00 00
 __zax_select_end_7:
-0030: C9           ret
+ret                            ; 0030: C9
 ; func main end
 
 ; symbols:

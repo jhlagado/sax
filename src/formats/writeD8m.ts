@@ -289,6 +289,17 @@ export function writeD8m(
     segments,
     ...(fileList.length > 0 ? { fileList } : {}),
     symbols: serializedSymbols,
+    ...(opts?.entrySymbol !== undefined || opts?.entryAddress !== undefined
+      ? {
+          generator: {
+            tool: 'zax',
+            ...(opts.entrySymbol !== undefined ? { entrySymbol: opts.entrySymbol } : {}),
+            ...(opts.entryAddress !== undefined
+              ? { entryAddress: opts.entryAddress & 0xffff }
+              : {}),
+          },
+        }
+      : {}),
   };
 
   return { kind: 'd8m', json };

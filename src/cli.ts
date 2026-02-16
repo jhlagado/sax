@@ -335,6 +335,8 @@ export async function runCli(argv: string[]): Promise<number> {
         typePaddingWarnings: parsed.typePaddingWarnings,
         rawTypedCallWarnings: parsed.rawTypedCallWarnings,
         includeDirs: parsed.includeDirs,
+        requireMain: true,
+        defaultCodeBase: 0x0100,
       },
       { formats: defaultFormatWriters },
     );
