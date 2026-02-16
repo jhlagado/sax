@@ -106,8 +106,8 @@ main:
 PUSH IX                        ; 0018: DD E5
 LD IX, $0000                   ; 001A: DD 21 00 00
 ADD IX, SP                     ; 001E: DD 39
-INC SP                         ; 0020: 33
-INC SP                         ; 0021: 33
+DEC SP                         ; 0020: 3B
+DEC SP                         ; 0021: 3B
 PUSH AF                        ; 0022: F5
 PUSH BC                        ; 0023: C5
 PUSH DE                        ; 0024: D5
@@ -180,8 +180,8 @@ main:
 push ix
 ld ix, $0000
 add ix, sp
-inc sp                         ; allocate 2-byte local (example form)
-inc sp
+dec sp                         ; allocate 2-byte local (example form)
+dec sp
 
 push af
 push bc
