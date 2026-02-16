@@ -29,8 +29,8 @@ Goal: continue implementation/planning without re-reading chat history.
 ### 2) Return policy == boundary clobber policy
 
 - Non-void typed calls: `HL` is boundary-visible return channel (or `L` for byte).
-- `void` typed calls: intended to have no boundary-visible clobbers (must be explicit/consistent).
-- Practical consequence: non-void call assumes `HL` changed.
+- `void` typed calls: `HL` is treated as volatile/undefined on return.
+- Practical consequence: caller treats `HL` as changed after any typed call.
 
 ### 3) Stack-effect is first-class
 
@@ -104,15 +104,14 @@ ZAX needs this defined for typed internal calls (not only `extern`).
 
 ## Open Decisions (to resolve explicitly)
 
-1. For `void` typed functions: is `HL` always preserved (recommended), or can it be clobbered?
-2. Default long-term preservation strategy:
+1. Default long-term preservation strategy:
    - keep conservative save-all subset (`AF/BC/DE`) or
    - move to inferred callee-saves-used once reliable.
-3. IX policy scope:
+2. IX policy scope:
    - mandatory for framed funcs, or selectable mode/heuristic.
-4. IY policy:
+3. IY policy:
    - free scratch vs dedicated global/context pointer vs target-specific reserved.
-5. Caller arg cleanup canonical sequence under non-clobber guarantees.
+4. Caller arg cleanup canonical sequence under non-clobber guarantees.
 
 ## Immediate Next Work Suggested
 

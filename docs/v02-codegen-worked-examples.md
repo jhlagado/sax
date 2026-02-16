@@ -11,6 +11,7 @@ Examples below assume the policy direction discussed in v0.2 planning:
 
 - typed function calls are preservation-safe by default
 - return channel is `HL` for non-void functions (`L` for byte)
+- `HL` is treated as volatile across all typed calls (including `void` returns)
 - `IX` is used as frame anchor for function argument/local addressing
 - temporary conservative callee-preserved set is `AF`, `BC`, `DE` until volatility inference lands
 - `IX` is reserved for frame management
@@ -53,8 +54,8 @@ globals
   out: word
 
 func echo(value_word: word): word
-  ld hl, value_word
-  ret
+  LD HL, value_word
+  RET
 end
 
 export func main(): void
@@ -63,10 +64,10 @@ export func main(): void
   end
 
   echo $1234
-  ld tmp, hl
-  ld hl, tmp
-  ld (out), hl
-  ret
+  LD tmp, HL
+  LD HL, tmp
+  LD (out), HL
+  RET
 end
 ```
 
@@ -146,9 +147,9 @@ Note:
 
 ```zax
 func add1(input_value: word): word
-  ld hl, input_value
-  inc hl
-  ret
+  LD HL, input_value
+  INC HL
+  RET
 end
 
 export func main(): void
@@ -156,13 +157,13 @@ export func main(): void
     temp_word: word
   end
 
-  ld hl, $0100
-  ld temp_word, hl
+  LD HL, $0100
+  LD temp_word, HL
 
   add1 temp_word
-  ld temp_word, hl
+  LD temp_word, HL
 
-  ret
+  RET
 end
 ```
 
@@ -177,47 +178,47 @@ end
 ```asm
 ; func main begin
 main:
-push ix
-ld ix, $0000
-add ix, sp
-dec sp                         ; allocate 2-byte local (example form)
-dec sp
+PUSH IX
+LD IX, $0000
+ADD IX, SP
+DEC SP                         ; allocate 2-byte local (example form)
+DEC SP
 
-push af
-push bc
-push de
+PUSH AF
+PUSH BC
+PUSH DE
 
-ld hl, $0100
-ld (ix-$02), l
-ld (ix-$01), h
+LD HL, $0100
+LD (IX-$02), L
+LD (IX-$01), H
 
-ld l, (ix-$02)
-ld h, (ix-$01)
-push hl
-call add1
-inc sp
-inc sp
+LD L, (IX-$02)
+LD H, (IX-$01)
+PUSH HL
+CALL add1
+INC SP
+INC SP
 
-ld (ix-$02), l
-ld (ix-$01), h
+LD (IX-$02), L
+LD (IX-$01), H
 
-pop de
-pop bc
-pop af
-ld sp, ix
-pop ix
-ret
+POP DE
+POP BC
+POP AF
+LD SP, IX
+POP IX
+RET
 ; func main end
 ```
 
 ## 5. Preservation Policy Table (Design Target)
 
-| Function kind | Return type | Boundary-visible changed regs             | Preserved regs (target)                                |
-| ------------- | ----------- | ----------------------------------------- | ------------------------------------------------------ |
-| typed `func`  | `void`      | none                                      | `AF`, `BC`, `DE`, `IX` (and `HL` preserved for `void`) |
-| typed `func`  | byte        | `L` (or `HL` if normalized policy chosen) | non-return boundary regs preserved                     |
-| typed `func`  | word/addr   | `HL`                                      | non-return boundary regs preserved                     |
-| `extern`      | any         | per declared ABI/clobber contract         | per declared ABI/clobber contract                      |
+| Function kind | Return type | Boundary-visible changed regs     | Preserved regs (target)            |
+| ------------- | ----------- | --------------------------------- | ---------------------------------- |
+| typed `func`  | `void`      | `HL` (undefined on return)        | `AF`, `BC`, `DE`, `IX`             |
+| typed `func`  | byte        | `L` (with `HL` volatile)          | non-return boundary regs preserved |
+| typed `func`  | word/addr   | `HL`                              | non-return boundary regs preserved |
+| `extern`      | any         | per declared ABI/clobber contract | per declared ABI/clobber contract  |
 
 ## 6. Transition Note: Volatility Inference
 
@@ -269,47 +270,41 @@ This is especially important once functions have locals and multiple control-flo
 ```zax
 func fib(target_count: word): word
   var
-    prev_value: word
-    curr_value: word
-    index_value: word
-    next_value: word
+    prev_value: word = $0000
+    curr_value: word = $0001
+    index_value: word = $0000
+    next_value: word = $0000
   end
-
-  ld hl, $0000
-  ld prev_value, hl
-  ld hl, $0001
-  ld curr_value, hl
-  ld hl, $0000
-  ld index_value, hl
 
   while NZ
-    ld hl, index_value
-    cp hl, target_count
+    LD HL, index_value
+    CP HL, target_count
     if Z
-      ld hl, prev_value
-      ret
+      LD HL, prev_value
+      RET
     end
 
-    ld hl, prev_value
-    add hl, curr_value
-    ld next_value, hl
-    ld hl, curr_value
-    ld prev_value, hl
-    ld hl, next_value
-    ld curr_value, hl
-    ld hl, index_value
-    inc hl
-    ld index_value, hl
+    LD HL, prev_value
+    ADD HL, curr_value
+    LD next_value, HL
+    LD HL, curr_value
+    LD prev_value, HL
+    LD HL, next_value
+    LD curr_value, HL
+    LD HL, index_value
+    INC HL
+    LD index_value, HL
   end
 
-  ld hl, prev_value
-  ret
+  LD HL, prev_value
+  RET
 end
 ```
 
 ### C.2 Lowering Intent
 
 - four locals live in IX-frame space
+- local initializers are lowered at function entry
 - multiple source `ret` points are rewritten to `JP __zax_epilogue_fib`
 - one epilogue does full restore and final `RET`
 
@@ -365,3 +360,29 @@ POP IX
 RET
 ; func fib end
 ```
+
+## 10. Case and Naming Policy (Design Target)
+
+To reduce register/value ambiguity in ZAX source:
+
+- Register tokens are written in uppercase in canonical examples (`A`, `BC`, `HL`, `IX`, `IY`).
+- Instruction mnemonics are shown uppercase in canonical examples.
+- Variable/arg/local names must not collide with register tokens.
+
+Reserved identifier set (case-insensitive ban):
+
+- `A`, `B`, `C`, `D`, `E`, `H`, `L`, `F`
+- `AF`, `BC`, `DE`, `HL`, `IX`, `IY`, `SP`
+
+This preserves compatibility with mixed-case imported asm while keeping human readability and diagnostics unambiguous.
+
+## 11. Declaration Initialization Policy (Design Target)
+
+Language-surface direction:
+
+- declarations support explicit initializers (`name: type = value`)
+- omitted initializer means logical zero-initialization
+
+Backend note:
+
+- storage classes may still lower differently (initialized image vs zeroed storage), but user-facing declaration semantics stay uniform.
