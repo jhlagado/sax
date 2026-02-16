@@ -38,6 +38,8 @@ This directory is intentionally small. Each document has a single purpose.
   - Tiered `.asm` golden-corpus workflow for v0.2 codegen verification.
 - `v02-hidden-lowering-risk-matrix.md`
   - Hidden-lowering risk matrix with focused test coverage mapping for v0.2 closeout.
+- `v02-codegen-lowering-design.md`
+  - Codegen/lowering design target: preservation-safe composition contracts and IX-frame direction.
 
 ## Consolidation Policy
 
