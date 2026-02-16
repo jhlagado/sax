@@ -238,3 +238,127 @@ This model keeps ZAX predictable as a virtual assembler:
 - hidden lowering remains composable
 - register damage is bounded by explicit policy
 - frame and call behavior are inspectable from emitted `.asm`
+
+## 8. Return-Rewrite Policy (Design Target)
+
+For framed functions, internal `RET` statements should lower to a jump to one synthetic epilogue label.
+That keeps unwind behavior centralized and avoids duplicated restore sequences.
+
+Design-target shape:
+
+```asm
+; inside function body
+JP __zax_epilogue_funcname
+
+; single epilogue site
+__zax_epilogue_funcname:
+POP DE
+POP BC
+POP AF
+LD SP, IX
+POP IX
+RET
+```
+
+This is especially important once functions have locals and multiple control-flow exits.
+
+## 9. Worked Example C: Iterative Fibonacci With Structured Loop
+
+### C.1 Source (`.zax`)
+
+```zax
+func fib(n: word): word
+  var
+    a: word
+    b: word
+    i: word
+    t: word
+  end
+
+  ld a, $0000
+  ld b, $0001
+  ld i, $0000
+
+  while NZ
+    ld hl, i
+    cp hl, n
+    if Z
+      ld hl, a
+      ret
+    end
+
+    ld hl, a
+    add hl, b
+    ld t, hl
+    ld hl, b
+    ld a, hl
+    ld hl, t
+    ld b, hl
+    ld hl, i
+    inc hl
+    ld i, hl
+  end
+
+  ld hl, a
+  ret
+end
+```
+
+### C.2 Lowering Intent
+
+- four locals live in IX-frame space
+- multiple source `ret` points are rewritten to `JP __zax_epilogue_fib`
+- one epilogue does full restore and final `RET`
+
+### C.3 Illustrative Lowered `.asm` (excerpt)
+
+```asm
+; func fib begin
+fib:
+PUSH IX
+LD IX, $0000
+ADD IX, SP
+DEC SP
+DEC SP
+DEC SP
+DEC SP
+DEC SP
+DEC SP
+DEC SP
+DEC SP
+PUSH AF
+PUSH BC
+PUSH DE
+; local init (a,b,i,t)
+; ...
+
+__zax_while_head_0:
+; compare i vs n
+; ...
+JP Z, __zax_if_true_0
+JP __zax_if_end_0
+
+__zax_if_true_0:
+LD L, (IX-$02)                 ; a low
+LD H, (IX-$01)                 ; a high
+JP __zax_epilogue_fib
+
+__zax_if_end_0:
+; t = a + b, rotate (a,b), i++
+; ...
+JP __zax_while_head_0
+
+; fallthrough return path
+LD L, (IX-$02)
+LD H, (IX-$01)
+JP __zax_epilogue_fib
+
+__zax_epilogue_fib:
+POP DE
+POP BC
+POP AF
+LD SP, IX
+POP IX
+RET
+; func fib end
+```
