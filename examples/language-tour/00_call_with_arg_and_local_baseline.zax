@@ -1,0 +1,20 @@
+func inc_one(input_word: word): word
+  var
+    temp_word: word = 0
+  end
+
+  ld hl, input_word
+  inc hl
+  ld temp_word, hl
+  ld hl, temp_word
+end
+
+export func main(): void
+  var
+    result_word: word = 0
+  end
+
+  inc_one 5
+  ld result_word, hl
+  ret
+end

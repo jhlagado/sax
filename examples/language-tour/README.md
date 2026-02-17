@@ -9,6 +9,10 @@ Per example:
 
 ## Order
 
+0. `00_call_with_arg_and_local_baseline.zax`
+   - minimal `main -> func(arg)` with one local
+   - baseline for observing frame/call lowering behavior against spec
+
 1. `01_args_locals_basics.zax`
    - typed function args
    - local scalar vars
