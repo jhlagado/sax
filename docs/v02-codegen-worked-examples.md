@@ -461,6 +461,38 @@ Interpretation:
 - `local1: word = 0` allocates one local scalar slot and emits entry initialization lowering.
 - `local2 = glob1` is a local alias binding (no local slot allocation).
 
+### 11.2a Place Expressions vs Address Context (Design Target)
+
+Goal: keep scalar field/element usage high-level in instruction streams while preserving explicit
+address passing where `ea` is required.
+
+```zax
+type Pair
+  lo: byte
+  hi: byte
+end
+
+globals
+  p: Pair = 0           ; current compiler-supported composite zero-init form
+
+op touch(addr: ea)
+  LD A, (addr)
+end
+
+func main(): void
+  LD A, p.lo            ; value context: reads byte at p.lo
+  LD p.lo, A            ; store context: writes byte to p.lo
+  touch p.lo            ; ea context: passes address of p.lo
+end
+```
+
+Context rule:
+
+- `rec.field` and `arr[idx]` are place expressions.
+- In value/store instruction contexts, scalar places are read/written as values.
+- When a matcher/parameter requires `ea`, place expressions are passed as addresses.
+- Explicit address-of operator syntax (for example `@p.lo`) is deferred to v0.3.
+
 ### 11.3 Non-Scalar Function Arguments: `[]` vs `[N]` (Design Target)
 
 Policy:
