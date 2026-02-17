@@ -601,6 +601,15 @@ Initializer classification and diagnostics (normative):
 - `name = rhs` is alias initialization with inferred type.
 - `name: Type = rhs` is always rejected (typed alias form is not allowed in this scope).
 
+Examples (normative classification):
+
+```zax
+globals
+  table: byte[4] = { 1, 2, 3, 4 } ; valid value-init
+  table_ref = table                ; valid alias-init
+  bad_table: byte[4] = table       ; invalid typed alias form
+```
+
 ### 6.3 `data` (Initialized Storage)
 
 Syntax:
@@ -838,6 +847,21 @@ Function-local `var` invalid forms and rules:
 - typed alias is invalid: `name: Type = rhs`
 - non-scalar local storage declaration without alias init is invalid in this scope
 - non-scalar locals are allowed only via alias form (`name = rhs`) and allocate no frame slot
+
+Examples (normative classification):
+
+```zax
+globals
+  table: byte[4] = { 1, 2, 3, 4 }
+
+func sample(): void
+  var
+    a: word = 0             ; valid scalar value-init
+    b = table               ; valid alias-init
+    bad: byte[4] = table    ; invalid typed alias form
+  end
+end
+```
 
 Function-body block termination (v0.1):
 
@@ -1365,6 +1389,8 @@ next_char
 - Compilers must emit an error when index expressions use unsupported forms for v0.2 grammar/semantics.
 - Compilers should emit diagnostics that distinguish typed-call boundary guarantees from raw Z80 `call` behavior.
 - Compilers may emit warnings when composite storage padding materially increases natural packed size.
+- Compilers must emit an error for typed alias forms (`name: Type = rhs`) in both `globals` and function-local `var`.
+- Compilers must emit an error for non-scalar local storage declarations without alias initialization.
 
 ## 12. Examples (Non-normative)
 

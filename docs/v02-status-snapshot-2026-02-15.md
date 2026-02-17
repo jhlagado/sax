@@ -176,12 +176,12 @@ Status key:
 
 1. Normative language closure
 
-- `[ ]` Lock alias grammar and semantics in `docs/zax-spec.md`:
+- `[x]` Lock alias grammar and semantics in `docs/zax-spec.md`:
   - alias form is `name = rhs` (inferred type)
   - explicit typed alias form `name: Type = rhs` is invalid
   - keep typed value-init as `name: Type = valueExpr`
-- `[ ]` Define scalar vs non-scalar local initializer policy with unambiguous diagnostics.
-- `[ ]` Align inferred-array policy with alias semantics where applicable.
+- `[x]` Define scalar vs non-scalar local initializer policy with unambiguous diagnostics.
+- `[x]` Align inferred-array policy with alias semantics where applicable.
 
 2. Frontend and semantics closure
 
@@ -221,6 +221,42 @@ Status key:
 - Worked examples compile and match expected lowered `.asm` trace shape.
 - Required coverage includes scalar, alias, composite-addressing, and nested index/address expressions within runtime-atom budget.
 - Reject-path diagnostics are demonstrated for out-of-budget expressions.
+
+### 10.5 Issue #274 Closure Evidence (Normative Text + Test Identification)
+
+Primary issue: [#274](https://github.com/jhlagado/ZAX/issues/274)
+
+Normative text anchors completed in this tranche:
+
+- Alias/value-init grammar and classification:
+  - `docs/zax-spec.md` Section 6.2 (`globals`)
+  - `docs/zax-spec.md` Section 8.1 (function-local `var`)
+- Invalid typed alias and local non-scalar policy:
+  - `docs/zax-spec.md` Section 6.2 rules
+  - `docs/zax-spec.md` Section 8.1 rules
+  - `docs/zax-spec.md` Section 11.3 diagnostics guidance
+
+Acceptance test identification (implemented next in [#275](https://github.com/jhlagado/ZAX/issues/275)):
+
+1. Rule: alias form `name = rhs` is valid (inferred type)
+
+- Positive test target: `test/v02_alias_init_globals_positive.test.ts`
+- Negative test target: `test/v02_typed_alias_invalid_globals_negative.test.ts`
+
+2. Rule: typed value-init `name: Type = valueExpr` is valid
+
+- Positive test target: `test/v02_value_init_globals_locals_positive.test.ts`
+- Negative test target: `test/v02_value_init_invalid_category_negative.test.ts`
+
+3. Rule: explicit typed alias `name: Type = rhs` is invalid
+
+- Positive test target: `test/v02_alias_init_locals_positive.test.ts`
+- Negative test target: `test/v02_typed_alias_invalid_locals_negative.test.ts`
+
+4. Rule: scalar vs non-scalar local initializer policy is explicit
+
+- Positive test target: `test/v02_local_scalar_init_and_alias_positive.test.ts`
+- Negative test target: `test/v02_local_nonscalar_without_alias_negative.test.ts`
 
 ### 10.4 Updated timeline (reopened v0.2)
 
