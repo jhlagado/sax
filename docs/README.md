@@ -7,6 +7,9 @@ This directory is intentionally constrained. Every file below has a unique purpo
 - `zax-spec.md`
   - Sole normative language specification.
   - If any other doc conflicts, this file wins.
+- `zax-grammar.ebnf.md`
+  - Single-file EBNF grammar companion for syntax reference.
+  - If grammar and spec diverge, `zax-spec.md` wins.
 
 ## 2. Usage Guide (Non-normative)
 

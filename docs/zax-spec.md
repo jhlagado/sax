@@ -12,6 +12,8 @@ ZAX aims to make assembly code easier to read and refactor by providing:
 
 Normative status for v0.2: this document is the sole normative language source. `docs/v02-transition-decisions.md` is a non-normative transition record and does not override this specification.
 
+Grammar companion: `docs/zax-grammar.ebnf.md` provides a single-file syntax reference. If any grammar text diverges from this specification, this specification wins.
+
 Anything not defined here is undefined behavior or a compile error in v0.2.
 
 ---
