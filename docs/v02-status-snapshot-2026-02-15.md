@@ -6,6 +6,7 @@ Normative language behavior is defined by `docs/zax-spec.md`.
 Transition rationale/history is in `docs/v02-transition-decisions.md`.
 
 Active state (as of February 17, 2026): **v0.2 reopened** pending the addendum gates in Section 10.
+Current operational gate status is defined only by Section 10 in this file and `docs/v02-codegen-verification.md`.
 
 ## 1. Snapshot Scope
 
@@ -69,9 +70,9 @@ Status key:
 - `[x]` Closeout checklist captured and linked in status documentation.
 - `[ ]` Ensure quick guide/playbook wording is consistent for latest CLI warning flags.
 
-## 6. Remaining Work to Finish v0.2
+## 6. Historical Remaining Work to Finish v0.2 (February 15 closeout snapshot)
 
-Status: **No blocking v0.2 closeout tasks remain.**
+Historical status at snapshot time: **No blocking v0.2 closeout tasks remained.**
 
 ### 6.1 Completed closeout tasks
 

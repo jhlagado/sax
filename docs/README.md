@@ -30,6 +30,26 @@ This directory is intentionally constrained. Every file below has a unique purpo
 - `github-backlog-workflow.md`
   - GitHub issue/label/milestone workflow used as the project backlog system.
 
+## Definitive v0.2 Baseline Set
+
+For v0.2 planning, verification, and closeout work, the definitive v0.2 document set is:
+
+1. `v02-transition-decisions.md`
+2. `v02-status-snapshot-2026-02-15.md`
+3. `v02-codegen-verification.md`
+4. `v02-codegen-worked-examples.md`
+
+Do not add additional v0.2 status/checklist/risk/gate docs unless one of the four files above cannot absorb the content.
+
+## Content Ownership
+
+- `zax-spec.md`: normative language rules only.
+- `v02-status-snapshot-2026-02-15.md`: v0.2 release-state and reopened gate checklist state only.
+- `v02-codegen-verification.md`: codegen verification workstreams, risk matrix, and evidence model only.
+- `v02-codegen-worked-examples.md`: executable worked examples and expected lowering shapes only.
+- `v02-transition-decisions.md`: historical transition rationale only.
+- `zax-dev-playbook.md`: contributor process/workflow only; must not define v0.2 semantic policy or gate criteria.
+
 ## 4. Legacy Pointer (Archived)
 
 - `v01-scope-decisions.md`
