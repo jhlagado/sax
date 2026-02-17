@@ -33,7 +33,8 @@ It combines:
 - compile-time expressions (`const`, `sizeof`, `offsetof`)
 - inline macro-instructions (`op`)
 
-ZAX does not add a runtime system, hidden allocation, or hidden stack frames.
+ZAX does not add a runtime system, hidden allocation, or hidden scheduler model.
+Function lowering may still emit compiler-owned prologue/epilogue frame code where required by the typed function contract.
 
 ### 1.2 Why Use It
 

@@ -17,7 +17,7 @@ The following behavior changes are intentional and accepted for v0.2:
 - **Address-expression complexity is capped.** v0.2 adopts a runtime-atom budget (max 1 runtime atom per source-level `ea` expression).
 - **`sizeof` meaning changed.** Existing v0.1 `sizeof` behavior (packed-size oriented) is replaced by v0.2 storage-size semantics.
 - **Typed scalar variable semantics changed to values.** Legacy scalar paren-dereference forms from v0.1-era examples are not the v0.2 model.
-- **Typed internal call boundaries changed to preservation-safe contracts.** `void` calls expose no boundary-visible clobbers; non-void calls expose only `HL` as return channel.
+- **Typed internal call boundaries changed to preservation-safe contracts.** `HL` is boundary-volatile for all typed calls; non-void calls use `HL` (`L` for byte) as return channel.
 - **Enum member access changed to qualified-only.** Unqualified enum member names are compile errors in v0.2.
 
 ---
@@ -663,9 +663,9 @@ process_byte A
 
 **Net boundary rule for typed calls (this draft):**
 
-- `void` call: no external register/flag clobbers.
-- Non-void call: only `HL` is externally changed (return channel).
-- All other register/flag changes are internal and must be restored before boundary exit.
+- `HL` is boundary-volatile for all typed calls.
+- Non-void call: `HL` is the return channel (`L` for byte return).
+- All non-`HL` register/flag changes are internal and must be restored before boundary exit.
 - `extern` integrations are separate and should be treated with explicit ABI/clobber declarations.
 
 #### 7.3.5 Full-Call Preservation Plan (Draft)
@@ -685,9 +685,9 @@ process_byte A
 **Boundary invariants:**
 
 - Net SP delta at the full call boundary is zero.
-- `void` calls preserve all registers/flags.
-- Non-void calls expose only `HL` as output channel.
-- Any temporary register/flag use in argument lowering, call glue, prologue/epilogue, and cleanup must be restored before boundary exit.
+- `HL` is boundary-volatile for all typed calls.
+- Non-void calls expose `HL`/`L` as output channel.
+- Any temporary non-`HL` register/flag use in argument lowering, call glue, prologue/epilogue, and cleanup must be restored before boundary exit.
 
 **Lowering phases to implement as one envelope:**
 | Phase | Required behavior |

@@ -498,11 +498,11 @@ end
 
 ## 6. Storage Declarations: `globals`, `data`, `bin`, `hex`, `extern`
 
-ZAX separates **uninitialized storage** (`globals`) from **initialized bytes** (`data`) because these play different roles in an 8-bit system:
+ZAX separates **module variable storage** (`globals`) from **data block declarations** (`data`) because they serve different authoring roles:
 
-- `globals` reserves addresses (typically RAM). It does not emit bytes into the output image.
-- `data` emits bytes (typically ROM constants and tables).
-- Keeping them distinct makes the output deterministic and keeps it obvious which declarations consume bytes in the final image.
+- `globals` defines module variable symbols in the `var` section (scalars and composites).
+- `data` defines initialized table/blob declarations in the `data` section.
+- Both can contribute bytes to final emitted artifacts depending on declaration form.
 
 ### 6.1 Address vs Dereference
 
@@ -577,12 +577,27 @@ active_mode = mode
 - A `globals` block continues until the next module-scope declaration, directive, or end of file.
 - Legacy module-scope `var` blocks are rejected in v0.1 with a migration diagnostic (`Top-level "var" block has been renamed to "globals".`).
 
+Initialization semantics (v0.2):
+
+- `name: Type` allocates storage and zero-initializes it.
+- `name: Type = valueExpr` allocates storage and initializes from `valueExpr`.
+- `name = rhs` allocates no storage; it aliases an existing symbol/address path.
+- In image output terms, `globals` storage declarations contribute bytes in `var` (zero-filled unless value-initialized).
+
 Alias compatibility (v0.2):
 
 - Alias declarations use inferred type from `rhs`.
 - For arrays, `T[N]` where `T[]` is expected is allowed.
 - `T[]` to `T[N]` requires proof that length is exactly `N`; otherwise compile error.
 - Element-type mismatch is a compile error.
+
+Initializer classification and diagnostics (normative):
+
+- `valueExpr` is an immediate compile-time expression (`imm`) valid for the declared type width.
+- `rhs` is an address/reference source (symbol or address path expression).
+- `name: Type = valueExpr` is value initialization.
+- `name = rhs` is alias initialization with inferred type.
+- `name: Type = rhs` is always rejected (typed alias form is not allowed in this scope).
 
 ### 6.3 `data` (Initialized Storage)
 
@@ -675,6 +690,7 @@ hex bios from "rom/bios.hex"
 - HEX output is written to absolute addresses in the final address space and does not advance any section’s location counter.
 - If a HEX-written byte overlaps any other emission, it is a compile error (regardless of whether the bytes are equal). This is an instance of the general overlap rule in Section 2.2.
 - The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address. Unwritten addresses within this range are filled with the **gap fill byte**, `$00`. `var` contributes no bytes.
+- The compiler’s output is an address→byte map. When producing a flat binary image, the compiler emits bytes from the lowest written address to the highest written address. Unwritten addresses within this range are filled with the **gap fill byte**, `$00`. `var` may contribute bytes from `globals` storage declarations.
   - When producing Intel HEX output, the compiler emits only written bytes/records; gap fill bytes are not emitted.
 
 ### 6.5 `extern` (Binding Names to Addresses)
@@ -805,10 +821,22 @@ Rules:
 - Module-scope only; no inner functions.
 - Function bodies emit instructions into `code`.
 - Inside a function body:
-  - at most one optional `var` block (locals, one per line)
+  - at most one optional `var` block
   - instruction stream starts after the optional `var` block (or immediately if no `var` block)
   - `end` terminates the function body
 - Function instruction streams may contain Z80 mnemonics, `op` invocations, and structured control flow (Section 10).
+
+Function-local `var` declaration forms (v0.2):
+
+- scalar storage declaration: `name: Type`
+- scalar value initializer: `name: Type = valueExpr`
+- alias initializer: `name = rhs`
+
+Function-local `var` invalid forms and rules:
+
+- typed alias is invalid: `name: Type = rhs`
+- non-scalar local storage declaration without alias init is invalid in this scope
+- non-scalar locals are allowed only via alias form (`name = rhs`) and allocate no frame slot
 
 Function-body block termination (v0.1):
 
@@ -1469,7 +1497,7 @@ This appendix tracks migration-coverage status against the normative language ru
 - [x] Enum members require qualification (`EnumType.Member`); unqualified members are compile errors. (Sections 4.3, 11.1, 11.3)
 - [x] `sizeof` semantics are storage-size semantics (including composite padding), replacing v0.1 packed-oriented behavior. (Sections 4.1, 4.4, 11.1, 11.2)
 - [x] `offsetof` rules are fully specified (records, nested constant-index paths, and union-member path behavior). (Sections 4.4, 5.2, 5.3)
-- [x] Typed internal call boundaries are preservation-safe: `void` exposes no boundary-visible clobbers; non-void exposes only `HL`. (Sections 8.2, 11.1, 11.2)
+- [x] Typed internal call boundaries are preservation-safe with `HL` boundary-volatile for all typed calls; non-void returns publish via `HL`/`L`. (Sections 8.2, 11.1, 11.2)
 
 ### C.2 Migration Guidance Coverage
 
