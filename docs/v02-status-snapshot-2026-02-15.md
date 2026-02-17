@@ -309,6 +309,33 @@ Closeout result for #263:
 - each matrix row is linked to at least one focused positive and one guardrail/negative test
 - matrix/evidence links are now present in active v0.2 closeout planning docs
 
+### 10.8 Issue #264 Closure Evidence (Internal Opcode Verification Workflow)
+
+Primary issue: [#264](https://github.com/jhlagado/ZAX/issues/264)
+
+Normative anchor:
+
+- `docs/zax-spec.md` (assembler-first semantics, predictable lowering)
+
+Workflow/runbook anchor:
+
+- `docs/v02-codegen-verification.md` Section 7 (WS4 runbook, command, expected output shape, CI policy)
+
+Acceptance test coverage:
+
+- `test/pr287_opcode_verification_workflow.test.ts`
+  - positive per-tier opcode-byte verification using generated `.asm` trace as the primary artifact
+  - tier baselines:
+    - `test/fixtures/corpus/opcode_expected/basic_control_flow.hex`
+    - `test/fixtures/corpus/opcode_expected/intermediate_indexing.hex`
+    - `test/fixtures/corpus/opcode_expected/advanced_typed_calls.hex`
+  - negative mismatch case with actionable failure output (`offset`, `expected`, `actual`, lengths)
+
+Policy evidence:
+
+- required CI path: default `test` matrix includes `test/pr287_opcode_verification_workflow.test.ts`
+- optional/non-blocking external cross-check remains in `#266` only
+
 ### 10.4 Updated timeline (reopened v0.2)
 
 Phase A: normative closure (doc-first)

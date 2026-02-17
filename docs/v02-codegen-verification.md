@@ -126,6 +126,7 @@ Expected outcome:
 
 - documented process for validating lowered output against opcode expectations
 - workflow usable by reviewers before implementation-phase merges
+- generated `.asm` trace is the primary review artifact for opcode verification
 
 ### WS5: Sample ladder acceptance (`NORMATIVE-MUST`)
 
@@ -213,7 +214,38 @@ The diagnostics contract tied to hidden-lowering rows is anchored by focused tes
 
 If wording or ID changes are intentional, the owning PR must update this section and the corresponding focused tests in the same change.
 
-## 7. Completion Gate Before v0.3
+## 7. WS4 Opcode Verification Runbook
+
+Canonical verification test:
+
+- `test/pr287_opcode_verification_workflow.test.ts`
+
+Opcode expectation baselines (one per tier):
+
+- `test/fixtures/corpus/opcode_expected/basic_control_flow.hex`
+- `test/fixtures/corpus/opcode_expected/intermediate_indexing.hex`
+- `test/fixtures/corpus/opcode_expected/advanced_typed_calls.hex`
+
+Workflow command:
+
+```bash
+yarn -s vitest run test/pr287_opcode_verification_workflow.test.ts
+```
+
+Expected passing output shape:
+
+- 3 positive tier verifications pass (`basic`, `intermediate`, `advanced`)
+- 1 negative mismatch test passes by asserting actionable failure text (offset + expected/actual bytes)
+- comparisons are against opcode bytes embedded in generated `.asm` trace lines (fixup placeholders remain `$00` where unresolved in trace form)
+
+CI policy (required vs optional):
+
+- required for v0.2 closeout PRs touching lowering/codegen verification scope:
+  - default CI `test` jobs (`ubuntu/macos/windows`) which include `test/pr287_opcode_verification_workflow.test.ts`
+- optional/non-blocking:
+  - external assembler cross-check track in issue `#266` (`NORMATIVE-SHOULD`)
+
+## 8. Completion Gate Before v0.3
 
 All `NORMATIVE-MUST` workstreams (WS1 through WS5) must be complete and linked to passing evidence before declaring v0.2 codegen verification complete.
 
