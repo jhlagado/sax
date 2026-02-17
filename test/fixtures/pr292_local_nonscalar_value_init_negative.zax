@@ -1,0 +1,8 @@
+section code at $0000
+
+export func main(): void
+  var
+    arr: byte[4] = 1
+  end
+  ret
+end

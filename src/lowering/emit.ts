@@ -3363,20 +3363,38 @@ export function emitProgram(
 
         const localDecls = item.locals?.decls ?? [];
         let localSlotCount = 0;
+        const localScalarInitializers: Array<{
+          name: string;
+          expr: ImmExprNode;
+          span: SourceSpan;
+        }> = [];
         for (let li = 0; li < localDecls.length; li++) {
           const decl = localDecls[li]!;
           const declLower = decl.name.toLowerCase();
           if (decl.typeExpr) {
-            if (!resolveScalarKind(decl.typeExpr)) {
+            const scalarKind = resolveScalarKind(decl.typeExpr);
+            if (!scalarKind) {
               diagAt(
                 diagnostics,
                 decl.span,
                 `Non-scalar local storage declaration "${decl.name}" requires alias form ("${decl.name} = rhs").`,
               );
+              continue;
             }
             stackSlotOffsets.set(declLower, 2 * localSlotCount);
             stackSlotTypes.set(declLower, decl.typeExpr);
             localSlotCount++;
+            const init = decl.initializer;
+            if (!init) continue;
+            if (init.kind !== 'VarInitValue') {
+              diagAt(
+                diagnostics,
+                decl.span,
+                `Unsupported typed alias form for "${decl.name}": use "${decl.name} = rhs" for alias initialization.`,
+              );
+              continue;
+            }
+            localScalarInitializers.push({ name: decl.name, expr: init.expr, span: init.span });
             continue;
           }
           const init = decl.initializer;
@@ -3454,6 +3472,37 @@ export function emitProgram(
             currentCodeSegmentTag = prevTag;
           }
         }
+
+        for (const init of localScalarInitializers) {
+          const initInstruction: AsmInstructionNode = {
+            kind: 'AsmInstruction',
+            span: init.span,
+            head: 'ld',
+            operands: [
+              {
+                kind: 'Mem',
+                span: init.span,
+                expr: { kind: 'EaName', span: init.span, name: init.name },
+              },
+              { kind: 'Imm', span: init.span, expr: init.expr },
+            ],
+          };
+          const prevTag = currentCodeSegmentTag;
+          currentCodeSegmentTag = {
+            file: init.span.file,
+            line: init.span.start.line,
+            column: init.span.start.column,
+            kind: 'code',
+            confidence: 'high',
+          };
+          try {
+            if (lowerLdWithEa(initInstruction)) continue;
+            emitInstr('ld', initInstruction.operands, init.span);
+          } finally {
+            currentCodeSegmentTag = prevTag;
+          }
+        }
+
         // Track SP deltas relative to the start of user asm, after prologue reservation.
         spDeltaTracked = 0;
         spTrackingValid = true;
