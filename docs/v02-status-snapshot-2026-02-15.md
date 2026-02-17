@@ -6,6 +6,7 @@ Normative language behavior is defined by `docs/zax-spec.md`.
 Transition rationale/history is in `docs/v02-transition-decisions.md`.
 
 Active state (as of February 17, 2026): **v0.2 reopened** pending the addendum gates in Section 10.
+Current operational gate status is defined only by Section 10 in this file and `docs/v02-codegen-verification.md`.
 
 ## 1. Snapshot Scope
 
@@ -43,8 +44,8 @@ Assessment: v0.2 implementation appears functionally complete for current confor
 
 ## 5. v0.2 Completion Checklist (Closeout Gate)
 
-Canonical checklist artifact: `docs/v02-done-checklist.md`
-Checklist state is authoritative in `docs/v02-done-checklist.md`; snapshot checkboxes are contextual only.
+Canonical checklist artifact: this snapshot document (Section 10).
+This file is authoritative for reopened v0.2 gate state.
 
 Status key:
 
@@ -66,12 +67,12 @@ Status key:
 3. Docs and tracker hygiene
 
 - `[ ]` Update stale "in progress"/historical sections in `docs/zax-dev-playbook.md` to match current zero-open PR/issue state.
-- `[x]` Add a dedicated done-checklist file (`docs/v02-done-checklist.md`) and link it from status docs.
+- `[x]` Closeout checklist captured and linked in status documentation.
 - `[ ]` Ensure quick guide/playbook wording is consistent for latest CLI warning flags.
 
-## 6. Remaining Work to Finish v0.2
+## 6. Historical Remaining Work to Finish v0.2 (February 15 closeout snapshot)
 
-Status: **No blocking v0.2 closeout tasks remain.**
+Historical status at snapshot time: **No blocking v0.2 closeout tasks remained.**
 
 ### 6.1 Completed closeout tasks
 
@@ -82,7 +83,7 @@ Status: **No blocking v0.2 closeout tasks remain.**
 
 2. **Completion evidence publication**
 
-- Published `docs/v02-done-checklist.md` with evidence links for conformance, CI, diagnostics, and docs.
+- Published closeout evidence links for conformance, CI, diagnostics, and docs.
 
 3. **Final wording polish**
 
@@ -145,7 +146,7 @@ Historical closeout state at February 15 snapshot:
 
 v0.2 is closed.
 
-- Completion declaration: `docs/v02-completion-note-2026-02-15.md`
+- Historical completion declaration was published on February 15, 2026.
 - Next planning track: `docs/v03-planning-track.md`
 
 ## 9. Change Log
@@ -197,6 +198,7 @@ Status key:
 4. Evidence closure and readiness signoff
 
 - `[ ]` Publish one readiness report linking: spec deltas, key PRs, and acceptance tests.
+- `[ ]` Keep `docs/v02-codegen-verification.md` aligned with implemented tests/issues before final signoff.
 - `[ ]` Run a pre-closeout doc audit and implementation-conformance audit.
 - `[ ]` Reissue completion note only after all above gates are closed.
 
