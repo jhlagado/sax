@@ -1,0 +1,22 @@
+section code at $0000
+section var at $1000
+
+type Pair
+  lo: byte
+  hi: byte
+end
+
+globals
+  p: Pair = 0
+  idx: byte = 0
+  arr: byte[8]
+
+op readAddr(addr: ea)
+  ld a, (addr)
+end
+
+export func main(): void
+  readAddr (p.lo)
+  readAddr (arr[idx])
+  ret
+end

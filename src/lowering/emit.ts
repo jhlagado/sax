@@ -1052,7 +1052,7 @@ export function emitProgram(
         return v !== undefined && fitsImm16(v);
       }
       case 'MatcherEa':
-        return operand.kind === 'Ea' || operand.kind === 'Mem';
+        return operand.kind === 'Ea';
       case 'MatcherMem8': {
         if (operand.kind !== 'Mem') return false;
         const width = inferMemWidth(operand);
@@ -1347,7 +1347,7 @@ export function emitProgram(
         return `expects imm16, got ${got}`;
       }
       case 'MatcherEa':
-        return `expects ea or (ea), got ${got}`;
+        return `expects ea, got ${got}`;
       case 'MatcherMem8': {
         if (operand.kind !== 'Mem') return `expects mem8 dereference, got ${got}`;
         const width = inferMemWidth(operand);
