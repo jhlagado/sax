@@ -588,7 +588,7 @@ Examples:
 
 - `LD A, byte_var` → `LD A, (byte_var_addr)` (direct global read)
 - `LD HL, word_var` → `LD HL, (word_var_addr)` (direct global read)
-- `LD A, arg` / `LD HL, local` lower via SP-relative stack-slot addressing (`SP+N`) with no external register clobbers.
+- `LD A, arg` / `LD HL, local` lower via IX-frame slot addressing with no external register clobbers.
 
 ---
 
@@ -1033,7 +1033,7 @@ LD A, (IX: ^Person).name
 - Native built-in surface is intentionally minimal: typed field loads/stores through `IX/IY` only.
 - `HL/DE/BC` typed field access is not built-in; users should write explicit address math or helper `op`s.
 - For helper `op`s that preserve caller registers, prefer stack save/restore (`PUSH`/`POP`) over hidden global temp storage.
-- Treat arg/local slot access as a separate SP-relative concern; do not implicitly compose it into typed-register field lowering.
+- Treat arg/local slot access as a separate frame-slot concern; do not implicitly compose it into typed-register field lowering.
 
 ---
 

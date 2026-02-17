@@ -98,7 +98,7 @@ Additional lowering rule for IX-frame mode:
 - `IX` is treated as preserved frame state and must survive nested calls.
 - Hidden call wrappers must preserve required live state per primitive contracts.
 
-The implementation may still choose SP-relative access for specific tiny cases, but IX-frame is the default strategy for framed functions under this design.
+IX-frame is the normative strategy for framed functions under this design.
 
 ## 6. Performance Policy
 
@@ -113,7 +113,7 @@ Policy tradeoff:
 Practical guidance:
 
 - Use IX-frame where framed access density is meaningful.
-- Evaluate SP-relative fallback only when measurable and contract-safe.
+- Optimize within IX-frame constraints where measurable and contract-safe.
 
 ## 7. Verification Requirements
 

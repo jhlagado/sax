@@ -5,6 +5,8 @@ This checklist is the release-closeout gate for v0.2.
 Normative language behavior is defined by `docs/zax-spec.md`.
 This file records completion evidence and signoff state.
 
+Active state (as of February 17, 2026): **reopened gate in Section 8 is authoritative**.
+
 Status key:
 
 - `[x]` complete

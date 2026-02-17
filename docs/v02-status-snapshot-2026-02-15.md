@@ -5,6 +5,8 @@ This document is the working status source for final v0.2 closeout.
 Normative language behavior is defined by `docs/zax-spec.md`.
 Transition rationale/history is in `docs/v02-transition-decisions.md`.
 
+Active state (as of February 17, 2026): **v0.2 reopened** pending the addendum gates in Section 10.
+
 ## 1. Snapshot Scope
 
 - Snapshot date: **February 15, 2026**
