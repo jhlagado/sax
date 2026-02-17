@@ -1,6 +1,11 @@
 # ZAX Language Tour (Source-Only)
 
-This set is organized by feature and kept as `.zax` source only.
+This set is organized by feature and kept as side-by-side source plus lowered trace.
+
+Per example:
+
+- `.zax` source
+- generated `.asm` lowered trace
 
 ## Order
 
