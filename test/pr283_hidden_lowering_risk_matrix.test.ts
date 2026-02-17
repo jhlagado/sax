@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { compile } from '../src/compile.js';
+import { DiagnosticIds } from '../src/diagnostics/types.js';
 import { defaultFormatWriters } from '../src/formats/index.js';
 import type { AsmArtifact, BinArtifact, D8mArtifact } from '../src/formats/types.js';
 
@@ -61,7 +62,11 @@ describe('PR283: hidden-lowering risk matrix focused coverage', () => {
       { rawTypedCallWarnings: true },
       { formats: defaultFormatWriters },
     );
-    expect(rawTypedWarn.diagnostics.some((d) => d.severity === 'warning')).toBe(true);
+    expect(
+      rawTypedWarn.diagnostics.some(
+        (d) => d.id === DiagnosticIds.RawCallTypedTargetWarning && d.severity === 'warning',
+      ),
+    ).toBe(true);
     expect(
       rawTypedWarn.diagnostics.some((d) => d.message.includes('Raw call targets typed callable')),
     ).toBe(true);
@@ -76,7 +81,10 @@ describe('PR283: hidden-lowering risk matrix focused coverage', () => {
     expect(stackPolicyError.artifacts).toEqual([]);
     expect(
       stackPolicyError.diagnostics.some(
-        (d) => d.severity === 'error' && d.message.includes('non-zero static stack delta'),
+        (d) =>
+          d.id === DiagnosticIds.OpStackPolicyRisk &&
+          d.severity === 'error' &&
+          d.message.includes('non-zero static stack delta'),
       ),
     ).toBe(true);
 
@@ -87,9 +95,33 @@ describe('PR283: hidden-lowering risk matrix focused coverage', () => {
     );
     expect(unbalanced.artifacts).toEqual([]);
     expect(
-      unbalanced.diagnostics.some((d) =>
-        d.message.includes('Function "main" has non-zero stack delta at fallthrough'),
+      unbalanced.diagnostics.some(
+        (d) =>
+          d.id === DiagnosticIds.EmitError &&
+          d.message.includes('Function "main" has non-zero stack delta at fallthrough'),
       ),
     ).toBe(true);
+  });
+
+  it('keeps typed-call vs raw-call diagnostic behaviors distinct', async () => {
+    const typedVsRaw = await compile(
+      join(__dirname, 'fixtures', 'pr275_typed_vs_raw_call_boundary_diag.zax'),
+      {},
+      { formats: defaultFormatWriters },
+    );
+    const messages = typedVsRaw.diagnostics.map((d) => d.message);
+    expect(
+      messages.some((m) =>
+        m.includes(
+          'typed call "callee_typed" reached with unknown stack depth; cannot verify typed-call boundary contract.',
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      messages.some((m) =>
+        m.includes('call reached with unknown stack depth; cannot verify callee stack contract.'),
+      ),
+    ).toBe(true);
+    expect(typedVsRaw.diagnostics.every((d) => d.id === DiagnosticIds.EmitError)).toBe(true);
   });
 });

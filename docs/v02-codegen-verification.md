@@ -198,6 +198,21 @@ Anti-overfitting rules:
 | Local/arg/global access in framed functions      | Lowering preserves stack/frame safety while materializing local/arg/global accesses         | `test/pr283_hidden_lowering_risk_matrix.test.ts` (`pr283_local_arg_global_access_matrix.zax`) | `test/pr14_frame_epilogue.test.ts` (untracked SP slot access error case)  |
 | Structured-control + hidden lowering joins       | Unknown/untracked states propagate correctly to ret/fallthrough diagnostics                 | `test/pr221_lowering_op_expansion_retcc_interactions.test.ts`                                 | `test/pr198_lowering_unknown_stack_states.test.ts`                        |
 
+### 6.1 Diagnostics Contract Evidence (Issue #263)
+
+The diagnostics contract tied to hidden-lowering rows is anchored by focused tests that assert stable IDs and category-specific wording where required:
+
+- `test/pr283_hidden_lowering_risk_matrix.test.ts`
+  - `DiagnosticIds.OpStackPolicyRisk` for op-stack-policy escalation (`opStackPolicy: error`)
+  - `DiagnosticIds.RawCallTypedTargetWarning` for raw-to-typed warning path
+  - `DiagnosticIds.EmitError` for stack-delta-at-fallthrough and typed/raw boundary-contract guardrail paths
+- `test/pr275_typed_vs_raw_call_boundary_diagnostics.test.ts`
+  - distinct typed-call vs raw-call boundary diagnostics remain present as separate message forms
+- `test/pr278_raw_call_typed_target_warning.test.ts`
+  - warning-mode toggle behavior and stable warning diagnostic ID
+
+If wording or ID changes are intentional, the owning PR must update this section and the corresponding focused tests in the same change.
+
 ## 7. Completion Gate Before v0.3
 
 All `NORMATIVE-MUST` workstreams (WS1 through WS5) must be complete and linked to passing evidence before declaring v0.2 codegen verification complete.

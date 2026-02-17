@@ -280,6 +280,35 @@ Acceptance tests:
   - positive fixture: `test/fixtures/pr286_nonscalar_param_compat_positive.zax`
   - negative fixture: `test/fixtures/pr286_nonscalar_param_compat_negative.zax`
 
+### 10.7 Issue #263 Closure Evidence (Hidden-Lowering Risk Matrix)
+
+Primary issue: [#263](https://github.com/jhlagado/ZAX/issues/263)
+
+Normative anchor:
+
+- `docs/zax-spec.md` (hidden lowering responsibilities, call-boundary contract, diagnostics stability expectations)
+
+Verification/evidence anchors:
+
+- `docs/v02-codegen-verification.md` Section 6 (risk matrix rows and focused row-to-test mappings)
+- `docs/v02-codegen-verification.md` Section 6.1 (diagnostics-contract evidence for IDs/message families)
+
+Focused acceptance tests:
+
+- `test/pr283_hidden_lowering_risk_matrix.test.ts`
+  - positive matrix coverage for op expansion attribution, typed-call preservation wrappers, and local/arg/global frame access
+  - negative guardrails for op-stack-policy escalation and non-zero fallthrough stack delta
+- `test/pr14_frame_epilogue.test.ts`
+  - function prologue/epilogue rewrite behavior and untracked-SP slot-access guardrail
+- `test/pr275_typed_vs_raw_call_boundary_diagnostics.test.ts`
+  - typed-call vs raw-call diagnostic separation remains stable
+
+Closeout result for #263:
+
+- hidden-lowering matrix categories are explicitly documented
+- each matrix row is linked to at least one focused positive and one guardrail/negative test
+- matrix/evidence links are now present in active v0.2 closeout planning docs
+
 ### 10.4 Updated timeline (reopened v0.2)
 
 Phase A: normative closure (doc-first)
