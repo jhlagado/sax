@@ -1,0 +1,7 @@
+export func main(): void
+  var
+    x: byte
+  end
+  ret z
+  ret
+end

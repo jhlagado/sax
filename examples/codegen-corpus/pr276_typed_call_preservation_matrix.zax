@@ -1,0 +1,18 @@
+section code at $0000
+section var at $1000
+
+extern func getb(seed: byte): byte at $1234
+extern func getw(seed: word): word at $1240
+extern func ping(seed: byte): void at $1250
+
+globals
+  out: word
+
+export func main(): void
+  ping 1
+  getb 7
+  ld a, l
+  getw 9
+  ld out, hl
+  ret
+end
