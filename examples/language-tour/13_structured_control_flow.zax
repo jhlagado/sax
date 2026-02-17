@@ -31,10 +31,8 @@ func run_once(): void
   end
 
   ld mode_value, a
-  ret
 end
 
 export func main(): void
   run_once
-  ret
 end

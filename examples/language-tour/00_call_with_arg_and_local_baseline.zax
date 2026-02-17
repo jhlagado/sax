@@ -1,12 +1,14 @@
 func inc_one(input_word: word): word
   var
     temp_word: word = 0
+    unused_word: word = 100
   end
 
-  ld hl, input_word
-  inc hl
-  ld temp_word, hl
-  ld hl, temp_word
+  ld de, input_word
+  inc de
+  ld temp_word, de
+  ld de, temp_word
+  ex de, hl
 end
 
 export func main(): void
@@ -16,5 +18,4 @@ export func main(): void
 
   inc_one 5
   ld result_word, hl
-  ret
 end

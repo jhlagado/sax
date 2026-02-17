@@ -13,5 +13,4 @@ end
 export func main(): void
   read_byte_at 3
   read_word_at 1
-  ret
 end

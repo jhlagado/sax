@@ -39,5 +39,4 @@ end
 
 export func main(): void
   fib 10
-  ret
 end

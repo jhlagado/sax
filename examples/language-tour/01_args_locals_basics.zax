@@ -25,5 +25,4 @@ export func main(): void
   ld result_word, hl
 
   bump_byte 7
-  ret
 end

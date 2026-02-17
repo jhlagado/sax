@@ -9,7 +9,6 @@ globals
 func write_pair(lo_value: byte, hi_value: byte): void
   ld pair_buf.lo, lo_value
   ld pair_buf.hi, hi_value
-  ret
 end
 
 func read_pair_word(): word
@@ -25,5 +24,4 @@ export func main(): void
   write_pair 1, 2
   ld a, pair_alias.lo
   read_pair_word
-  ret
 end

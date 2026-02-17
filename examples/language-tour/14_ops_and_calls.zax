@@ -29,5 +29,4 @@ export func main(): void
   read_byte a, (sample_byte)
   add_to_sample 23
   ld result_word, hl
-  ret
 end

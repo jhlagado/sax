@@ -1003,6 +1003,39 @@ Frame shape:
 - `IX+4..`: arguments (0-based word slots)
 - `IX-1..`: local scalar slots
 
+IX-displacement byte-lane lowering constraints (v0.2):
+
+- Z80 `IX+d` byte-load/store forms operate on `A B C D E` and memory/immediate forms; they do not support `H`/`L` as direct byte operands in these indexed forms.
+- Therefore, hidden lowering for 16-bit frame-slot transfers must not emit patterns like:
+  - `LD L, (IX+d)` / `LD H, (IX+d)`
+  - `LD (IX+d), L` / `LD (IX+d), H`
+- Required lowering policy for word slot moves between `HL` and `IX`-relative memory:
+  - use `DE` as the byte-lane shuttle (`D`/`E` are legal with `IX+d`)
+  - bridge with `EX DE, HL` before/after the memory transfer when the semantic source/destination is `HL`
+- Canonical legal transfer patterns:
+
+```asm
+; read argument/local word from frame slot into HL
+ex de, hl
+ld e, (ix+disp_lo)
+ld d, (ix+disp_hi)
+ex de, hl
+
+; write HL into argument/local word frame slot
+ex de, hl
+ld (ix+disp_lo), e
+ld (ix+disp_hi), d
+ex de, hl
+```
+
+Local initializer lowering order (v0.2):
+
+- Scalar local initializers are lowered in declaration order.
+- For word/addr-like zero or constant initialization at function entry, preferred lowering is:
+  - `LD HL, imm16`
+  - `PUSH HL`
+- This allocates and initializes one local slot in one sequence and keeps stack shape aligned with declaration order.
+
 Return and cleanup model:
 
 - If a synthetic epilogue is required (`frameSize > 0`, or at least one conditional `ret <cc>` exists), the compiler creates a per-function hidden label:

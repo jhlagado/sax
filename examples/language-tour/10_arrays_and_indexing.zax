@@ -17,5 +17,4 @@ export func main(): void
 
   first_byte
   read_word_at idx_word
-  ret
 end

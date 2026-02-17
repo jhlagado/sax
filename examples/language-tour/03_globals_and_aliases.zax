@@ -8,7 +8,6 @@ end
 
 func write_counter(new_value: word): void
   ld counter, new_value
-  ret
 end
 
 export func main(): void
@@ -18,5 +17,4 @@ export func main(): void
 
   write_counter 123
   ld hl, local_alias
-  ret
 end
