@@ -111,3 +111,43 @@ These are intentionally deferred and do not block v0.2 completion:
 
 - v0.2 closeout gate status: **COMPLETE**
 - Declared on: **February 15, 2026**
+
+## 8. Reopened v0.2 Gate (February 17, 2026 Addendum)
+
+Historical closeout remains recorded above; this addendum defines the active gate.
+
+Status key:
+
+- `[x]` complete
+- `[ ]` pending
+
+### 8.1 Normative spec closure
+
+- `[ ]` Alias declaration grammar is fixed in `docs/zax-spec.md`:
+  - valid alias form: `name = rhs`
+  - invalid typed alias form: `name: Type = rhs`
+  - typed value-init remains `name: Type = valueExpr`
+- `[ ]` `globals` and function-local `var` initializer policy is fully specified (scalar value-init vs alias-init).
+- `[ ]` Inferred-length array policy is aligned with alias semantics and documented with examples.
+
+### 8.2 Parser/AST/Semantics closure
+
+- `[ ]` AST supports required initializer forms for `globals`/`var` declarations.
+- `[ ]` Parser accepts valid forms and rejects invalid forms with stable diagnostics.
+- `[ ]` Semantics enforce alias compatibility/inference and local non-scalar restrictions consistently.
+
+### 8.3 Codegen/lowering closure
+
+- `[ ]` Function frame policy (IX-anchor + epilogue rewriting) is locked and reflected in tests.
+- `[ ]` Hidden lowering register-preservation contract is validated in fixture corpus.
+- `[ ]` Nested expression lowering (runtime-atom bounded) has positive and negative acceptance coverage.
+
+### 8.4 Readiness audits
+
+- `[ ]` Spec audit complete: no conflicting rule definitions across docs.
+- `[ ]` Conformance audit complete: implementation behavior matches normative spec.
+- `[ ]` Codegen acceptance audit complete: worked examples and expected lowered traces verified.
+
+### 8.5 Completion condition
+
+v0.2 is complete only when all items in Sections 8.1-8.4 are checked.

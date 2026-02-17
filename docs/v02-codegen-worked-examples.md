@@ -375,8 +375,10 @@ This preserves compatibility with mixed-case imported asm while keeping human re
 
 Language-surface direction:
 
-- declarations support explicit initializers (`name: type = value`)
-- omitted initializer means logical zero-initialization
+- value initialization uses explicit typed form (`name: type = value`)
+- alias initialization uses inferred form (`name = rhs`)
+- typed alias form (`name: type = rhs`) is invalid by design
+- omitted initializer means declaration has no explicit source initializer
 
 Backend note:
 
@@ -390,10 +392,11 @@ Rules:
 
 - Function locals/args remain scalar-slot storage in the current ABI.
 - A local composite declaration without initializer is a compile error (would imply stack composite allocation, not currently supported).
-- Composite locals may be declared only as typed aliases with a reference initializer.
+- Composite locals may be declared only as aliases using inferred alias form (`name = rhs`).
 - In globals, both forms are allowed:
   - value initializer: defines storage contents
   - reference initializer: defines an alias to existing composite storage
+- Typed alias spellings are rejected in all scopes.
 
 Global example:
 
@@ -404,7 +407,7 @@ end
 
 globals
   persons: Person[] = { ... }      ; value initializer (storage)
-  admins: Person[] = persons       ; reference initializer (alias)
+  admins = persons                 ; reference initializer (alias, inferred type)
 ```
 
 Local alias example (allowed):
@@ -412,7 +415,7 @@ Local alias example (allowed):
 ```zax
 func use_admins(): void
   var
-    admin_list: Person[] = admins  ; reference initializer only
+    admin_list = admins            ; reference initializer only (inferred type)
   end
 
   LD HL, admin_list[2].name_word
@@ -431,5 +434,177 @@ end
 
 Type-shape rule:
 
-- Alias type must be compatible with referenced composite shape.
-- `[]` in alias declarations is treated as shape-inferred from the initializer target in this design-target policy.
+- Alias shape is inferred from the RHS symbol/address expression.
+- If RHS type cannot be resolved to a concrete storage shape, declaration is a compile error.
+
+### 11.2 Scalar Initializers and Aliases (Design Target)
+
+```zax
+globals
+  glob1: word = 23
+  glob2 = glob1
+
+func func1(input_word: word): word
+  var
+    local1: word = 0
+    local2 = glob1
+  end
+
+  LD HL, local2
+end
+```
+
+Interpretation:
+
+- `glob1: word = 23` is typed scalar value initialization.
+- `glob2 = glob1` is alias binding with inferred type.
+- `local1: word = 0` allocates one local scalar slot and emits entry initialization lowering.
+- `local2 = glob1` is a local alias binding (no local slot allocation).
+
+### 11.3 Non-Scalar Function Arguments: `[]` vs `[N]` (Design Target)
+
+Policy:
+
+- Non-scalar function arguments are passed as 16-bit address-like references at call boundary.
+- Parameter type controls callee-side access semantics.
+- `T[]` in parameter position means element-shape contract only (length unspecified by signature).
+- `T[N]` in parameter position means exact-length contract.
+
+Compatibility:
+
+- Passing `T[N]` to `T[]` is allowed.
+- Passing `T[]` to `T[N]` is rejected unless compiler can prove length is exactly `N`.
+- Passing mismatched element type is rejected (`byte[]` to `word[]`, etc).
+
+Example: globals array passed to both flexible and fixed signatures
+
+```zax
+globals
+  sample_bytes: byte[10] = { 1,2,3,4,5,6,7,8,9,10 }
+
+func sum_fixed_10(values: byte[10]): word
+  ; fixed contract: exactly 10 bytes expected
+  ; ...
+end
+
+func sum_any(values: byte[]): word
+  ; flexible contract: element type byte, length not encoded in signature
+  ; ...
+end
+
+export func main(): void
+  sum_fixed_10 sample_bytes   ; valid: exact-length match
+  sum_any sample_bytes        ; valid: [10] -> [] widening
+end
+```
+
+Negative example: narrowing without proof
+
+```zax
+globals
+  inferred_view = sample_bytes
+
+func needs_ten(values: byte[10]): word
+  ; ...
+end
+
+export func main_bad(): void
+  needs_ten inferred_view      ; error unless compiler can prove length is 10
+end
+```
+
+Lowering note:
+
+- Call lowering still pushes one 16-bit argument slot for non-scalar args.
+- The non-scalar "by-reference" meaning is semantic/type-level, not a different stack width.
+
+## 12. Codegen Acceptance Matrix (Must-Complete for v0.2)
+
+Each row requires:
+
+- one `.zax` fixture
+- expected lowered `.asm` trace assertions
+- negative test (when applicable)
+
+1. Scalar + frame basics
+
+- single arg return (`word` and `byte`)
+- one local scalar slot with initializer
+- multiple `RET` rewrite to shared epilogue
+
+2. Alias semantics
+
+- global scalar alias (`name = rhs`)
+- global composite alias (`admins = persons`)
+- local alias to global symbol
+- reject typed alias form (`name: Type = rhs`)
+
+2a. Non-scalar call compatibility semantics
+
+- pass `T[N]` to `T[]` argument (accepted)
+- pass `T[]` to `T[N]` without proof (rejected)
+- pass element-type mismatch (`byte[]` to `word[]`) (rejected)
+
+3. Composite addressing
+
+- array constant index (`arr[2]`)
+- array register index (`arr[HL]`)
+- indirect index (`arr[(HL)]`)
+- nested field/index (`records[index_value].field_word`)
+
+4. Nested expression/runtime-atom bounded lowering
+
+- pass at atom budget limit
+- fail over atom budget with diagnostic suggesting staging
+- staged equivalent accepted across multiple lines
+
+5. Call-boundary/preservation interactions
+
+- typed call with scalar args and alias-origin operands
+- caller arg cleanup shape (`INC SP` or equivalent)
+- `HL` treated volatile across all typed calls
+
+## 13. Advanced Nested-Expression Example Set (Planned Fixtures)
+
+### 13.1 Budget-pass example (illustrative)
+
+```zax
+; assume atom budget allows this form
+LD HL, table_rows[index_value].cells[col_index]
+```
+
+Expected:
+
+- accepted lowering
+- deterministic hidden sequence
+- preservation contract satisfied
+
+### 13.2 Budget-fail example (illustrative)
+
+```zax
+LD HL, matrix[row_index + delta_value][col_index + stride_value]
+```
+
+Expected:
+
+- compile error: runtime-atom budget exceeded for one expression
+- diagnostic suggests staging into intermediate locals/aliases
+
+### 13.3 Staged equivalent (accepted)
+
+```zax
+LD HL, row_index
+ADD HL, delta_value
+LD staged_row, HL
+
+LD HL, col_index
+ADD HL, stride_value
+LD staged_col, HL
+
+LD HL, matrix[staged_row][staged_col]
+```
+
+Expected:
+
+- accepted under atom rules
+- same semantic result as budget-fail single-line form

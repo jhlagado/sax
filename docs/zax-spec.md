@@ -328,6 +328,12 @@ Inferred-length arrays (v0.1):
   - type aliases
   - function parameter and return types
 
+Design-target update for reopened v0.2 planning:
+
+- `T[]` is intended to be permitted in function parameter position as an array-view contract (element shape known, length unspecified by signature).
+- This does not imply local stack allocation of unknown-size arrays.
+- `T[]` return-type support remains out of scope in this phase unless explicitly added by a separate decision.
+
 Arrays and nesting (v0.1):
 
 - Array types may be used in aliases (`type Buffer byte[256]`) and as record field types.
@@ -827,6 +833,18 @@ Notes (v0.1):
 - Arguments are stack slots, regardless of declared type. For `byte` parameters, the low byte carries the value and the high byte is ignored (recommended: push a zero-extended value).
 - `void` functions return no value.
 
+Non-scalar argument contract (reopened v0.2 design target):
+
+- Non-scalar parameters are passed in one 16-bit argument slot as address-like references.
+- Parameter type controls callee semantics:
+  - `T[]` means element-shape contract only (length unspecified by signature).
+  - `T[N]` means exact-length contract.
+- Compatibility:
+  - passing `T[N]` to `T[]` is allowed.
+  - passing `T[]` to `T[N]` is rejected unless compiler can prove length is exactly `N`.
+  - element-type mismatch is rejected.
+- This is a type/semantic rule; stack width remains one 16-bit slot for non-scalar args.
+
 ### 8.3 Calling Functions From Instruction Streams
 
 Inside a function/op instruction stream, a line starting with a function name invokes that function.
@@ -845,6 +863,26 @@ Argument values (v0.1):
 - `(ea)` dereference: reads from memory and passes the loaded value (word or byte depending on the parameter type; `byte` is zero-extended).
 
 Calls follow the calling convention in 8.2 (compiler emits the required pushes, call, and any temporary saves/restores).
+
+Example (reopened v0.2 design target):
+
+```zax
+globals
+  sample_bytes: byte[10] = { 1,2,3,4,5,6,7,8,9,10 }
+
+func sum_fixed_10(values: byte[10]): word
+  ; fixed-length contract
+end
+
+func sum_any(values: byte[]): word
+  ; flexible array-view contract
+end
+
+export func main(): void
+  sum_fixed_10 sample_bytes   ; valid
+  sum_any sample_bytes        ; valid ([10] -> [])
+end
+```
 
 Parsing and name resolution (v0.2):
 

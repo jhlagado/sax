@@ -149,3 +149,86 @@ v0.2 is closed.
 - February 15, 2026: revised with current zero-open PR/issue status, explicit closeout checklist, and updated timeline.
 - February 15, 2026: linked dedicated closeout checklist file and corrected section numbering.
 - February 15, 2026: closeout tasks marked complete and snapshot transitioned to post-closeout state.
+- February 17, 2026: v0.2 scope reopened for grammar/AST/codegen clarification track (alias semantics, initializer model, frame-policy validation, and expanded worked-example coverage).
+
+## 10. Reopened Scope Addendum (February 17, 2026)
+
+This section supersedes the "v0.2 is closed" operational status above while preserving historical record.
+
+### 10.1 Why v0.2 is reopened
+
+- The language still has unresolved normative behavior for alias declarations and initializer semantics in `globals`/function `var` blocks.
+- Current parser/AST/lowering constraints are narrower than current design intent for aliasing and composite-reference workflows.
+- Codegen/lowering examples are not yet a full acceptance corpus for hidden lowering and runtime-atom bounded nested expression handling.
+
+### 10.2 v0.2 must-complete items (new gate)
+
+Status key:
+
+- `[x]` complete
+- `[ ]` pending
+
+1. Normative language closure
+
+- `[ ]` Lock alias grammar and semantics in `docs/zax-spec.md`:
+  - alias form is `name = rhs` (inferred type)
+  - explicit typed alias form `name: Type = rhs` is invalid
+  - keep typed value-init as `name: Type = valueExpr`
+- `[ ]` Define scalar vs non-scalar local initializer policy with unambiguous diagnostics.
+- `[ ]` Align inferred-array policy with alias semantics where applicable.
+
+2. Frontend and semantics closure
+
+- `[ ]` AST update plan documented and implemented for var/global initializer split (value-init vs alias-init).
+- `[ ]` Parser grammar matrices updated for `globals` and function-local `var`.
+- `[ ]` Semantics/type-compatibility rules documented for alias binding compatibility and inference.
+
+3. Codegen and lowering closure
+
+- `[ ]` Finalize frame policy docs for IX-anchored model and return-rewrite behavior.
+- `[ ]` Define and test hidden lowering preservation contract against worked examples.
+- `[ ]` Validate runtime-atom bounded lowering behavior on nested-expression examples.
+
+4. Evidence closure and readiness signoff
+
+- `[ ]` Publish one readiness report linking: spec deltas, key PRs, and acceptance tests.
+- `[ ]` Run a pre-closeout doc audit and implementation-conformance audit.
+- `[ ]` Reissue completion note only after all above gates are closed.
+
+### 10.3 Audit and review gates required before declaring v0.2 complete
+
+1. Spec audit (normative)
+
+- `docs/zax-spec.md` has no conflicting behavior definitions against supporting docs.
+- Alias/initializer rules are fully specified with valid/invalid examples.
+- Function frame/call boundary policy is explicit and testable.
+
+2. Implementation-conformance audit
+
+- Parser and diagnostics match the spec grammar exactly.
+- AST and lowering behavior match alias/value-init semantics exactly.
+- Runtime-atom diagnostics and lowering outcomes match spec and worked examples.
+
+3. Codegen acceptance audit
+
+- Worked examples compile and match expected lowered `.asm` trace shape.
+- Required coverage includes scalar, alias, composite-addressing, and nested index/address expressions within runtime-atom budget.
+- Reject-path diagnostics are demonstrated for out-of-budget expressions.
+
+### 10.4 Updated timeline (reopened v0.2)
+
+Phase A: normative closure (doc-first)
+
+- finalize grammar/AST/semantic spec deltas
+- freeze "must-complete" issue set under v0.2 milestone
+
+Phase B: implementation + acceptance evidence
+
+- land parser/AST/lowering changes
+- land worked-example corpus and compile assertions
+
+Phase C: readiness and declaration
+
+- complete spec + conformance audits
+- publish final v0.2 readiness report
+- publish updated completion note
