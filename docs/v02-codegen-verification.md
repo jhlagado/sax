@@ -88,6 +88,7 @@ Policy is predictability-first, not shortest-instruction-count-first:
 - prioritize preservation and composability guarantees
 - accept localized overhead in arg/local access where needed
 - optimize only when contract safety is unchanged
+
 ## 3. Workstreams (Issue-Tracked)
 
 ### WS1: Inspectable source output (`NORMATIVE-MUST`)
