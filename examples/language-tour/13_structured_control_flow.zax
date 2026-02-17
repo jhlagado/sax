@@ -1,0 +1,38 @@
+globals
+  mode_value: byte = 0
+
+func run_once(): void
+  ld a, mode_value
+  or a
+
+  if Z
+    ld a, 1
+  else
+    ld a, 2
+  end
+
+  while NZ
+    dec a
+  end
+
+  ld a, 1
+  repeat
+    dec a
+  until Z
+
+  ld a, mode_value
+  select a
+    case 0
+      ld a, 10
+    case 1
+      ld a, 20
+    else
+      ld a, 30
+  end
+
+  ld mode_value, a
+end
+
+export func main(): void
+  run_once
+end

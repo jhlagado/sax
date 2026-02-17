@@ -1,0 +1,32 @@
+op clear_carry()
+  xor a
+end
+
+op add16(dst: HL, src: reg16)
+  clear_carry
+  adc hl, src
+end
+
+op read_byte(dst: reg8, source_mem: mem8)
+  ld dst, source_mem
+end
+
+globals
+  sample_byte: byte = 7
+  sample_word: word = 100
+
+func add_to_sample(delta_word: word): word
+  ld hl, sample_word
+  ld de, delta_word
+  add16 hl, de
+end
+
+export func main(): void
+  var
+    result_word: word = 0
+  end
+
+  read_byte a, (sample_byte)
+  add_to_sample 23
+  ld result_word, hl
+end
