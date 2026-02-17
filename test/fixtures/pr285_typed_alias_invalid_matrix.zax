@@ -1,0 +1,10 @@
+globals
+  base: word
+  bad_global: word = base
+
+func main(): void
+  var
+    bad_local: word = base
+  end
+  ret
+end

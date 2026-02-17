@@ -33,6 +33,7 @@ import type {
   TypeExprNode,
   VarBlockNode,
   VarDeclNode,
+  VarDeclInitializerNode,
 } from './ast.js';
 import { makeSourceFile, span } from './source.js';
 import type { Diagnostic } from '../diagnostics/types.js';
@@ -1463,6 +1464,131 @@ export function parseModuleFile(
     return `"${trimmed.replace(/"/g, '\\"')}"`;
   }
 
+  function parseVarDeclLine(
+    lineText: string,
+    declSpan: SourceSpan,
+    lineNo: number,
+    scope: 'globals' | 'var',
+  ): VarDeclNode | undefined {
+    const declKind = scope === 'globals' ? 'globals declaration' : 'var declaration';
+    const raw = lineText.trim();
+    const valueOrAliasExpected = '<name>: <type>';
+
+    const aliasMatch = /^([^:=]+?)\s*=\s*(.+)$/.exec(raw);
+    if (aliasMatch && !aliasMatch[1]!.includes(':')) {
+      const name = aliasMatch[1]!.trim();
+      const rhsText = aliasMatch[2]!.trim();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid ${scope} declaration name ${formatIdentifierToken(name)}: expected <identifier>.`,
+          { line: lineNo, column: 1 },
+        );
+        return undefined;
+      }
+      if (TOP_LEVEL_KEYWORDS.has(name.toLowerCase())) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Invalid ${scope} declaration name "${name}": collides with a top-level keyword.`,
+          { line: lineNo, column: 1 },
+        );
+        return undefined;
+      }
+      const rhsEa = parseEaExprFromText(modulePath, rhsText, declSpan, diagnostics);
+      if (!rhsEa) {
+        diag(
+          diagnostics,
+          modulePath,
+          `Incompatible inferred alias binding for "${name}": expected address expression on right-hand side.`,
+          { line: lineNo, column: 1 },
+        );
+        return undefined;
+      }
+      const initializer: VarDeclInitializerNode = {
+        kind: 'VarInitAlias',
+        span: declSpan,
+        expr: rhsEa,
+      };
+      return { kind: 'VarDecl', span: declSpan, name, initializer };
+    }
+
+    const typedMatch = /^([^:]+)\s*:\s*(.+)$/.exec(raw);
+    if (!typedMatch) {
+      diagInvalidBlockLine(declKind, raw, valueOrAliasExpected, lineNo);
+      return undefined;
+    }
+
+    const name = typedMatch[1]!.trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+      diag(
+        diagnostics,
+        modulePath,
+        `Invalid ${scope} declaration name ${formatIdentifierToken(name)}: expected <identifier>.`,
+        { line: lineNo, column: 1 },
+      );
+      return undefined;
+    }
+    if (TOP_LEVEL_KEYWORDS.has(name.toLowerCase())) {
+      diag(
+        diagnostics,
+        modulePath,
+        `Invalid ${scope} declaration name "${name}": collides with a top-level keyword.`,
+        { line: lineNo, column: 1 },
+      );
+      return undefined;
+    }
+
+    const typeAndInitText = typedMatch[2]!.trim();
+    const eqIdx = typeAndInitText.indexOf('=');
+    const typeText = (eqIdx >= 0 ? typeAndInitText.slice(0, eqIdx) : typeAndInitText).trim();
+    const initText = (eqIdx >= 0 ? typeAndInitText.slice(eqIdx + 1) : '').trim();
+    const typeExpr = parseTypeExprFromText(typeText, declSpan, {
+      allowInferredArrayLength: false,
+    });
+    if (!typeExpr) {
+      if (
+        diagIfInferredArrayLengthNotAllowed(diagnostics, modulePath, typeText, {
+          line: lineNo,
+          column: 1,
+        })
+      ) {
+        return undefined;
+      }
+      diagInvalidBlockLine(declKind, raw, valueOrAliasExpected, lineNo);
+      return undefined;
+    }
+
+    if (eqIdx < 0) {
+      return { kind: 'VarDecl', span: declSpan, name, typeExpr };
+    }
+
+    const aliasLike = parseEaExprFromText(modulePath, initText, declSpan, diagnostics);
+    if (aliasLike) {
+      diag(
+        diagnostics,
+        modulePath,
+        `Unsupported typed alias form for "${name}": use "${name} = ${initText}" for alias initialization.`,
+        { line: lineNo, column: 1 },
+      );
+      return undefined;
+    }
+
+    const valueExpr = parseImmExprFromText(modulePath, initText, declSpan, diagnostics);
+    if (!valueExpr) {
+      diagInvalidBlockLine(declKind, raw, valueOrAliasExpected, lineNo);
+      return undefined;
+    }
+
+    const initializer: VarDeclInitializerNode = {
+      kind: 'VarInitValue',
+      span: declSpan,
+      expr: valueExpr,
+    };
+    return { kind: 'VarDecl', span: declSpan, name, typeExpr, initializer };
+  }
+
   function consumeInvalidExternBlock(startIndex: number): number {
     let previewIndex = startIndex + 1;
     while (previewIndex < lineCount) {
@@ -2120,7 +2246,7 @@ export function parseModuleFile(
           continue;
         }
         if (isTopLevelStart(t)) {
-          const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.+)$/.exec(t);
+          const m = /^([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*(.+)$/.exec(t);
           if (m && TOP_LEVEL_KEYWORDS.has(m[1]!)) {
             diag(
               diagnostics,
@@ -2138,42 +2264,18 @@ export function parseModuleFile(
           }
           break;
         }
-
-        const m = /^([^:]+)\s*:\s*(.+)$/.exec(t);
-        if (!m) {
+        const declSpan = span(file, so, eo);
+        const parsed = parseVarDeclLine(t, declSpan, i + 1, 'globals');
+        if (!parsed) {
           if (/^globals\b/i.test(t)) {
             diagInvalidBlockLine(blockDeclKind, t, blockHeaderExpected, i + 1);
-          } else {
-            diagInvalidBlockLine(blockDeclKind, t, '<name>: <type>', i + 1);
           }
           i++;
           continue;
         }
-
-        const name = m[1]!.trim();
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
-          diag(
-            diagnostics,
-            modulePath,
-            `Invalid globals declaration name ${formatIdentifierToken(name)}: expected <identifier>.`,
-            { line: i + 1, column: 1 },
-          );
-          i++;
-          continue;
-        }
-        if (TOP_LEVEL_KEYWORDS.has(name.toLowerCase())) {
-          diag(
-            diagnostics,
-            modulePath,
-            `Invalid globals declaration name "${name}": collides with a top-level keyword.`,
-            { line: i + 1, column: 1 },
-          );
-          i++;
-          continue;
-        }
-        const nameLower = name.toLowerCase();
+        const nameLower = parsed.name.toLowerCase();
         if (declNamesLower.has(nameLower)) {
-          diag(diagnostics, modulePath, `Duplicate globals declaration name "${name}".`, {
+          diag(diagnostics, modulePath, `Duplicate globals declaration name "${parsed.name}".`, {
             line: i + 1,
             column: 1,
           });
@@ -2184,7 +2286,7 @@ export function parseModuleFile(
           diag(
             diagnostics,
             modulePath,
-            `Invalid globals declaration name "${name}": collides with a top-level keyword.`,
+            `Invalid globals declaration name "${parsed.name}": collides with a top-level keyword.`,
             {
               line: i + 1,
               column: 1,
@@ -2194,27 +2296,7 @@ export function parseModuleFile(
           continue;
         }
         declNamesLower.add(nameLower);
-        const typeText = m[2]!.trim();
-        const declSpan = span(file, so, eo);
-        const typeExpr = parseTypeExprFromText(typeText, declSpan, {
-          allowInferredArrayLength: false,
-        });
-        if (!typeExpr) {
-          if (
-            diagIfInferredArrayLengthNotAllowed(diagnostics, modulePath, typeText, {
-              line: i + 1,
-              column: 1,
-            })
-          ) {
-            i++;
-            continue;
-          }
-          diagInvalidBlockLine(blockDeclKind, t, '<name>: <type>', i + 1);
-          i++;
-          continue;
-        }
-
-        decls.push({ kind: 'VarDecl', span: declSpan, name, typeExpr });
+        decls.push(parsed);
         i++;
       }
 
@@ -2393,37 +2475,15 @@ export function parseModuleFile(
               break;
             }
 
-            const m = /^([^:]+)\s*:\s*(.+)$/.exec(tDecl);
-            if (!m) {
-              diagInvalidBlockLine('var declaration', tDecl, '<name>: <type>', i + 1);
+            const declSpan = span(file, soDecl, eoDecl);
+            const parsed = parseVarDeclLine(tDecl, declSpan, i + 1, 'var');
+            if (!parsed) {
               i++;
               continue;
             }
-
-            const localName = m[1]!.trim();
-            if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(localName)) {
-              diag(
-                diagnostics,
-                modulePath,
-                `Invalid var declaration name ${formatIdentifierToken(localName)}: expected <identifier>.`,
-                { line: i + 1, column: 1 },
-              );
-              i++;
-              continue;
-            }
-            if (TOP_LEVEL_KEYWORDS.has(localName.toLowerCase())) {
-              diag(
-                diagnostics,
-                modulePath,
-                `Invalid var declaration name "${localName}": collides with a top-level keyword.`,
-                { line: i + 1, column: 1 },
-              );
-              i++;
-              continue;
-            }
-            const localNameLower = localName.toLowerCase();
+            const localNameLower = parsed.name.toLowerCase();
             if (declNamesLower.has(localNameLower)) {
-              diag(diagnostics, modulePath, `Duplicate var declaration name "${localName}".`, {
+              diag(diagnostics, modulePath, `Duplicate var declaration name "${parsed.name}".`, {
                 line: i + 1,
                 column: 1,
               });
@@ -2431,27 +2491,7 @@ export function parseModuleFile(
               continue;
             }
             declNamesLower.add(localNameLower);
-            const typeText = m[2]!.trim();
-            const declSpan = span(file, soDecl, eoDecl);
-            const typeExpr = parseTypeExprFromText(typeText, declSpan, {
-              allowInferredArrayLength: false,
-            });
-            if (!typeExpr) {
-              if (
-                diagIfInferredArrayLengthNotAllowed(diagnostics, modulePath, typeText, {
-                  line: i + 1,
-                  column: 1,
-                })
-              ) {
-                i++;
-                continue;
-              }
-              diagInvalidBlockLine('var declaration', tDecl, '<name>: <type>', i + 1);
-              i++;
-              continue;
-            }
-
-            decls.push({ kind: 'VarDecl', span: declSpan, name: localName, typeExpr });
+            decls.push(parsed);
             i++;
           }
           if (interruptedBeforeBodyKeyword !== undefined) break;

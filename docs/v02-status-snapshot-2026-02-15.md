@@ -185,9 +185,9 @@ Status key:
 
 2. Frontend and semantics closure
 
-- `[ ]` AST update plan documented and implemented for var/global initializer split (value-init vs alias-init).
-- `[ ]` Parser grammar matrices updated for `globals` and function-local `var`.
-- `[ ]` Semantics/type-compatibility rules documented for alias binding compatibility and inference.
+- `[x]` AST update plan documented and implemented for var/global initializer split (value-init vs alias-init).
+- `[x]` Parser grammar matrices updated for `globals` and function-local `var`.
+- `[x]` Semantics/type-compatibility rules documented for alias binding compatibility and inference.
 
 3. Codegen and lowering closure
 
@@ -236,27 +236,27 @@ Normative text anchors completed in this tranche:
   - `docs/zax-spec.md` Section 8.1 rules
   - `docs/zax-spec.md` Section 11.3 diagnostics guidance
 
-Acceptance test identification (implemented next in [#275](https://github.com/jhlagado/ZAX/issues/275)):
+Acceptance test identification (implemented in [#275](https://github.com/jhlagado/ZAX/issues/275)):
 
 1. Rule: alias form `name = rhs` is valid (inferred type)
 
-- Positive test target: `test/v02_alias_init_globals_positive.test.ts`
-- Negative test target: `test/v02_typed_alias_invalid_globals_negative.test.ts`
+- Positive test target: `test/pr285_alias_init_parser_semantics_matrix.test.ts` (`accepts globals/local value-init and inferred alias-init forms`)
+- Negative test target: `test/pr285_alias_init_parser_semantics_matrix.test.ts` (`rejects typed alias form in globals and function-local var blocks`)
 
 2. Rule: typed value-init `name: Type = valueExpr` is valid
 
-- Positive test target: `test/v02_value_init_globals_locals_positive.test.ts`
-- Negative test target: `test/v02_value_init_invalid_category_negative.test.ts`
+- Positive test target: `test/pr285_alias_init_parser_semantics_matrix.test.ts` (`accepts globals/local value-init and inferred alias-init forms`)
+- Negative test target: `test/pr285_alias_init_parser_semantics_matrix.test.ts` (`rejects inferred alias declarations when rhs is not an address expression`)
 
 3. Rule: explicit typed alias `name: Type = rhs` is invalid
 
-- Positive test target: `test/v02_alias_init_locals_positive.test.ts`
-- Negative test target: `test/v02_typed_alias_invalid_locals_negative.test.ts`
+- Positive test target: `test/pr285_alias_init_parser_semantics_matrix.test.ts` (`accepts globals/local value-init and inferred alias-init forms`)
+- Negative test target: `test/pr285_alias_init_parser_semantics_matrix.test.ts` (`rejects typed alias form in globals and function-local var blocks`)
 
 4. Rule: scalar vs non-scalar local initializer policy is explicit
 
-- Positive test target: `test/v02_local_scalar_init_and_alias_positive.test.ts`
-- Negative test target: `test/v02_local_nonscalar_without_alias_negative.test.ts`
+- Positive test target: `test/pr285_alias_init_parser_semantics_matrix.test.ts` (`accepts globals/local value-init and inferred alias-init forms`)
+- Negative test target: `test/pr285_alias_init_parser_semantics_matrix.test.ts` (`rejects non-scalar local storage declarations without alias form`)
 
 ### 10.4 Updated timeline (reopened v0.2)
 

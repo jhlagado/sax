@@ -316,9 +316,12 @@ export function emitProgram(
   };
 
   const storageTypes = new Map<string, TypeExprNode>();
+  const moduleAliasTargets = new Map<string, EaExprNode>();
+  const moduleAliasDecls = new Map<string, VarDeclNode>();
   const rawAddressSymbols = new Set<string>();
   const stackSlotTypes = new Map<string, TypeExprNode>();
   const stackSlotOffsets = new Map<string, number>();
+  let localAliasTargets = new Map<string, EaExprNode>();
   let spDeltaTracked = 0;
   let spTrackingValid = true;
   let spTrackingInvalidatedByMutation = false;
@@ -1470,17 +1473,33 @@ export function emitProgram(
     }
   };
 
-  const resolveEaTypeExpr = (ea: EaExprNode): TypeExprNode | undefined => {
+  const resolveAliasTarget = (nameLower: string): EaExprNode | undefined =>
+    localAliasTargets.get(nameLower) ?? moduleAliasTargets.get(nameLower);
+
+  const resolveEaTypeExprInternal = (
+    ea: EaExprNode,
+    visitingAliases: Set<string>,
+  ): TypeExprNode | undefined => {
     switch (ea.kind) {
       case 'EaName': {
         const lower = ea.name.toLowerCase();
-        return stackSlotTypes.get(lower) ?? storageTypes.get(lower);
+        const direct = stackSlotTypes.get(lower) ?? storageTypes.get(lower);
+        if (direct) return direct;
+        const aliasTarget = resolveAliasTarget(lower);
+        if (!aliasTarget) return undefined;
+        if (visitingAliases.has(lower)) return undefined;
+        visitingAliases.add(lower);
+        try {
+          return resolveEaTypeExprInternal(aliasTarget, visitingAliases);
+        } finally {
+          visitingAliases.delete(lower);
+        }
       }
       case 'EaAdd':
       case 'EaSub':
-        return resolveEaTypeExpr(ea.base);
+        return resolveEaTypeExprInternal(ea.base, visitingAliases);
       case 'EaField': {
-        const baseType = resolveEaTypeExpr(ea.base);
+        const baseType = resolveEaTypeExprInternal(ea.base, visitingAliases);
         if (!baseType) return undefined;
         const agg = resolveAggregateType(baseType);
         if (!agg) return undefined;
@@ -1490,17 +1509,27 @@ export function emitProgram(
         return undefined;
       }
       case 'EaIndex': {
-        const baseType = resolveEaTypeExpr(ea.base);
+        const baseType = resolveEaTypeExprInternal(ea.base, visitingAliases);
         if (!baseType) return undefined;
         return resolveArrayElementType(baseType);
       }
     }
   };
 
+  const resolveEaTypeExpr = (ea: EaExprNode): TypeExprNode | undefined =>
+    resolveEaTypeExprInternal(ea, new Set<string>());
+
   const resolveScalarBinding = (name: string): 'byte' | 'word' | 'addr' | undefined => {
     const lower = name.toLowerCase();
     if (rawAddressSymbols.has(lower)) return undefined;
-    const typeExpr = stackSlotTypes.get(lower) ?? storageTypes.get(lower);
+    const typeExpr =
+      stackSlotTypes.get(lower) ??
+      storageTypes.get(lower) ??
+      (() => {
+        const aliasTarget = resolveAliasTarget(lower);
+        if (!aliasTarget) return undefined;
+        return resolveEaTypeExpr(aliasTarget);
+      })();
     if (!typeExpr) return undefined;
     return resolveScalarKind(typeExpr);
   };
@@ -1512,6 +1541,30 @@ export function emitProgram(
     if (!typeExpr) return undefined;
     return resolveScalarKind(typeExpr);
   };
+
+  for (const [aliasLower, aliasTarget] of moduleAliasTargets) {
+    if (storageTypes.has(aliasLower)) continue;
+    const inferred = resolveEaTypeExpr(aliasTarget);
+    if (!inferred) {
+      const decl = moduleAliasDecls.get(aliasLower);
+      const target = decl?.name ?? aliasLower;
+      if (decl) {
+        diagAt(
+          diagnostics,
+          decl.span,
+          `Incompatible inferred alias binding for "${target}": unable to infer type from alias source.`,
+        );
+      } else {
+        diag(
+          diagnostics,
+          program.entryFile,
+          `Incompatible inferred alias binding for "${target}": unable to infer type from alias source.`,
+        );
+      }
+      continue;
+    }
+    storageTypes.set(aliasLower, inferred);
+  }
 
   const countRuntimeAtomsInImmExpr = (expr: ImmExprNode): number => {
     switch (expr.kind) {
@@ -1622,7 +1675,7 @@ export function emitProgram(
   };
 
   const resolveEa = (ea: EaExprNode, span: SourceSpan): EaResolution | undefined => {
-    const go = (expr: EaExprNode): EaResolution | undefined => {
+    const go = (expr: EaExprNode, visitingAliases: Set<string>): EaResolution | undefined => {
       switch (expr.kind) {
         case 'EaName': {
           const baseLower = expr.name.toLowerCase();
@@ -1635,12 +1688,22 @@ export function emitProgram(
               ...(slotType ? { typeExpr: slotType } : {}),
             };
           }
+          const aliasTarget = resolveAliasTarget(baseLower);
+          if (aliasTarget) {
+            if (visitingAliases.has(baseLower)) return undefined;
+            visitingAliases.add(baseLower);
+            try {
+              return go(aliasTarget, visitingAliases);
+            } finally {
+              visitingAliases.delete(baseLower);
+            }
+          }
           const typeExpr = storageTypes.get(baseLower);
           return { kind: 'abs', baseLower, addend: 0, ...(typeExpr ? { typeExpr } : {}) };
         }
         case 'EaAdd':
         case 'EaSub': {
-          const base = go(expr.base);
+          const base = go(expr.base, visitingAliases);
           if (!base) return undefined;
           const v = evalImmNoDiag(expr.offset);
           if (v === undefined) return undefined;
@@ -1649,7 +1712,7 @@ export function emitProgram(
           return { ...base, offsetFromStartSp: base.offsetFromStartSp + delta };
         }
         case 'EaField': {
-          const base = go(expr.base);
+          const base = go(expr.base, visitingAliases);
           if (!base) return undefined;
           if (!base.typeExpr) {
             diagAt(diagnostics, span, `Cannot resolve field "${expr.field}" without a typed base.`);
@@ -1693,7 +1756,7 @@ export function emitProgram(
           return undefined;
         }
         case 'EaIndex': {
-          const base = go(expr.base);
+          const base = go(expr.base, visitingAliases);
           if (!base) return undefined;
           if (!base.typeExpr) {
             diagAt(diagnostics, span, `Cannot resolve indexing without a typed base.`);
@@ -1730,7 +1793,7 @@ export function emitProgram(
       }
     };
 
-    return go(ea);
+    return go(ea, new Set<string>());
   };
 
   const pushEaAddress = (ea: EaExprNode, span: SourceSpan): boolean => {
@@ -2915,7 +2978,15 @@ export function emitProgram(
       } else if (item.kind === 'VarBlock' && item.scope === 'module') {
         const vb = item as VarBlockNode;
         for (const decl of vb.decls) {
-          storageTypes.set(decl.name.toLowerCase(), decl.typeExpr);
+          const lower = decl.name.toLowerCase();
+          if (decl.typeExpr) {
+            storageTypes.set(lower, decl.typeExpr);
+            continue;
+          }
+          if (decl.initializer?.kind === 'VarInitAlias') {
+            moduleAliasTargets.set(lower, decl.initializer.expr);
+            moduleAliasDecls.set(lower, decl);
+          }
         }
       } else if (item.kind === 'BinDecl') {
         const bd = item as BinDeclNode;
@@ -3219,24 +3290,51 @@ export function emitProgram(
       if (item.kind === 'FuncDecl') {
         stackSlotOffsets.clear();
         stackSlotTypes.clear();
+        localAliasTargets = new Map<string, EaExprNode>();
         spDeltaTracked = 0;
         spTrackingValid = true;
         spTrackingInvalidatedByMutation = false;
 
         const localDecls = item.locals?.decls ?? [];
+        let localSlotCount = 0;
         for (let li = 0; li < localDecls.length; li++) {
           const decl = localDecls[li]!;
-          if (!resolveScalarKind(decl.typeExpr)) {
+          const declLower = decl.name.toLowerCase();
+          if (decl.typeExpr) {
+            if (!resolveScalarKind(decl.typeExpr)) {
+              diagAt(
+                diagnostics,
+                decl.span,
+                `Non-scalar local storage declaration "${decl.name}" requires alias form ("${decl.name} = rhs").`,
+              );
+            }
+            stackSlotOffsets.set(declLower, 2 * localSlotCount);
+            stackSlotTypes.set(declLower, decl.typeExpr);
+            localSlotCount++;
+            continue;
+          }
+          const init = decl.initializer;
+          if (init?.kind !== 'VarInitAlias') {
             diagAt(
               diagnostics,
               decl.span,
-              `Local "${decl.name}" must be byte, word, or addr in the current ABI.`,
+              `Invalid local declaration "${decl.name}": expected typed storage or alias initializer.`,
             );
+            continue;
           }
-          stackSlotOffsets.set(decl.name.toLowerCase(), 2 * li);
-          stackSlotTypes.set(decl.name.toLowerCase(), decl.typeExpr);
+          localAliasTargets.set(declLower, init.expr);
+          const inferred = resolveEaTypeExpr(init.expr);
+          if (!inferred) {
+            diagAt(
+              diagnostics,
+              decl.span,
+              `Incompatible inferred alias binding for "${decl.name}": unable to infer type from alias source.`,
+            );
+            continue;
+          }
+          stackSlotTypes.set(declLower, inferred);
         }
-        const frameSize = localDecls.length * 2;
+        const frameSize = localSlotCount * 2;
         const argc = item.params.length;
         const hasStackSlots = frameSize > 0 || argc > 0;
         for (let paramIndex = 0; paramIndex < argc; paramIndex++) {
@@ -5245,6 +5343,7 @@ export function emitProgram(
       if (item.kind === 'VarBlock' && item.scope === 'module') {
         const varBlock = item as VarBlockNode;
         for (const decl of varBlock.decls) {
+          if (!decl.typeExpr) continue;
           const size = sizeOfTypeExpr(decl.typeExpr, env, diagnostics);
           if (size === undefined) continue;
           if (env.consts.has(decl.name)) {

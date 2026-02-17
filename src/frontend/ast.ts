@@ -157,8 +157,13 @@ export interface VarBlockNode extends BaseNode {
 export interface VarDeclNode extends BaseNode {
   kind: 'VarDecl';
   name: string;
-  typeExpr: TypeExprNode;
+  typeExpr?: TypeExprNode;
+  initializer?: VarDeclInitializerNode;
 }
+
+export type VarDeclInitializerNode =
+  | { kind: 'VarInitValue'; span: SourceSpan; expr: ImmExprNode }
+  | { kind: 'VarInitAlias'; span: SourceSpan; expr: EaExprNode };
 
 /**
  * Data storage block (`data`) with initializers.
@@ -437,4 +442,5 @@ export type Node =
   | OffsetofPathNode
   | OffsetofPathStepNode
   | DataInitializerNode
+  | VarDeclInitializerNode
   | OpMatcherNode;

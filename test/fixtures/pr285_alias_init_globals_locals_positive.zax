@@ -1,0 +1,18 @@
+section code at $0000
+section var at $1000
+
+globals
+  base: word
+  count: word = 7
+  global_ref = base
+
+export func main(): void
+  var
+    tmp: word = 1
+    local_ref = global_ref
+  end
+  ld hl, local_ref
+  ld (base), hl
+  ld hl, global_ref
+  ret
+end

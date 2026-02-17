@@ -1,0 +1,10 @@
+globals
+  arr: byte[4]
+
+func main(): void
+  var
+    local_arr: byte[4]
+  end
+  ld a, arr[0]
+  ret
+end
