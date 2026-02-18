@@ -25,12 +25,13 @@ describe('PR292 local var initializer completeness', () => {
     expect(asm).toBeDefined();
     const text = asm!.text;
 
-    expect(text).toContain('push BC');
-    expect((text.match(/\bpush BC\b/g) ?? []).length).toBe(1);
-    expect(text).toContain('ld HL, $0000');
-    expect(text).toContain('add HL, SP');
-    expect(text).toContain('ld (HL), $0034');
-    expect(text).toContain('ld (HL), $0012');
+    expect(text).toContain('push IX');
+    expect(text).toContain('ld IX, $0000');
+    expect(text).toContain('add IX, SP');
+    expect(text).toContain('ld HL, $1234');
+    expect((text.match(/\bpush HL\b/g) ?? []).length).toBe(1);
+    expect(text).toContain('ld E, (IX - $0002)');
+    expect(text).toContain('ld D, (IX - $0001)');
   });
 
   it('rejects non-scalar local value-init declarations with stable diagnostics', async () => {

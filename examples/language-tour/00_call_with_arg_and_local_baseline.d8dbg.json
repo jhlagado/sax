@@ -1,0 +1,208 @@
+{
+  "format": "d8-debug-map",
+  "version": 1,
+  "arch": "z80",
+  "addressWidth": 16,
+  "endianness": "little",
+  "files": {
+    "00_call_with_arg_and_local_baseline.zax": {
+      "segments": [
+        {
+          "start": 256,
+          "end": 264,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 256,
+          "end": 345,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
+        },
+        {
+          "start": 264,
+          "end": 268,
+          "lstLine": 3,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 268,
+          "end": 272,
+          "lstLine": 4,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 272,
+          "end": 275,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 275,
+          "end": 281,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 281,
+          "end": 282,
+          "lstLine": 8,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 282,
+          "end": 288,
+          "lstLine": 9,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 288,
+          "end": 294,
+          "lstLine": 10,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 294,
+          "end": 295,
+          "lstLine": 11,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 295,
+          "end": 303,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 303,
+          "end": 311,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 311,
+          "end": 315,
+          "lstLine": 16,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 315,
+          "end": 318,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 318,
+          "end": 327,
+          "lstLine": 19,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 327,
+          "end": 337,
+          "lstLine": 20,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 337,
+          "end": 345,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "inc_one",
+          "kind": "label",
+          "address": 256,
+          "line": 1,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_0",
+          "kind": "label",
+          "address": 295,
+          "line": 1,
+          "scope": "local"
+        },
+        {
+          "name": "main",
+          "kind": "label",
+          "address": 303,
+          "line": 14,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_1",
+          "kind": "label",
+          "address": 337,
+          "line": 14,
+          "scope": "local"
+        }
+      ]
+    }
+  },
+  "segments": [
+    {
+      "start": 256,
+      "end": 345
+    }
+  ],
+  "fileList": ["00_call_with_arg_and_local_baseline.zax"],
+  "symbols": [
+    {
+      "name": "inc_one",
+      "kind": "label",
+      "address": 256,
+      "file": "00_call_with_arg_and_local_baseline.zax",
+      "line": 1,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_0",
+      "kind": "label",
+      "address": 295,
+      "file": "00_call_with_arg_and_local_baseline.zax",
+      "line": 1,
+      "scope": "local"
+    },
+    {
+      "name": "main",
+      "kind": "label",
+      "address": 303,
+      "file": "00_call_with_arg_and_local_baseline.zax",
+      "line": 14,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_1",
+      "kind": "label",
+      "address": 337,
+      "file": "00_call_with_arg_and_local_baseline.zax",
+      "line": 14,
+      "scope": "local"
+    }
+  ],
+  "generator": {
+    "tool": "zax",
+    "entrySymbol": "main",
+    "entryAddress": 303
+  }
+}

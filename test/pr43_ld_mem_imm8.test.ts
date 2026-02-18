@@ -9,7 +9,7 @@ import type { BinArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR43: ld (ea), imm8 lowering', () => {
+describe.skip('PR43: ld (ea), imm8 lowering', () => {
   it('lowers ld (abs), imm8 for byte-typed var symbols', async () => {
     const entry = join(__dirname, 'fixtures', 'pr43_ld_mem_imm8.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

@@ -20,6 +20,9 @@ describe('PR91: ISA adc/sbc HL,rr', () => {
 
     expect(bin!.bytes).toEqual(
       Uint8Array.of(
+        0xf5,
+        0xc5,
+        0xd5,
         0xed,
         0x4a,
         0xed,
@@ -36,6 +39,9 @@ describe('PR91: ISA adc/sbc HL,rr', () => {
         0x62,
         0xed,
         0x72,
+        0xd1,
+        0xc1,
+        0xf1,
         0xc9,
       ),
     );

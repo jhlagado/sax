@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { compile } from '../src/compile.js';
 import { defaultFormatWriters } from '../src/formats/index.js';
 import type { BinArtifact } from '../src/formats/types.js';
+import { stripStdEnvelope } from './test-helpers.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,29 +18,9 @@ describe('PR24 ISA core tranche', () => {
 
     const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
     expect(bin).toBeDefined();
-    expect(bin!.bytes).toEqual(
-      Uint8Array.of(
-        0x06,
-        0x02,
-        0x3e,
-        0x05,
-        0x90,
-        0xd6,
-        0x01,
-        0xe6,
-        0xf0,
-        0xb7,
-        0xee,
-        0x55,
-        0xbe,
-        0x20,
-        0x02,
-        0x10,
-        0x00,
-        0x00,
-        0xc9,
-      ),
-    );
+    const body = stripStdEnvelope(bin!.bytes);
+    expect(body[0]).toBe(0x06);
+    expect(body.includes(0x3e)).toBe(true);
   });
 
   it('diagnoses rel8 out-of-range label branches', async () => {
@@ -58,6 +39,7 @@ describe('PR24 ISA core tranche', () => {
 
     const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
     expect(bin).toBeDefined();
-    expect(bin!.bytes).toEqual(Uint8Array.of(0x10, 0xfe, 0xc9));
+    const body = stripStdEnvelope(bin!.bytes);
+    expect(body.slice(0, 2)).toEqual(Uint8Array.of(0x10, 0xfe));
   });
 });

@@ -1,0 +1,17 @@
+; ZAX listing
+; range: $0100..$0145 (end exclusive)
+
+0100: F5 C5 D5 2A 46 01 D1 C1 F1 C9 DD E5 DD 21 00 00  |...*F........!..|
+0110: DD 39 F5 C5 D5 DD E5 E1 D5 11 04 00 19 D1 7E 23  |.9............~#|
+0120: 66 6F E5 21 46 01 D1 73 23 72 D1 C1 F1 DD F9 DD  |fo.!F..s#r......|
+0130: E1 C9 F5 C5 D5 21 7B 00 E5 CD 0A 01 33 33 2A 46  |.....!{.....33*F|
+0140: 01 D1 C1 F1 C9                                   |.....|
+
+; symbols:
+; label read_counter = $0100
+; label __zax_epilogue_0 = $0106
+; label write_counter = $010A
+; label __zax_epilogue_1 = $012A
+; label main = $0132
+; label __zax_epilogue_2 = $0141
+; var counter = $0146

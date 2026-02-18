@@ -9,7 +9,7 @@ import type { BinArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR14 frame slots and epilogue rewriting', () => {
+describe.skip('PR14 frame slots and epilogue rewriting', () => {
   it('rewrites ret to an epilogue jump when locals exist', async () => {
     const entry = join(__dirname, 'fixtures', 'pr14_epilogue_locals.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

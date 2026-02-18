@@ -60,12 +60,24 @@ push ix
 ld ix, 0
 add ix, sp
 ; allocate locals
+push af
+push bc
+push de
 
 ; epilogue
+pop de
+pop bc
+pop af
 ld sp, ix
 pop ix
 ret
 ```
+
+Notes for design review:
+
+- Preservation (`AF/BC/DE`) is unconditional for all functions (including `main`) even when no locals/args are present; this keeps typed-call boundary guarantees consistent.
+- A single synthetic epilogue is always emitted; all `ret`/`ret cc` in the body rewrite to it when cleanup is needed, and fallthrough reaches it directly (no dead JP).
+- Minimal epilogue still contains the preservation pops plus the final `ret`; frame restore (`ld sp, ix` / `pop ix`) only appears when a frame exists.
 
 `ld sp, ix` then `ret` without restoring saved `IX` is invalid for this model.
 

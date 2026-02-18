@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { compile } from '../src/compile.js';
 import { DiagnosticIds } from '../src/diagnostics/types.js';
 import { defaultFormatWriters } from '../src/formats/index.js';
-import type { AsmArtifact, BinArtifact, D8mArtifact } from '../src/formats/types.js';
+import type { AsmArtifact, D8mArtifact } from '../src/formats/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,10 +31,14 @@ describe('PR283: hidden-lowering risk matrix focused coverage', () => {
       { formats: defaultFormatWriters },
     );
     expect(typedPreserve.diagnostics).toEqual([]);
-    const typedBin = typedPreserve.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
-    expect(typedBin).toBeDefined();
-    expect([...typedBin!.bytes]).toContain(0xfd); // iy preservation wrapper present
-    expect([...typedBin!.bytes]).toContain(0xdd); // ix preservation wrapper present
+    const typedAsm = typedPreserve.artifacts.find((a): a is AsmArtifact => a.kind === 'asm');
+    expect(typedAsm).toBeDefined();
+    expect(typedAsm!.text).toContain('call ping');
+    expect(typedAsm!.text).toContain('call getb');
+    expect(typedAsm!.text).toContain('call getw');
+    expect((typedAsm!.text.match(/\binc SP\b/g) ?? []).length).toBe(6); // 3 word args cleaned
+    expect(typedAsm!.text).not.toContain('push IY');
+    expect(typedAsm!.text).not.toContain('push IX');
 
     const frameAccess = await compile(
       join(__dirname, 'fixtures', 'pr283_local_arg_global_access_matrix.zax'),
@@ -53,9 +57,11 @@ describe('PR283: hidden-lowering risk matrix focused coverage', () => {
     expect(asm!.text).toContain('; func main begin');
     expect(asm!.text).toContain('__zax_epilogue_');
     expect(asm!.text).toContain('gword');
-    expect(asm!.text).toContain('ld HL, $0006');
-    expect(asm!.text).toContain('ld HL, $0002');
-    expect(asm!.text).toContain('add HL, SP');
+    expect(asm!.text).toContain('push IX');
+    expect(asm!.text).toContain('ld IX, $0000');
+    expect(asm!.text).toContain('add IX, SP');
+    expect(asm!.text).toContain('ld E, (IX + $0004)');
+    expect(asm!.text).toContain('ld E, (IX - $0002)');
 
     const rawTypedWarn = await compile(
       join(__dirname, 'fixtures', 'pr278_raw_call_typed_target_warning.zax'),

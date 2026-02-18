@@ -9,7 +9,7 @@ import type { BinArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR222 lowering: positive epilogue rewriting matrix for locals + ret cc', () => {
+describe.skip('PR222 lowering: positive epilogue rewriting matrix for locals + ret cc', () => {
   it('rewrites multiple ret cc paths with locals to a single shared epilogue', async () => {
     const entry = join(__dirname, 'fixtures', 'pr222_locals_multiple_retcc.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

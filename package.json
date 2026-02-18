@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "format": "prettier -w .",
     "format:check": "prettier -c .",
-    "zax": "yarn -s build && node dist/src/cli.js"
+    "zax": "yarn -s build && node dist/src/cli.js",
+    "regen:language-tour": "bash scripts/regenerate-language-tour.sh"
   },
   "devDependencies": {
     "@types/node": "^22.13.1",

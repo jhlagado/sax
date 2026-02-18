@@ -1,0 +1,475 @@
+{
+  "format": "d8-debug-map",
+  "version": 1,
+  "arch": "z80",
+  "addressWidth": 16,
+  "endianness": "little",
+  "files": {
+    "13_structured_control_flow.zax": {
+      "segments": [
+        {
+          "start": 256,
+          "end": 259,
+          "lstLine": 4,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 256,
+          "end": 351,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
+        },
+        {
+          "start": 259,
+          "end": 262,
+          "lstLine": 5,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 262,
+          "end": 263,
+          "lstLine": 6,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 263,
+          "end": 266,
+          "lstLine": 8,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 266,
+          "end": 268,
+          "lstLine": 9,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 268,
+          "end": 271,
+          "lstLine": 8,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 271,
+          "end": 273,
+          "lstLine": 11,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 273,
+          "end": 276,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 276,
+          "end": 277,
+          "lstLine": 15,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 277,
+          "end": 280,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 280,
+          "end": 282,
+          "lstLine": 18,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 282,
+          "end": 283,
+          "lstLine": 20,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 283,
+          "end": 286,
+          "lstLine": 19,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 286,
+          "end": 289,
+          "lstLine": 23,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 289,
+          "end": 292,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 292,
+          "end": 294,
+          "lstLine": 26,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 294,
+          "end": 297,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 297,
+          "end": 299,
+          "lstLine": 28,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 299,
+          "end": 302,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 302,
+          "end": 304,
+          "lstLine": 30,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 304,
+          "end": 334,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 334,
+          "end": 337,
+          "lstLine": 33,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 337,
+          "end": 341,
+          "lstLine": 4,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 341,
+          "end": 344,
+          "lstLine": 36,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 344,
+          "end": 347,
+          "lstLine": 37,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 347,
+          "end": 351,
+          "lstLine": 36,
+          "kind": "code",
+          "confidence": "high"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "run_once",
+          "kind": "label",
+          "address": 256,
+          "line": 4,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_if_else_1",
+          "kind": "label",
+          "address": 271,
+          "line": 10,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_if_end_2",
+          "kind": "label",
+          "address": 273,
+          "line": 12,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_while_cond_3",
+          "kind": "label",
+          "address": 273,
+          "line": 14,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_while_end_4",
+          "kind": "label",
+          "address": 280,
+          "line": 16,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_repeat_body_5",
+          "kind": "label",
+          "address": 282,
+          "line": 19,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_case_8",
+          "kind": "label",
+          "address": 292,
+          "line": 25,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_case_9",
+          "kind": "label",
+          "address": 297,
+          "line": 27,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_select_else_10",
+          "kind": "label",
+          "address": 302,
+          "line": 29,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_select_dispatch_6",
+          "kind": "label",
+          "address": 307,
+          "line": 31,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_select_next_11",
+          "kind": "label",
+          "address": 321,
+          "line": 25,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_select_next_12",
+          "kind": "label",
+          "address": 330,
+          "line": 27,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_select_end_7",
+          "kind": "label",
+          "address": 334,
+          "line": 31,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_epilogue_0",
+          "kind": "label",
+          "address": 337,
+          "line": 4,
+          "scope": "local"
+        },
+        {
+          "name": "main",
+          "kind": "label",
+          "address": 341,
+          "line": 36,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_13",
+          "kind": "label",
+          "address": 347,
+          "line": 36,
+          "scope": "local"
+        },
+        {
+          "name": "mode_value",
+          "kind": "var",
+          "address": 352,
+          "line": 2,
+          "scope": "global",
+          "size": 1
+        }
+      ]
+    }
+  },
+  "segments": [
+    {
+      "start": 256,
+      "end": 351
+    }
+  ],
+  "fileList": ["13_structured_control_flow.zax"],
+  "symbols": [
+    {
+      "name": "run_once",
+      "kind": "label",
+      "address": 256,
+      "file": "13_structured_control_flow.zax",
+      "line": 4,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_if_else_1",
+      "kind": "label",
+      "address": 271,
+      "file": "13_structured_control_flow.zax",
+      "line": 10,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_if_end_2",
+      "kind": "label",
+      "address": 273,
+      "file": "13_structured_control_flow.zax",
+      "line": 12,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_while_cond_3",
+      "kind": "label",
+      "address": 273,
+      "file": "13_structured_control_flow.zax",
+      "line": 14,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_while_end_4",
+      "kind": "label",
+      "address": 280,
+      "file": "13_structured_control_flow.zax",
+      "line": 16,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_repeat_body_5",
+      "kind": "label",
+      "address": 282,
+      "file": "13_structured_control_flow.zax",
+      "line": 19,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_case_8",
+      "kind": "label",
+      "address": 292,
+      "file": "13_structured_control_flow.zax",
+      "line": 25,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_case_9",
+      "kind": "label",
+      "address": 297,
+      "file": "13_structured_control_flow.zax",
+      "line": 27,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_select_else_10",
+      "kind": "label",
+      "address": 302,
+      "file": "13_structured_control_flow.zax",
+      "line": 29,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_select_dispatch_6",
+      "kind": "label",
+      "address": 307,
+      "file": "13_structured_control_flow.zax",
+      "line": 31,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_select_next_11",
+      "kind": "label",
+      "address": 321,
+      "file": "13_structured_control_flow.zax",
+      "line": 25,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_select_next_12",
+      "kind": "label",
+      "address": 330,
+      "file": "13_structured_control_flow.zax",
+      "line": 27,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_select_end_7",
+      "kind": "label",
+      "address": 334,
+      "file": "13_structured_control_flow.zax",
+      "line": 31,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_epilogue_0",
+      "kind": "label",
+      "address": 337,
+      "file": "13_structured_control_flow.zax",
+      "line": 4,
+      "scope": "local"
+    },
+    {
+      "name": "main",
+      "kind": "label",
+      "address": 341,
+      "file": "13_structured_control_flow.zax",
+      "line": 36,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_13",
+      "kind": "label",
+      "address": 347,
+      "file": "13_structured_control_flow.zax",
+      "line": 36,
+      "scope": "local"
+    },
+    {
+      "name": "mode_value",
+      "kind": "var",
+      "address": 352,
+      "file": "13_structured_control_flow.zax",
+      "line": 2,
+      "scope": "global",
+      "size": 1
+    }
+  ],
+  "generator": {
+    "tool": "zax",
+    "entrySymbol": "main",
+    "entryAddress": 341
+  }
+}
