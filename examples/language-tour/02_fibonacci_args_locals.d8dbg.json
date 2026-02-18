@@ -305,9 +305,7 @@
       "end": 449
     }
   ],
-  "fileList": [
-    "02_fibonacci_args_locals.zax"
-  ],
+  "fileList": ["02_fibonacci_args_locals.zax"],
   "symbols": [
     {
       "name": "fib",

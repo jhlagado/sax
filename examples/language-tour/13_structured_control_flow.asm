@@ -8,21 +8,21 @@ push BC                        ; 0101: C5
 push DE                        ; 0102: D5
 ld A, (mode_value)             ; 0103: 3A 00 00
 or A                           ; 0106: B7
-jp cc, __zax_if_else_1         ; 0107: C2 00 00
+jp nz, __zax_if_else_1         ; 0107: C2 00 00
 ld A, $0001                    ; 010A: 3E 01
 jp __zax_if_end_2              ; 010C: C3 00 00
 __zax_if_else_1:
 ld A, $0002                    ; 010F: 3E 02
 __zax_if_end_2:
 __zax_while_cond_3:
-jp cc, __zax_while_end_4       ; 0111: CA 00 00
+jp z, __zax_while_end_4        ; 0111: CA 00 00
 dec A                          ; 0114: 3D
 jp __zax_while_cond_3          ; 0115: C3 00 00
 __zax_while_end_4:
 ld A, $0001                    ; 0118: 3E 01
 __zax_repeat_body_5:
 dec A                          ; 011A: 3D
-jp cc, __zax_repeat_body_5     ; 011B: C2 00 00
+jp nz, __zax_repeat_body_5     ; 011B: C2 00 00
 ld A, (mode_value)             ; 011E: 3A 00 00
 jp __zax_select_dispatch_6     ; 0121: C3 00 00
 __zax_case_8:
@@ -40,12 +40,12 @@ ld H, $0000                    ; 0134: 26 00
 ld L, A                        ; 0136: 6F
 ld a, l                        ; 0137: 7D
 cp imm8                        ; 0138: FE 00
-jp cc, __zax_select_next_11    ; 013A: C2 00 00
+jp nz, __zax_select_next_11    ; 013A: C2 00 00
 pop HL                         ; 013D: E1
 jp __zax_case_8                ; 013E: C3 00 00
 __zax_select_next_11:
 cp imm8                        ; 0141: FE 01
-jp cc, __zax_select_next_12    ; 0143: C2 00 00
+jp nz, __zax_select_next_12    ; 0143: C2 00 00
 pop HL                         ; 0146: E1
 jp __zax_case_9                ; 0147: C3 00 00
 __zax_select_next_12:
