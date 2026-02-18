@@ -4143,7 +4143,9 @@ export function emitProgram(
               const calleeName = callable.node.name;
               const returnType =
                 callable.kind === 'func' ? callable.node.returnType : callable.node.returnType;
-              const preservedRegs: string[] = callable.kind === 'extern' ? ['AF', 'BC', 'DE'] : [];
+              // Internal typed calls: callee-save in prologue/epilogue.
+              // Extern typed calls: no automatic preservation; caller may choose to save explicitly.
+              const preservedRegs: string[] = [];
               if (args.length !== params.length) {
                 diagAt(
                   diagnostics,
