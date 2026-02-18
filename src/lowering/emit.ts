@@ -5623,10 +5623,7 @@ export function emitProgram(
           withCodeSourceTag(sourceTagForSpan(item.span), () => {
             // When control can fall through to the end of the function body, route it through the
             // synthetic epilogue. If flow is unreachable here (e.g. a terminal `ret`), avoid emitting
-            // a dead jump before the epilogue label.
-            if (flow.reachable) {
-              emitAbs16Fixup(0xc3, epilogueLabel.toLowerCase(), 0, item.span);
-            }
+            // a dead jump before the epilogue label. If flow is reachable, fall through directly.
             pending.push({
               kind: 'label',
               name: epilogueLabel,

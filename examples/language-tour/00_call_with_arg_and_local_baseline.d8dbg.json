@@ -16,7 +16,7 @@
         },
         {
           "start": 256,
-          "end": 337,
+          "end": 345,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
@@ -100,21 +100,28 @@
         },
         {
           "start": 315,
-          "end": 324,
+          "end": 318,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 318,
+          "end": 327,
           "lstLine": 19,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 324,
-          "end": 332,
+          "start": 327,
+          "end": 337,
           "lstLine": 20,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 332,
-          "end": 337,
+          "start": 337,
+          "end": 345,
           "lstLine": 14,
           "kind": "code",
           "confidence": "high"
@@ -129,11 +136,25 @@
           "scope": "global"
         },
         {
+          "name": "__zax_epilogue_0",
+          "kind": "label",
+          "address": 295,
+          "line": 1,
+          "scope": "local"
+        },
+        {
           "name": "main",
           "kind": "label",
           "address": 303,
           "line": 14,
           "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_1",
+          "kind": "label",
+          "address": 337,
+          "line": 14,
+          "scope": "local"
         }
       ]
     }
@@ -141,7 +162,7 @@
   "segments": [
     {
       "start": 256,
-      "end": 337
+      "end": 345
     }
   ],
   "fileList": ["00_call_with_arg_and_local_baseline.zax"],
@@ -155,12 +176,28 @@
       "scope": "global"
     },
     {
+      "name": "__zax_epilogue_0",
+      "kind": "label",
+      "address": 295,
+      "file": "00_call_with_arg_and_local_baseline.zax",
+      "line": 1,
+      "scope": "local"
+    },
+    {
       "name": "main",
       "kind": "label",
       "address": 303,
       "file": "00_call_with_arg_and_local_baseline.zax",
       "line": 14,
       "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_1",
+      "kind": "label",
+      "address": 337,
+      "file": "00_call_with_arg_and_local_baseline.zax",
+      "line": 14,
+      "scope": "local"
     }
   ],
   "generator": {

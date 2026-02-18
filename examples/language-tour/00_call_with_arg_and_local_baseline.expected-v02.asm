@@ -26,7 +26,6 @@ LD (IX-$01), D
 LD E, (IX-$02)                ; DE = temp_word
 LD D, (IX-$01)
 EX DE, HL                     ; return channel
-JP __zax_epilogue_0
 __zax_epilogue_0:
 POP DE
 POP BC
@@ -57,7 +56,6 @@ LD (IX-$02), E                ; result_word = HL
 LD (IX-$01), D
 EX DE, HL
 POP DE
-JP __zax_epilogue_1
 __zax_epilogue_1:
 POP DE
 POP BC
