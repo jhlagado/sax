@@ -241,7 +241,7 @@ Opcode expectation baselines (one per tier):
 Workflow command:
 
 ```bash
-yarn -s vitest run test/pr287_opcode_verification_workflow.test.ts
+npm run test -- test/pr287_opcode_verification_workflow.test.ts
 ```
 
 Expected passing output shape:

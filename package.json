@@ -11,12 +11,13 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "mkdir -p coverage/.tmp",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "format": "prettier -w .",
     "format:check": "prettier -c .",
-    "zax": "yarn -s build && node dist/src/cli.js",
+    "zax": "npm run build && node dist/src/cli.js",
     "regen:language-tour": "bash scripts/regenerate-language-tour.sh"
   },
   "devDependencies": {

@@ -145,7 +145,7 @@ async function buildCliWithLock(): Promise<void> {
         flag: 'wx',
       });
       try {
-        await execFileAsync('yarn', ['-s', 'build'], {
+        await execFileAsync('npm', ['run', 'build'], {
           encoding: 'utf8',
           shell: process.platform === 'win32',
         });
