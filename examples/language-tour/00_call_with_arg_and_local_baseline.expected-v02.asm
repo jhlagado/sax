@@ -3,7 +3,7 @@
 ; notes:
 ; - IX-anchored frame model
 ; - args at IX+4.., locals at IX-1..
-; - typed-call boundary: HL volatile/return channel, non-HL boundary state preserved by typed-call glue
+; - typed-call boundary: HL volatile/return channel, non-HL boundary state preserved by callee prologue/epilogue
 ; - framed funcs use a synthetic epilogue path
 
 ; func inc_one begin (expected)
@@ -41,6 +41,9 @@ LD IX, $0000
 ADD IX, SP
 LD HL, $0000
 PUSH HL                       ; allocate+init result_word = 0 (HL treated volatile)
+PUSH AF
+PUSH BC
+PUSH DE
 LD HL, $0005                  ; call arg
 PUSH HL
 CALL inc_one
@@ -50,6 +53,9 @@ EX DE, HL
 LD (IX-$02), E                ; result_word = HL
 LD (IX-$01), D
 EX DE, HL
+POP DE
+POP BC
+POP AF
 LD SP, IX
 POP IX
 RET
