@@ -1,0 +1,335 @@
+{
+  "format": "d8-debug-map",
+  "version": 1,
+  "arch": "z80",
+  "addressWidth": 16,
+  "endianness": "little",
+  "files": {
+    "02_fibonacci_args_locals.zax": {
+      "segments": [
+        {
+          "start": 256,
+          "end": 264,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 256,
+          "end": 426,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
+        },
+        {
+          "start": 264,
+          "end": 268,
+          "lstLine": 3,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 268,
+          "end": 272,
+          "lstLine": 4,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 272,
+          "end": 276,
+          "lstLine": 5,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 276,
+          "end": 280,
+          "lstLine": 6,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 280,
+          "end": 283,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 283,
+          "end": 286,
+          "lstLine": 9,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 286,
+          "end": 294,
+          "lstLine": 10,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 294,
+          "end": 300,
+          "lstLine": 11,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 300,
+          "end": 301,
+          "lstLine": 12,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 301,
+          "end": 303,
+          "lstLine": 13,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 303,
+          "end": 306,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 306,
+          "end": 314,
+          "lstLine": 15,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 314,
+          "end": 322,
+          "lstLine": 16,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 322,
+          "end": 330,
+          "lstLine": 19,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 330,
+          "end": 336,
+          "lstLine": 20,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 336,
+          "end": 337,
+          "lstLine": 21,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 337,
+          "end": 345,
+          "lstLine": 22,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 345,
+          "end": 353,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 353,
+          "end": 361,
+          "lstLine": 25,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 361,
+          "end": 369,
+          "lstLine": 26,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 369,
+          "end": 377,
+          "lstLine": 27,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 377,
+          "end": 385,
+          "lstLine": 29,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 385,
+          "end": 386,
+          "lstLine": 30,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 386,
+          "end": 394,
+          "lstLine": 31,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 394,
+          "end": 396,
+          "lstLine": 33,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 396,
+          "end": 397,
+          "lstLine": 34,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 397,
+          "end": 400,
+          "lstLine": 9,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 400,
+          "end": 408,
+          "lstLine": 37,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 408,
+          "end": 416,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 416,
+          "end": 425,
+          "lstLine": 41,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 425,
+          "end": 426,
+          "lstLine": 40,
+          "kind": "code",
+          "confidence": "high"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "fib",
+          "kind": "label",
+          "address": 256,
+          "line": 1,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_while_cond_1",
+          "kind": "label",
+          "address": 283,
+          "line": 9,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_if_else_3",
+          "kind": "label",
+          "address": 322,
+          "line": 17,
+          "scope": "local"
+        },
+        {
+          "name": "__zax_while_end_2",
+          "kind": "label",
+          "address": 400,
+          "line": 35,
+          "scope": "local"
+        },
+        {
+          "name": "main",
+          "kind": "label",
+          "address": 416,
+          "line": 40,
+          "scope": "global"
+        }
+      ]
+    }
+  },
+  "segments": [
+    {
+      "start": 256,
+      "end": 426
+    }
+  ],
+  "fileList": ["02_fibonacci_args_locals.zax"],
+  "symbols": [
+    {
+      "name": "fib",
+      "kind": "label",
+      "address": 256,
+      "file": "02_fibonacci_args_locals.zax",
+      "line": 1,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_while_cond_1",
+      "kind": "label",
+      "address": 283,
+      "file": "02_fibonacci_args_locals.zax",
+      "line": 9,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_if_else_3",
+      "kind": "label",
+      "address": 322,
+      "file": "02_fibonacci_args_locals.zax",
+      "line": 17,
+      "scope": "local"
+    },
+    {
+      "name": "__zax_while_end_2",
+      "kind": "label",
+      "address": 400,
+      "file": "02_fibonacci_args_locals.zax",
+      "line": 35,
+      "scope": "local"
+    },
+    {
+      "name": "main",
+      "kind": "label",
+      "address": 416,
+      "file": "02_fibonacci_args_locals.zax",
+      "line": 40,
+      "scope": "global"
+    }
+  ],
+  "generator": {
+    "tool": "zax",
+    "entrySymbol": "main",
+    "entryAddress": 416
+  }
+}

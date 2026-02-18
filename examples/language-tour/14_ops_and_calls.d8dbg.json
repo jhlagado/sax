@@ -1,0 +1,177 @@
+{
+  "format": "d8-debug-map",
+  "version": 1,
+  "arch": "z80",
+  "addressWidth": 16,
+  "endianness": "little",
+  "files": {
+    "14_ops_and_calls.zax": {
+      "segments": [
+        {
+          "start": 256,
+          "end": 267,
+          "lstLine": 18,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 256,
+          "end": 324,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
+        },
+        {
+          "start": 267,
+          "end": 270,
+          "lstLine": 19,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 270,
+          "end": 276,
+          "lstLine": 20,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 276,
+          "end": 279,
+          "lstLine": 21,
+          "kind": "macro",
+          "confidence": "high"
+        },
+        {
+          "start": 279,
+          "end": 287,
+          "lstLine": 18,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 287,
+          "end": 295,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 295,
+          "end": 299,
+          "lstLine": 26,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 299,
+          "end": 302,
+          "lstLine": 29,
+          "kind": "macro",
+          "confidence": "high"
+        },
+        {
+          "start": 302,
+          "end": 311,
+          "lstLine": 30,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 311,
+          "end": 319,
+          "lstLine": 31,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 319,
+          "end": 324,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "add_to_sample",
+          "kind": "label",
+          "address": 256,
+          "line": 18,
+          "scope": "global"
+        },
+        {
+          "name": "main",
+          "kind": "label",
+          "address": 287,
+          "line": 24,
+          "scope": "global"
+        },
+        {
+          "name": "sample_byte",
+          "kind": "var",
+          "address": 324,
+          "line": 15,
+          "scope": "global",
+          "size": 1
+        },
+        {
+          "name": "sample_word",
+          "kind": "var",
+          "address": 325,
+          "line": 16,
+          "scope": "global",
+          "size": 2
+        }
+      ]
+    }
+  },
+  "segments": [
+    {
+      "start": 256,
+      "end": 324
+    }
+  ],
+  "fileList": ["14_ops_and_calls.zax"],
+  "symbols": [
+    {
+      "name": "add_to_sample",
+      "kind": "label",
+      "address": 256,
+      "file": "14_ops_and_calls.zax",
+      "line": 18,
+      "scope": "global"
+    },
+    {
+      "name": "main",
+      "kind": "label",
+      "address": 287,
+      "file": "14_ops_and_calls.zax",
+      "line": 24,
+      "scope": "global"
+    },
+    {
+      "name": "sample_byte",
+      "kind": "var",
+      "address": 324,
+      "file": "14_ops_and_calls.zax",
+      "line": 15,
+      "scope": "global",
+      "size": 1
+    },
+    {
+      "name": "sample_word",
+      "kind": "var",
+      "address": 325,
+      "file": "14_ops_and_calls.zax",
+      "line": 16,
+      "scope": "global",
+      "size": 2
+    }
+  ],
+  "generator": {
+    "tool": "zax",
+    "entrySymbol": "main",
+    "entryAddress": 287
+  }
+}

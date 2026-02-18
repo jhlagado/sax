@@ -27,26 +27,31 @@ Per example:
    - global alias (`name = rhs`)
    - local alias usage
 
-10. `10_arrays_and_indexing.zax`
-   - array declarations
-   - constant and register indexing
+4. `10_arrays_and_indexing.zax`
+
+- array declarations
+- constant and register indexing
 
 11. `11_records_and_fields.zax`
-   - record types
-   - field load/store
-   - local alias to global record
+
+- record types
+- field load/store
+- local alias to global record
 
 12. `12_args_with_arrays_records.zax`
-   - array args
-   - record-field access through array elements
+
+- array args
+- record-field access through array elements
 
 13. `13_structured_control_flow.zax`
-   - `if`, `while`, `repeat`, `select`
+
+- `if`, `while`, `repeat`, `select`
 
 14. `14_ops_and_calls.zax`
-   - `op` declarations
-   - matcher-based op usage
-   - function calls from instruction stream
+
+- `op` declarations
+- matcher-based op usage
+- function calls from instruction stream
 
 ## Notes
 

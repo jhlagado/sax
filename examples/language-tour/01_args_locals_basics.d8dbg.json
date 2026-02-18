@@ -1,0 +1,221 @@
+{
+  "format": "d8-debug-map",
+  "version": 1,
+  "arch": "z80",
+  "addressWidth": 16,
+  "endianness": "little",
+  "files": {
+    "01_args_locals_basics.zax": {
+      "segments": [
+        {
+          "start": 256,
+          "end": 267,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 256,
+          "end": 389,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
+        },
+        {
+          "start": 267,
+          "end": 275,
+          "lstLine": 2,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 275,
+          "end": 281,
+          "lstLine": 3,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 281,
+          "end": 282,
+          "lstLine": 4,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 282,
+          "end": 290,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 290,
+          "end": 298,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 298,
+          "end": 302,
+          "lstLine": 9,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 302,
+          "end": 305,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 305,
+          "end": 313,
+          "lstLine": 12,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 313,
+          "end": 315,
+          "lstLine": 13,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 315,
+          "end": 316,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 316,
+          "end": 324,
+          "lstLine": 15,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 324,
+          "end": 332,
+          "lstLine": 16,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 332,
+          "end": 340,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 340,
+          "end": 348,
+          "lstLine": 19,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 348,
+          "end": 352,
+          "lstLine": 21,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 352,
+          "end": 367,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 367,
+          "end": 375,
+          "lstLine": 25,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 375,
+          "end": 384,
+          "lstLine": 27,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 384,
+          "end": 389,
+          "lstLine": 19,
+          "kind": "code",
+          "confidence": "high"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "add_words",
+          "kind": "label",
+          "address": 256,
+          "line": 1,
+          "scope": "global"
+        },
+        {
+          "name": "bump_byte",
+          "kind": "label",
+          "address": 290,
+          "line": 7,
+          "scope": "global"
+        },
+        {
+          "name": "main",
+          "kind": "label",
+          "address": 340,
+          "line": 19,
+          "scope": "global"
+        }
+      ]
+    }
+  },
+  "segments": [
+    {
+      "start": 256,
+      "end": 389
+    }
+  ],
+  "fileList": ["01_args_locals_basics.zax"],
+  "symbols": [
+    {
+      "name": "add_words",
+      "kind": "label",
+      "address": 256,
+      "file": "01_args_locals_basics.zax",
+      "line": 1,
+      "scope": "global"
+    },
+    {
+      "name": "bump_byte",
+      "kind": "label",
+      "address": 290,
+      "file": "01_args_locals_basics.zax",
+      "line": 7,
+      "scope": "global"
+    },
+    {
+      "name": "main",
+      "kind": "label",
+      "address": 340,
+      "file": "01_args_locals_basics.zax",
+      "line": 19,
+      "scope": "global"
+    }
+  ],
+  "generator": {
+    "tool": "zax",
+    "entrySymbol": "main",
+    "entryAddress": 340
+  }
+}

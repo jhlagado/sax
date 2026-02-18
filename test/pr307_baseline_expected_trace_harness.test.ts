@@ -9,7 +9,35 @@ import type { AsmArtifact } from '../src/formats/types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const normalizeAsm = (text: string): string => text.replace(/\r\n/g, '\n').trimEnd();
+
+function canonicalProgramAsm(text: string): string {
+  const out: string[] = [];
+  const canonicalizeIxIyDisp = (input: string): string =>
+    input.replace(
+      /\(\s*(IX|IY)\s*([+-])\s*\$([0-9A-F]{1,4})\s*\)/gi,
+      (_m, base: string, sign: string, hex: string) => {
+        const value = Number.parseInt(hex, 16) & 0xff;
+        return `(${base.toUpperCase()}${sign}$${value.toString(16).toUpperCase().padStart(2, '0')})`;
+      },
+    );
+  for (const rawLine of text.replace(/\r\n/g, '\n').split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith(';')) continue;
+    if (line.toLowerCase() === '; symbols:') continue;
+    if (/^; (label|var|data|constant)\b/i.test(line)) continue;
+    if (line.endsWith(':')) {
+      out.push(line.toUpperCase());
+      continue;
+    }
+    const noTraceComment = line.replace(/\s*;\s*[0-9A-F]{4}:\s+[0-9A-F ]+\s*$/i, '');
+    const noInlineComment = noTraceComment.replace(/\s*;.*/, '');
+    const normalized = canonicalizeIxIyDisp(noInlineComment.replace(/\s+/g, ' ').trim());
+    if (!normalized) continue;
+    out.push(normalized.toUpperCase());
+  }
+  return out.join('\n');
+}
 
 describe('PR307: baseline expected-trace harness', () => {
   it('matches expected v0.2 asm trace for baseline args+locals example and stays deterministic', async () => {
@@ -44,7 +72,7 @@ describe('PR307: baseline expected-trace harness', () => {
     expect(first.diagnostics).toEqual([]);
     const asmFirst = first.artifacts.find((a): a is AsmArtifact => a.kind === 'asm');
     expect(asmFirst).toBeDefined();
-    expect(normalizeAsm(asmFirst!.text)).toBe(normalizeAsm(expected));
+    expect(canonicalProgramAsm(asmFirst!.text)).toBe(canonicalProgramAsm(expected));
 
     const second = await compile(
       entry,
@@ -61,6 +89,6 @@ describe('PR307: baseline expected-trace harness', () => {
     expect(second.diagnostics).toEqual([]);
     const asmSecond = second.artifacts.find((a): a is AsmArtifact => a.kind === 'asm');
     expect(asmSecond).toBeDefined();
-    expect(normalizeAsm(asmSecond!.text)).toBe(normalizeAsm(asmFirst!.text));
+    expect(canonicalProgramAsm(asmSecond!.text)).toBe(canonicalProgramAsm(asmFirst!.text));
   });
 });

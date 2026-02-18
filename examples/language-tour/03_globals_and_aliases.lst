@@ -1,0 +1,13 @@
+; ZAX listing
+; range: $0100..$013D (end exclusive)
+
+0100: F5 C5 D5 2A 3E 01 D1 C1 F1 C9 DD E5 DD 21 00 00  |...*>........!..|
+0110: DD 39 F5 C5 D5 DD E5 E1 11 04 00 19 7E 23 66 6F  |.9..........~#fo|
+0120: E5 21 3E 01 D1 73 23 72 D1 C1 F1 DD F9 DD E1 C9  |.!>..s#r........|
+0130: 21 7B 00 E5 CD 0A 01 33 33 2A 3E 01 C9           |!{.....33*>..|
+
+; symbols:
+; label read_counter = $0100
+; label write_counter = $010A
+; label main = $0130
+; var counter = $013E
