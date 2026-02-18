@@ -250,20 +250,19 @@ What remains: broader ISA coverage, CLI hardening, full listing output, cross-pl
 ### Requirements
 
 - Node.js 20+
-- Yarn
 
 ### Install and Build
 
 ```sh
 git clone https://github.com/user/zax.git
 cd zax
-yarn install
+npm install
 ```
 
 ### Compile a ZAX File
 
 ```sh
-yarn -s zax -- examples/hello.zax
+npm run zax -- examples/hello.zax
 ```
 
 This produces `examples/hello.hex`, `examples/hello.bin`, `examples/hello.d8dbg.json`, and `examples/hello.lst` alongside the source.
@@ -271,7 +270,7 @@ This produces `examples/hello.hex`, `examples/hello.bin`, `examples/hello.d8dbg.
 ### Specify an Output Path
 
 ```sh
-yarn -s zax -- -o build/output.hex examples/hello.zax
+npm run zax -- -o build/output.hex examples/hello.zax
 ```
 
 All sibling artifacts (`.bin`, `.lst`, `.d8dbg.json`) are derived from the primary output path.
@@ -297,9 +296,9 @@ zax [options] <entry.zax>
 ## Development
 
 ```sh
-yarn typecheck     # Type-check without emitting
-yarn test          # Run test suite
-yarn format        # Format with Prettier
+npm run typecheck     # Type-check without emitting
+npm test              # Run test suite
+npm run format        # Format with Prettier
 ```
 
 Tests are organized by spec section and PR scope under `test/`. Golden-file comparisons ensure output stability. The `examples/*.zax` files serve as end-to-end acceptance tests — they must compile without errors in CI.

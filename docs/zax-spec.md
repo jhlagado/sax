@@ -1628,10 +1628,10 @@ zax [options] <entry.zax>
 The v0.1 CLI exists as `src/cli.ts` and is exposed via:
 
 ```
-yarn -s zax -- [options] <entry.zax>
+npm run zax -- [options] <entry.zax>
 ```
 
-This runs `yarn -s build` first and then executes `dist/src/cli.js`.
+This runs `npm run build` first and then executes `dist/src/cli.js`.
 
 ## Primary output and derived artifacts
 

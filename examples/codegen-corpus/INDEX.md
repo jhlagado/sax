@@ -38,5 +38,5 @@ Negative fixture (source-only expected failure):
 Use the assembler directly for each fixture:
 
 ```bash
-yarn -s zax -o examples/codegen-corpus/<name>.hex -t hex --nod8m --nolist test/fixtures/<name>.zax
+npm run zax -- -o examples/codegen-corpus/<name>.hex -t hex --nod8m --nolist test/fixtures/<name>.zax
 ```
