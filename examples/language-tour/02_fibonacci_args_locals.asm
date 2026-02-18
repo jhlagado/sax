@@ -18,7 +18,7 @@ push AF                        ; 0118: F5
 push BC                        ; 0119: C5
 push DE                        ; 011A: D5
 __zax_while_cond_1:
-jp cc, __zax_while_end_2       ; 011B: CA 00 00
+jp z, __zax_while_end_2        ; 011B: CA 00 00
 push DE                        ; 011E: D5
 ex DE, HL                      ; 011F: EB
 ld E, (IX - $0006)             ; 0120: DD 5E FA
@@ -29,7 +29,7 @@ ld E, (IX + $0004)             ; 0128: DD 5E 04
 ld D, (IX + $0005)             ; 012B: DD 56 05
 xor A                          ; 012E: AF
 sbc HL, DE                     ; 012F: ED 52
-jp cc, __zax_if_else_3         ; 0131: C2 00 00
+jp nz, __zax_if_else_3         ; 0131: C2 00 00
 push DE                        ; 0134: D5
 ex DE, HL                      ; 0135: EB
 ld E, (IX - $0002)             ; 0136: DD 5E FE

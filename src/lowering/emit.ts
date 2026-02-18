@@ -871,6 +871,28 @@ export function emitProgram(
         return undefined;
     }
   };
+  const conditionNameFromOpcode = (opcode: number): string | undefined => {
+    switch (opcode) {
+      case 0xc2:
+        return 'NZ';
+      case 0xca:
+        return 'Z';
+      case 0xd2:
+        return 'NC';
+      case 0xda:
+        return 'C';
+      case 0xe2:
+        return 'PO';
+      case 0xea:
+        return 'PE';
+      case 0xf2:
+        return 'P';
+      case 0xfa:
+        return 'M';
+      default:
+        return undefined;
+    }
+  };
   const callConditionOpcodeFromName = (nameRaw: string): number | undefined => {
     switch (nameRaw.toUpperCase()) {
       case 'NZ':
@@ -3882,7 +3904,8 @@ export function emitProgram(
           emitAbs16Fixup(0xc3, label.toLowerCase(), 0, span, `jp ${label}`);
         };
         const emitJumpCondTo = (op: number, label: string, span: SourceSpan): void => {
-          emitAbs16Fixup(op, label.toLowerCase(), 0, span, `jp cc, ${label}`);
+          const ccName = conditionNameFromOpcode(op) ?? 'cc';
+          emitAbs16Fixup(op, label.toLowerCase(), 0, span, `jp ${ccName.toLowerCase()}, ${label}`);
         };
         const emitJumpIfFalse = (cc: string, label: string, span: SourceSpan): boolean => {
           if (cc === '__missing__') return false;
