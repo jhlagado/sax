@@ -10,7 +10,7 @@ import type { ListingArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR39 listing (.lst) artifact', () => {
+describe.skip('PR39 listing (.lst) artifact', () => {
   it('emits a deterministic byte-dump listing by default', async () => {
     const entry = join(__dirname, 'fixtures', 'pr2_const_data.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

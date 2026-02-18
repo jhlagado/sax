@@ -13,13 +13,12 @@ describe('PR57: ISA im/rst/reti/retn', () => {
   it('encodes im, rst, reti, and retn', async () => {
     const entry = join(__dirname, 'fixtures', 'pr57_isa_im_rst.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });
-    expect(res.diagnostics).toEqual([]);
-
-    const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
-    expect(bin).toBeDefined();
-    expect(bin!.bytes).toEqual(
-      // im 1, rst 0, rst 8, rst 56, reti, retn
-      Uint8Array.of(0xed, 0x56, 0xc7, 0xcf, 0xff, 0xed, 0x4d, 0xed, 0x45),
+    expect(res.artifacts.find((a): a is BinArtifact => a.kind === 'bin')).toBeUndefined();
+    expect(res.diagnostics.map((d) => d.message)).toEqual(
+      expect.arrayContaining([
+        'reti is not supported in functions that require cleanup; use ret/ret cc so cleanup epilogue can run.',
+        'retn is not supported in functions that require cleanup; use ret/ret cc so cleanup epilogue can run.',
+      ]),
     );
   });
 });

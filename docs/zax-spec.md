@@ -901,11 +901,12 @@ Function-body block termination (v0.1):
   - 16-bit return in `HL`
   - 8-bit return in `L`
 - Register/flag volatility (typed call boundary, v0.2):
-  - typed `func`/`extern func` call sites are preservation-safe at the language boundary.
+  - typed **internal** `func` calls are preservation-safe at the language boundary.
   - `HL` is boundary-volatile for all typed calls (including `void`).
   - non-`void` calls use `HL` as return channel (`L` for byte returns).
-  - all non-`HL` registers/flags are boundary-preserved by typed-call glue.
-  - this boundary guarantee is compiler-generated call glue; explicit raw Z80 `call` mnemonics remain raw assembly semantics.
+  - all non-`HL` registers/flags are boundary-preserved by **callee** prologue/epilogue.
+  - `extern func` calls are **not** preservation-safe unless explicitly declared (ABI/clobber annotations planned).
+  - this boundary guarantee is compiler-generated for internal `func` bodies; explicit raw Z80 `call` mnemonics remain raw assembly semantics.
 
 Notes (v0.2):
 
@@ -1003,13 +1004,49 @@ Frame shape:
 - `IX+4..`: arguments (0-based word slots)
 - `IX-1..`: local scalar slots
 
+IX-displacement byte-lane lowering constraints (v0.2):
+
+- Z80 `IX+d` byte-load/store forms operate on `A B C D E` and memory/immediate forms; they do not support `H`/`L` as direct byte operands in these indexed forms.
+- Therefore, hidden lowering for 16-bit frame-slot transfers must not emit patterns like:
+  - `LD L, (IX+d)` / `LD H, (IX+d)`
+  - `LD (IX+d), L` / `LD (IX+d), H`
+- Required lowering policy for word slot moves between `HL` and `IX`-relative memory:
+  - use `DE` as the byte-lane shuttle (`D`/`E` are legal with `IX+d`)
+  - bridge with `EX DE, HL` before/after the memory transfer when the semantic source/destination is `HL`
+- Canonical legal transfer patterns:
+
+```asm
+; read argument/local word from frame slot into HL
+ex de, hl
+ld e, (ix+disp_lo)
+ld d, (ix+disp_hi)
+ex de, hl
+
+; write HL into argument/local word frame slot
+ex de, hl
+ld (ix+disp_lo), e
+ld (ix+disp_hi), d
+ex de, hl
+```
+
+Local initializer lowering order (v0.2):
+
+- Scalar local initializers are lowered in declaration order.
+- For word/addr-like zero or constant initialization at function entry, preferred lowering is:
+  - `LD HL, imm16`
+  - `PUSH HL`
+- This allocates and initializes one local slot in one sequence and keeps stack shape aligned with declaration order.
+
 Return and cleanup model:
 
-- If a synthetic epilogue is required (`frameSize > 0`, or at least one conditional `ret <cc>` exists), the compiler creates a per-function hidden label:
+- A function requires a synthetic epilogue whenever cleanup is required (locals, callee-save preservation, or other frame-related teardown).
+- If a synthetic epilogue is required, the compiler creates a per-function hidden label:
   - current implementation naming convention: `__zax_epilogue_<n>`
-- `ret` and `ret <cc>` in user-authored instruction streams are rewritten to jumps to that synthetic epilogue.
-- The synthetic epilogue pops local slots (if any) and performs the final `ret` to caller.
-- If there are no locals and no conditional returns, plain `ret` is emitted directly with no synthetic epilogue.
+- **All** `ret` forms in user-authored instruction streams (`ret` and `ret <cc>`) are rewritten to jumps to that synthetic epilogue:
+  - `ret` → `jp __zax_epilogue_<n>`
+  - `ret <cc>` → `jp <cc>, __zax_epilogue_<n>`
+- The synthetic epilogue performs cleanup and then emits the final `ret` to caller.
+- If no cleanup is required, plain `ret` is emitted directly and no synthetic epilogue is created.
 - Canonical epilogue shape for framed functions:
   - restore preserved registers (policy-defined set)
   - `LD SP, IX`
@@ -1346,7 +1383,7 @@ This section defines required source migration behavior for programs moving from
 6. Typed internal calls are preservation-safe at the language boundary.
    - `HL` is boundary-volatile for all typed calls (including `void`).
    - Non-`void` typed calls use `HL` as return channel (`L` for byte).
-   - Other registers/flags are boundary-preserved by typed-call glue.
+   - Other registers/flags are boundary-preserved by callee prologue/epilogue.
    - Do not apply these guarantees to raw Z80 `call` mnemonics.
 
 ### 11.2 Before/After Migration Examples
@@ -1397,7 +1434,7 @@ Typed call boundary expectations:
 extern func putc(ch: byte): void at $F003
 extern func next_char(): byte at $F010
 
-; v0.2 typed-call boundary:
+; v0.2 typed-call boundary (internal funcs):
 ; - putc may leave HL undefined (HL is boundary-volatile)
 ; - next_char preserves all regs/flags except HL (L carries byte return)
 putc A
@@ -2535,7 +2572,7 @@ Ops are expanded inline within the enclosing function instruction stream. This m
 An op body may invoke a function using the normal function-call syntax (Section 8.3 of the main spec). When this happens:
 
 - The compiler generates the call sequence (push arguments, `call`, pop arguments)
-- The typed-call boundary is preservation-safe in v0.2 (`HL` boundary-volatile for all typed calls; non-void uses `HL`/`L` return channel).
+- The typed-call boundary is preservation-safe for **internal** funcs in v0.2 (`HL` boundary-volatile; non-void uses `HL`/`L` return channel).
 - Any additional clobbers are from surrounding op instructions (ops still have no automatic preservation)
 
 This interaction can lead to significant expansion overhead. Consider:
@@ -2571,7 +2608,7 @@ This is permitted. Any save/restore discipline is explicitly authored in the op 
 | Scenario                | Effect                                                                              |
 | ----------------------- | ----------------------------------------------------------------------------------- |
 | Function calls op       | Op expands inline; stack/register effects are exactly those of the emitted sequence |
-| Op calls function       | Full call sequence generated; typed call boundary remains preservation-safe in v0.2 |
+| Op calls function       | Full call sequence generated; typed call boundary remains preservation-safe for internal funcs |
 | Op calls op             | Nested inline expansion; no call overhead                                           |
 | Function calls function | Normal call/ret; stack frame management                                             |
 

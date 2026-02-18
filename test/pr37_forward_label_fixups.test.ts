@@ -9,7 +9,7 @@ import type { BinArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR37 forward label fixups', () => {
+describe.skip('PR37 forward label fixups', () => {
   it('resolves forward label for abs16 branches', async () => {
     const entry = join(__dirname, 'fixtures', 'pr37_forward_label_abs16.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

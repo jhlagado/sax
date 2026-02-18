@@ -1,0 +1,20 @@
+globals
+  counter: word = 0
+  mirror_counter = counter
+
+func read_counter(): word
+  ld hl, counter
+end
+
+func write_counter(new_value: word): void
+  ld counter, new_value
+end
+
+export func main(): void
+  var
+    local_alias = mirror_counter
+  end
+
+  write_counter 123
+  ld hl, local_alias
+end

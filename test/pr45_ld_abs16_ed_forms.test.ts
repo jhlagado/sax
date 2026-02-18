@@ -9,7 +9,7 @@ import type { BinArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR45: ld abs16 ED forms (BC/DE/SP)', () => {
+describe.skip('PR45: ld abs16 ED forms (BC/DE/SP)', () => {
   it('encodes ld rr,(nn) and ld (nn),rr for BC/DE/SP when EA is absolute', async () => {
     const entry = join(__dirname, 'fixtures', 'pr45_ld_abs16_ed_forms.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

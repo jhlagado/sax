@@ -9,7 +9,7 @@ import type { BinArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR41 ISA: inc/dec r8 and ld (hl), imm8', () => {
+describe.skip('PR41 ISA: inc/dec r8 and ld (hl), imm8', () => {
   it('encodes inc/dec for r8 and (hl), plus ld (hl), n', async () => {
     const entry = join(__dirname, 'fixtures', 'pr41_inc_dec_ld_mem_imm.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

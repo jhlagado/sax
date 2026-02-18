@@ -1,0 +1,21 @@
+func inc_one(input_word: word): word
+  var
+    temp_word: word = 0
+    unused_word: word = 100
+  end
+
+  ld de, input_word
+  inc de
+  ld temp_word, de
+  ld de, temp_word
+  ex de, hl
+end
+
+export func main(): void
+  var
+    result_word: word = 0
+  end
+
+  inc_one 5
+  ld result_word, hl
+end

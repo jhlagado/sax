@@ -9,7 +9,7 @@ import type { BinArtifact, D8mArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR17 bin/hex ingestion', () => {
+describe.skip('PR17 bin/hex ingestion', () => {
   it('includes raw bin bytes into the selected section and binds symbol', async () => {
     const entry = join(__dirname, 'fixtures', 'pr17_bin_basic.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

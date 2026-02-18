@@ -1,0 +1,27 @@
+type Pair
+  lo: byte
+  hi: byte
+end
+
+globals
+  pair_buf: Pair = 0
+
+func write_pair(lo_value: byte, hi_value: byte): void
+  ld pair_buf.lo, lo_value
+  ld pair_buf.hi, hi_value
+end
+
+func read_pair_word(): word
+  ld l, pair_buf.lo
+  ld h, pair_buf.hi
+end
+
+export func main(): void
+  var
+    pair_alias = pair_buf
+  end
+
+  write_pair 1, 2
+  ld a, pair_alias.lo
+  read_pair_word
+end

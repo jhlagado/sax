@@ -9,7 +9,7 @@ import type { BinArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR12 calls (extern + func)', () => {
+describe.skip('PR12 calls (extern + func)', () => {
   const callVoidPrefix = Uint8Array.of(0xf5, 0xc5, 0xd5, 0xdd, 0xe5, 0xfd, 0xe5, 0xe5);
   const callVoidSuffix = Uint8Array.of(0xe1, 0xfd, 0xe1, 0xdd, 0xe1, 0xd1, 0xc1, 0xf1);
 

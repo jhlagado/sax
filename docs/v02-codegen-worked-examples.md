@@ -16,6 +16,7 @@ Examples below assume the policy direction discussed in v0.2 planning:
 - temporary conservative callee-preserved set is `AF`, `BC`, `DE` until volatility inference lands
 - `IX` is reserved for frame management
 - caller cleans pushed arguments after call
+- `IX+d` byte-lane transfers use `DE` shuttle when semantic source/destination is `HL`
 
 ## 2. Frame Layout Model
 
@@ -40,6 +41,30 @@ Canonical epilogue:
 ld sp, ix
 pop ix
 ret
+```
+
+Legal frame-slot word transfer pattern when semantic register is `HL`:
+
+```asm
+; HL <- frame slot
+ex de, hl
+ld e, (ix+disp_lo)
+ld d, (ix+disp_hi)
+ex de, hl
+
+; frame slot <- HL
+ex de, hl
+ld (ix+disp_lo), e
+ld (ix+disp_hi), d
+ex de, hl
+```
+
+Local scalar initializers are lowered in declaration order.
+For word-slot constants at function entry, examples prefer:
+
+```asm
+ld hl, imm16
+push hl
 ```
 
 ## 3. Worked Example A: Echo Call With Local Storage

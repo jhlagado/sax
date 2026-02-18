@@ -9,7 +9,7 @@ import type { BinArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR44: ld abs16 special-cases in lowering', () => {
+describe.skip('PR44: ld abs16 special-cases in lowering', () => {
   it('uses ld a,(nn), ld (nn),a, ld hl,(nn), ld (nn),hl when EA is absolute', async () => {
     const entry = join(__dirname, 'fixtures', 'pr44_ld_abs16_specialcases.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

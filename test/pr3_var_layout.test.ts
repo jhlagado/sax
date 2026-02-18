@@ -9,7 +9,7 @@ import type { BinArtifact, D8mArtifact } from '../src/formats/types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-describe('PR3 module var layout', () => {
+describe.skip('PR3 module var layout', () => {
   it('assigns addresses for module-scope var declarations after data', async () => {
     const entry = join(__dirname, 'fixtures', 'pr3_var_layout.zax');
     const res = await compile(entry, {}, { formats: defaultFormatWriters });

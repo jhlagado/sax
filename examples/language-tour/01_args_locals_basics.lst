@@ -1,0 +1,21 @@
+; ZAX listing
+; range: $0100..$0195 (end exclusive)
+
+0100: DD E5 DD 21 00 00 DD 39 F5 C5 D5 D5 EB DD 5E 04  |...!...9......^.|
+0110: DD 56 05 EB D1 DD 5E 06 DD 56 07 19 D1 C1 F1 DD  |.V....^..V......|
+0120: F9 DD E1 C9 DD E5 DD 21 00 00 DD 39 21 00 00 E5  |.......!...9!...|
+0130: F5 C5 D5 DD E5 E1 D5 11 04 00 19 D1 6E 26 00 2C  |............n&.,|
+0140: D5 EB DD 73 FE DD 72 FF EB D1 D5 EB DD 5E FE DD  |...s..r......^..|
+0150: 56 FF EB D1 D1 C1 F1 DD F9 DD E1 C9 DD E5 DD 21  |V..............!|
+0160: 00 00 DD 39 21 00 00 E5 F5 C5 D5 21 14 00 E5 21  |...9!......!...!|
+0170: 0A 00 E5 CD 00 01 33 33 33 33 D5 EB DD 73 FE DD  |......3333...s..|
+0180: 72 FF EB D1 21 07 00 E5 CD 24 01 33 33 D1 C1 F1  |r...!....$.33...|
+0190: DD F9 DD E1 C9                                   |.....|
+
+; symbols:
+; label add_words = $0100
+; label __zax_epilogue_0 = $011C
+; label bump_byte = $0124
+; label __zax_epilogue_1 = $0154
+; label main = $015C
+; label __zax_epilogue_2 = $018D
