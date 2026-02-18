@@ -18,7 +18,9 @@ describe('PR49: ld (abs-word), imm16 fast-path', () => {
     const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
     expect(bin).toBeDefined();
 
-    // ld hl,$1234; ld ($1000),hl; ret
-    expect(bin!.bytes).toEqual(Uint8Array.of(0x21, 0x34, 0x12, 0x22, 0x00, 0x10, 0xc9));
+    // prologue preserve + ld hl,$1234; ld ($1000),hl; epilogue
+    expect(bin!.bytes).toEqual(
+      Uint8Array.of(0xf5, 0xc5, 0xd5, 0x21, 0x34, 0x12, 0x22, 0x00, 0x10, 0xd1, 0xc1, 0xf1, 0xc9),
+    );
   });
 });

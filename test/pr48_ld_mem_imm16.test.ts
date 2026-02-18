@@ -18,8 +18,8 @@ describe('PR48: lower ld (ea), imm16 for word/addr destinations', () => {
     const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
     expect(bin).toBeDefined();
     expect(bin!.bytes).toEqual(
-      // ld hl,$1234; ld ($1000),hl; ret
-      Uint8Array.of(0x21, 0x34, 0x12, 0x22, 0x00, 0x10, 0xc9),
+      // prologue preserve + ld hl,$1234; ld ($1000),hl; epilogue
+      Uint8Array.of(0xf5, 0xc5, 0xd5, 0x21, 0x34, 0x12, 0x22, 0x00, 0x10, 0xd1, 0xc1, 0xf1, 0xc9),
     );
   });
 
@@ -31,25 +31,40 @@ describe('PR48: lower ld (ea), imm16 for word/addr destinations', () => {
     const bin = res.artifacts.find((a): a is BinArtifact => a.kind === 'bin');
     expect(bin).toBeDefined();
     expect(bin!.bytes).toEqual(
-      // push bc (frameSize=2)
-      // ld hl,0; add hl,sp
-      // ld (hl),$34; inc hl; ld (hl),$12
-      // jp epilogue ($000D); pop bc; ret
       Uint8Array.of(
-        0xc5,
+        0xdd,
+        0xe5, // push ix
+        0xdd,
         0x21,
         0x00,
-        0x00,
-        0x39,
+        0x00, // ld ix,0
+        0xdd,
+        0x39, // add ix,sp
+        0xc5,
+        0xf5,
+        0xc5,
+        0xd5,
+        0xdd,
+        0xe5,
+        0xe1,
+        0xd5,
+        0x11,
+        0xfe,
+        0xff, // allocate 2 bytes
+        0x19, // add hl,de
+        0xd1,
         0x36,
         0x34,
         0x23,
         0x36,
         0x12,
-        0xc3,
-        0x0d,
-        0x00,
+        0xd1,
         0xc1,
+        0xf1,
+        0xdd,
+        0xf9,
+        0xdd,
+        0xe1,
         0xc9,
       ),
     );
