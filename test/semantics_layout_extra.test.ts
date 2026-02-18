@@ -15,7 +15,11 @@ import type {
   UnionDeclNode,
 } from '../src/frontend/ast.js';
 
-const span = { file: 'test.zax', start: { line: 1, column: 1, offset: 0 }, end: { line: 1, column: 1, offset: 0 } };
+const span = {
+  file: 'test.zax',
+  start: { line: 1, column: 1, offset: 0 },
+  end: { line: 1, column: 1, offset: 0 },
+};
 
 const byteType: TypeExprNode = { kind: 'TypeName', span, name: 'byte' };
 const wordType: TypeExprNode = { kind: 'TypeName', span, name: 'word' };
@@ -28,11 +32,20 @@ describe('semantics/layout', () => {
   const emptyEnv: CompileEnv = { consts: new Map(), enums: new Map(), types: new Map() };
 
   it('computes rounded storage for records and unions', () => {
-    const rec: TypeExprNode = { kind: 'RecordType', span, fields: [recordField('x', byteType), recordField('y', wordType)] };
+    const rec: TypeExprNode = {
+      kind: 'RecordType',
+      span,
+      fields: [recordField('x', byteType), recordField('y', wordType)],
+    };
     const info = storageInfoForTypeExpr(rec, emptyEnv);
     expect(info).toEqual({ preRoundSize: 3, storageSize: 4 });
 
-    const unionDecl: UnionDeclNode = { kind: 'UnionDecl', span, name: 'U', fields: [recordField('a', byteType), recordField('b', wordType)] };
+    const unionDecl: UnionDeclNode = {
+      kind: 'UnionDecl',
+      span,
+      name: 'U',
+      fields: [recordField('a', byteType), recordField('b', wordType)],
+    };
     const env: CompileEnv = { ...emptyEnv, types: new Map([['U', unionDecl]]) };
     const unionInfo = storageInfoForTypeExpr({ kind: 'TypeName', span, name: 'U' }, env);
     expect(unionInfo).toEqual({ preRoundSize: 2, storageSize: 2 });
@@ -73,7 +86,12 @@ describe('semantics/layout', () => {
     };
     const env: CompileEnv = { ...emptyEnv, types: new Map([['Point', point]]) };
     const pathFieldY: OffsetofPathNode = { kind: 'OffsetofPath', span, base: 'y', steps: [] };
-    const offset = offsetOfPathInTypeExpr({ kind: 'TypeName', span, name: 'Point' }, pathFieldY, env, () => 0);
+    const offset = offsetOfPathInTypeExpr(
+      { kind: 'TypeName', span, name: 'Point' },
+      pathFieldY,
+      env,
+      () => 0,
+    );
     expect(offset).toBe(1); // byte field x (1) before y
   });
 });

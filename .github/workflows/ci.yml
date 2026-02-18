@@ -55,18 +55,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: yarn
-
-      - name: Enable Yarn
-        run: |
-          corepack enable
-          corepack prepare yarn@1.22.21 --activate
+          cache: npm
 
       - name: Install
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Docs format check
-        run: yarn prettier -c "**/*.md" ".github/ISSUE_TEMPLATE/*.yml"
+        run: npx prettier -c "**/*.md" ".github/ISSUE_TEMPLATE/*.yml"
 
   test:
     name: test (${{ matrix.os }})
@@ -85,21 +80,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: yarn
-
-      - name: Enable Yarn
-        run: |
-          corepack enable
-          corepack prepare yarn@1.22.21 --activate
+          cache: npm
 
       - name: Install
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Format check
-        run: yarn format:check
+        run: npm run format:check
 
       - name: Typecheck
-        run: yarn typecheck
+        run: npm run typecheck
 
       - name: Test
-        run: yarn test:coverage
+        run: npm run test:coverage
