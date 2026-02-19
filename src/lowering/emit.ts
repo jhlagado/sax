@@ -4454,16 +4454,23 @@ export function emitProgram(
               });
               if (callable.kind === 'extern') {
                 emitAbs16Fixup(0xcd, callable.targetLower, 0, asmItem.span);
+                // Externs are not preservation-safe by default (spec §8.2): do not push AF/BC/DE.
+                for (let k = 0; k < args.length; k++) {
+                  emitInstr('inc', [{ kind: 'Reg', span: asmItem.span, name: 'SP' }], asmItem.span);
+                  emitInstr('inc', [{ kind: 'Reg', span: asmItem.span, name: 'SP' }], asmItem.span);
+                }
+                syncToFlow();
+                return;
               } else {
                 emitAbs16Fixup(0xcd, callable.node.name.toLowerCase(), 0, asmItem.span);
+                for (let k = 0; k < args.length; k++) {
+                  emitInstr('inc', [{ kind: 'Reg', span: asmItem.span, name: 'SP' }], asmItem.span);
+                  emitInstr('inc', [{ kind: 'Reg', span: asmItem.span, name: 'SP' }], asmItem.span);
+                }
+                if (!restorePreservedRegs()) return;
+                syncToFlow();
+                return;
               }
-              for (let k = 0; k < args.length; k++) {
-                emitInstr('inc', [{ kind: 'Reg', span: asmItem.span, name: 'SP' }], asmItem.span);
-                emitInstr('inc', [{ kind: 'Reg', span: asmItem.span, name: 'SP' }], asmItem.span);
-              }
-              if (!restorePreservedRegs()) return;
-              syncToFlow();
-              return;
             }
 
             const opCandidates = opsByName.get(asmItem.head.toLowerCase());
