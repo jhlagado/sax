@@ -897,14 +897,32 @@ Function-body block termination (v0.1):
 - Arguments are passed on the stack, each argument occupying 16 bits.
 - Caller pushes arguments right-to-left (last argument pushed first).
 - Caller cleans up the arguments after return.
-- Return values:
-  - 16-bit return in `HL`
-  - 8-bit return in `L`
+- Return values and preservation (v0.2):
+
+| Return type | Return channel        | Callee preserves |
+|-------------|-----------------------|------------------|
+| `void`      | none                  | AF, BC, DE, HL    |
+| `byte`      | `L` (H undefined)     | AF, BC, DE        |
+| `word`      | `HL`                  | AF, BC, DE        |
+| `long`      | `HL:DE` (little-end.) | AF, BC            |
+| `verylong`* | `HL:DE:BC`            | AF                |
+
+*`verylong` is speculative/future; not yet implemented.
+
+Return type modifier (`flags`):
+- Syntax: `func name(...): <returnType> flags`
+- Meaning: callee publishes condition flags; AF becomes volatile in addition to the return channel.
+- Preservation with `flags`:
+  - void+flags: preserves BC, DE, HL; AF volatile.
+  - byte+flags: preserves BC, DE; AF and HL volatile (return in L).
+  - word+flags: preserves BC, DE; AF and HL volatile (return in HL).
+  - long+flags: preserves BC; AF, HL, DE volatile (return HL:DE).
+  - verylong+flags: preserves none of AF/BC/DE/HL (return HL:DE:BC).
 - Register/flag volatility (typed call boundary, v0.2):
   - typed **internal** `func` calls are preservation-safe at the language boundary.
   - `HL` is boundary-volatile for all typed calls (including `void`).
-  - non-`void` calls use `HL` as return channel (`L` for byte returns).
-  - all non-`HL` registers/flags are boundary-preserved by **callee** prologue/epilogue.
+  - non-`void` calls use the return-channel table below (width drives volatility and preservation).
+  - return type drives which registers are **not** preserved by the callee.
   - `extern func` calls are **not** preservation-safe unless explicitly declared (ABI/clobber annotations planned).
   - this boundary guarantee is compiler-generated for internal `func` bodies; explicit raw Z80 `call` mnemonics remain raw assembly semantics.
 
@@ -1382,8 +1400,8 @@ This section defines required source migration behavior for programs moving from
    - Recompute constants that depended on v0.1 packed-size assumptions.
 6. Typed internal calls are preservation-safe at the language boundary.
    - `HL` is boundary-volatile for all typed calls (including `void`).
-   - Non-`void` typed calls use `HL` as return channel (`L` for byte).
-   - Other registers/flags are boundary-preserved by callee prologue/epilogue.
+   - Non-`void` typed calls use the return-channel table (width drives preservation).
+   - Return type + `flags` modifier drive which registers are preserved by the callee.
    - Do not apply these guarantees to raw Z80 `call` mnemonics.
 
 ### 11.2 Before/After Migration Examples
