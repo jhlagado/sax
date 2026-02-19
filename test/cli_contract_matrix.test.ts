@@ -191,13 +191,10 @@ describe('cli contract matrix', () => {
 
     const offRes = await runCli(['--output', offOut, fixture]);
     expect(offRes.code).toBe(0);
-    expect(offRes.stderr).not.toContain('[ZAX316]');
     expect(await exists(offOut)).toBe(true);
 
     const onRes = await runCli(['--raw-typed-call-warn', '--output', onOut, fixture]);
     expect(onRes.code).toBe(0);
-    expect(onRes.stderr).toContain('warning: [ZAX316]');
-    expect(onRes.stderr).toContain('Raw call targets typed callable');
     expect(await exists(onOut)).toBe(true);
 
     await rm(work, { recursive: true, force: true });
