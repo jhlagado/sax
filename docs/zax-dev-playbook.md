@@ -887,6 +887,16 @@ Every PR must satisfy before merge:
 - [ ] PR description references spec sections covered
 - [ ] Linter clean (ESLint + Prettier, or equivalent)
 
+#### 6.4 Tooling follow-ups after PR #320 (non-normative guardrails)
+
+PR #320 changed tooling (npm-only workflow and language-tour regen). To prevent regressions:
+
+- **Language-tour artifacts:** Expected outputs are `*.asm` and `*.d8dbg` only. Keep a regression test that fails if BIN/HEX/LST silently appear or disappear. If the set changes, update this playbook and the test together in the same PR.
+- **Coverage reporting:** CI should publish coverage artifacts and track deltas. Add targeted tests in `emit/encode/case-style` to raise coverage; do not claim coverage gains without an attached report or gate.
+- **npm-only CLI path:** Ensure the CI matrix includes a minimal Windows smoke (`npm run build` + a CLI invocation) so the shelling change stays cross-platform.
+- **CI gating:** Document and enforce docs-only fast path vs full test matrix for code changes in workflows to avoid silent gating drift.
+- **PR hygiene:** Every tooling PR must link umbrella `#306` and the relevant phase issue, and include fail-before / pass-after evidence for its scope (tests or coverage output).
+
 ### 7) Debug80 integration (deferred requirement)
 
 Debug80 currently integrates `asm80` by spawning it and expecting `.hex` + `.lst`, and it uses D8M debug maps.
