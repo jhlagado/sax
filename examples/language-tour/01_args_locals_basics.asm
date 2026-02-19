@@ -31,11 +31,11 @@ bump_byte:
 push IX                        ; 0124: DD E5
 ld IX, $0000                   ; 0126: DD 21 00 00
 add IX, SP                     ; 012A: DD 39
-ld HL, $0000                   ; 012C: 21 00 00
-push HL                        ; 012F: E5
-push AF                        ; 0130: F5
-push BC                        ; 0131: C5
-push DE                        ; 0132: D5
+push AF                        ; 012C: F5
+push BC                        ; 012D: C5
+push DE                        ; 012E: D5
+ld HL, $0000                   ; 012F: 21 00 00
+push HL                        ; 0132: E5
 push IX                        ; 0133: DD E5
 pop HL                         ; 0135: E1
 push DE                        ; 0136: D5
@@ -47,14 +47,14 @@ ld H, $0000                    ; 013D: 26 00
 inc L                          ; 013F: 2C
 push DE                        ; 0140: D5
 ex DE, HL                      ; 0141: EB
-ld (IX - $0002), E             ; 0142: DD 73 FE
-ld (IX - $0001), D             ; 0145: DD 72 FF
+ld (IX - $0008), E             ; 0142: DD 73 F8
+ld (IX - $0007), D             ; 0145: DD 72 F9
 ex DE, HL                      ; 0148: EB
 pop DE                         ; 0149: D1
 push DE                        ; 014A: D5
 ex DE, HL                      ; 014B: EB
-ld E, (IX - $0002)             ; 014C: DD 5E FE
-ld D, (IX - $0001)             ; 014F: DD 56 FF
+ld E, (IX - $0008)             ; 014C: DD 5E F8
+ld D, (IX - $0007)             ; 014F: DD 56 F9
 ex DE, HL                      ; 0152: EB
 pop DE                         ; 0153: D1
 __zax_epilogue_1:
@@ -70,11 +70,11 @@ main:
 push IX                        ; 015C: DD E5
 ld IX, $0000                   ; 015E: DD 21 00 00
 add IX, SP                     ; 0162: DD 39
-ld HL, $0000                   ; 0164: 21 00 00
-push HL                        ; 0167: E5
-push AF                        ; 0168: F5
-push BC                        ; 0169: C5
-push DE                        ; 016A: D5
+push AF                        ; 0164: F5
+push BC                        ; 0165: C5
+push DE                        ; 0166: D5
+ld HL, $0000                   ; 0167: 21 00 00
+push HL                        ; 016A: E5
 ld HL, $0014                   ; 016B: 21 14 00
 push HL                        ; 016E: E5
 ld HL, $000A                   ; 016F: 21 0A 00
@@ -86,8 +86,8 @@ inc SP                         ; 0178: 33
 inc SP                         ; 0179: 33
 push DE                        ; 017A: D5
 ex DE, HL                      ; 017B: EB
-ld (IX - $0002), E             ; 017C: DD 73 FE
-ld (IX - $0001), D             ; 017F: DD 72 FF
+ld (IX - $0008), E             ; 017C: DD 73 F8
+ld (IX - $0007), D             ; 017F: DD 72 F9
 ex DE, HL                      ; 0182: EB
 pop DE                         ; 0183: D1
 ld HL, $0007                   ; 0184: 21 07 00

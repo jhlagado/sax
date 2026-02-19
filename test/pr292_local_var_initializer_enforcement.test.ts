@@ -30,8 +30,8 @@ describe('PR292 local var initializer completeness', () => {
     expect(text).toContain('add IX, SP');
     expect(text).toContain('ld HL, $1234');
     expect((text.match(/\bpush HL\b/g) ?? []).length).toBe(1);
-    expect(text).toContain('ld E, (IX - $0002)');
-    expect(text).toContain('ld D, (IX - $0001)');
+    expect(text).toContain('ld E, (IX - $0008)');
+    expect(text).toContain('ld D, (IX - $0007)');
   });
 
   it('rejects non-scalar local value-init declarations with stable diagnostics', async () => {

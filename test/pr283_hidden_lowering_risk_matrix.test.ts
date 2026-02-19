@@ -61,7 +61,7 @@ describe('PR283: hidden-lowering risk matrix focused coverage', () => {
     expect(asm!.text).toContain('ld IX, $0000');
     expect(asm!.text).toContain('add IX, SP');
     expect(asm!.text).toContain('ld E, (IX + $0004)');
-    expect(asm!.text).toContain('ld E, (IX - $0002)');
+    expect(asm!.text).toContain('ld E, (IX - $0008)');
 
     const rawTypedWarn = await compile(
       join(__dirname, 'fixtures', 'pr278_raw_call_typed_target_warning.zax'),

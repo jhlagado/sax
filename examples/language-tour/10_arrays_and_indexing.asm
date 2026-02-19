@@ -60,16 +60,16 @@ main:
 push IX                        ; 013D: DD E5
 ld IX, $0000                   ; 013F: DD 21 00 00
 add IX, SP                     ; 0143: DD 39
-ld HL, $0002                   ; 0145: 21 02 00
-push HL                        ; 0148: E5
-push AF                        ; 0149: F5
-push BC                        ; 014A: C5
-push DE                        ; 014B: D5
+push AF                        ; 0145: F5
+push BC                        ; 0146: C5
+push DE                        ; 0147: D5
+ld HL, $0002                   ; 0148: 21 02 00
+push HL                        ; 014B: E5
 call first_byte                ; 014C: CD 00 00
 push DE                        ; 014F: D5
 push IX                        ; 0150: DD E5
 pop HL                         ; 0152: E1
-ld DE, $FFFE                   ; 0153: 11 FE FF
+ld DE, $FFF8                   ; 0153: 11 F8 FF
 add HL, DE                     ; 0156: 19
 pop DE                         ; 0157: D1
 push HL                        ; 0158: E5

@@ -40,17 +40,20 @@ describe('PR48: lower ld (ea), imm16 for word/addr destinations', () => {
         0x00, // ld ix,0
         0xdd,
         0x39, // add ix,sp
-        0xc5,
         0xf5,
         0xc5,
         0xd5,
+        0x21,
+        0x00,
+        0x00,
+        0xe5,
         0xdd,
         0xe5,
         0xe1,
         0xd5,
         0x11,
-        0xfe,
-        0xff, // allocate 2 bytes
+        0xf8,
+        0xff, // allocate 2 bytes at IX-8
         0x19, // add hl,de
         0xd1,
         0x36,

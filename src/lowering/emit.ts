@@ -3575,6 +3575,7 @@ export function emitProgram(
         spTrackingValid = true;
         spTrackingInvalidatedByMutation = false;
 
+        const shouldPreserveTypedBoundary = true;
         const localDecls = item.locals?.decls ?? [];
         let localSlotCount = 0;
         const localScalarInitializers: Array<{
@@ -3583,6 +3584,7 @@ export function emitProgram(
           span: SourceSpan;
           scalarKind: 'byte' | 'word' | 'addr';
         }> = [];
+        const preserveBytes = shouldPreserveTypedBoundary ? 6 : 0;
         for (let li = 0; li < localDecls.length; li++) {
           const decl = localDecls[li]!;
           const declLower = decl.name.toLowerCase();
@@ -3596,7 +3598,7 @@ export function emitProgram(
               );
               continue;
             }
-            const localIxDisp = -2 * (localSlotCount + 1);
+            const localIxDisp = -(preserveBytes + 2 * (localSlotCount + 1));
             stackSlotOffsets.set(declLower, localIxDisp);
             stackSlotTypes.set(declLower, decl.typeExpr);
             localSlotCount++;
@@ -3653,7 +3655,6 @@ export function emitProgram(
           epilogueLabel = `__zax_epilogue_${generatedLabelCounter++}`;
         }
         // Synthetic per-function cleanup label used for rewritten returns.
-        const shouldPreserveTypedBoundary = true;
         const emitSyntheticEpilogue =
           shouldPreserveTypedBoundary || hasStackSlots || localScalarInitializers.length > 0;
 
@@ -3714,6 +3715,24 @@ export function emitProgram(
           }
         }
 
+        if (shouldPreserveTypedBoundary) {
+          const prevTag = currentCodeSegmentTag;
+          currentCodeSegmentTag = {
+            file: item.span.file,
+            line: item.span.start.line,
+            column: item.span.start.column,
+            kind: 'code',
+            confidence: 'high',
+          };
+          try {
+            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'AF' }], item.span);
+            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span);
+            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'DE' }], item.span);
+          } finally {
+            currentCodeSegmentTag = prevTag;
+          }
+        }
+
         for (const init of localScalarInitializers) {
           const prevTag = currentCodeSegmentTag;
           currentCodeSegmentTag = {
@@ -3725,7 +3744,8 @@ export function emitProgram(
           };
           try {
             if (!init.expr) {
-              emitInstr('push', [{ kind: 'Reg', span: init.span, name: 'BC' }], init.span);
+              if (!loadImm16ToHL(0, init.span)) continue;
+              emitInstr('push', [{ kind: 'Reg', span: init.span, name: 'HL' }], init.span);
               continue;
             }
             const initValue = evalImmExpr(init.expr, env, diagnostics);
@@ -3740,23 +3760,6 @@ export function emitProgram(
             const narrowed = init.scalarKind === 'byte' ? initValue & 0xff : initValue & 0xffff;
             if (!loadImm16ToHL(narrowed, init.span)) continue;
             emitInstr('push', [{ kind: 'Reg', span: init.span, name: 'HL' }], init.span);
-          } finally {
-            currentCodeSegmentTag = prevTag;
-          }
-        }
-        if (shouldPreserveTypedBoundary) {
-          const prevTag = currentCodeSegmentTag;
-          currentCodeSegmentTag = {
-            file: item.span.file,
-            line: item.span.start.line,
-            column: item.span.start.column,
-            kind: 'code',
-            confidence: 'high',
-          };
-          try {
-            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'AF' }], item.span);
-            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span);
-            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'DE' }], item.span);
           } finally {
             currentCodeSegmentTag = prevTag;
           }

@@ -6,20 +6,20 @@ inc_one:
 push IX                        ; 0100: DD E5
 ld IX, $0000                   ; 0102: DD 21 00 00
 add IX, SP                     ; 0106: DD 39
-ld HL, $0000                   ; 0108: 21 00 00
-push HL                        ; 010B: E5
-ld HL, $0064                   ; 010C: 21 64 00
-push HL                        ; 010F: E5
-push AF                        ; 0110: F5
-push BC                        ; 0111: C5
-push DE                        ; 0112: D5
+push AF                        ; 0108: F5
+push BC                        ; 0109: C5
+push DE                        ; 010A: D5
+ld HL, $0000                   ; 010B: 21 00 00
+push HL                        ; 010E: E5
+ld HL, $0064                   ; 010F: 21 64 00
+push HL                        ; 0112: E5
 ld E, (IX + $0004)             ; 0113: DD 5E 04
 ld D, (IX + $0005)             ; 0116: DD 56 05
 inc DE                         ; 0119: 13
-ld (IX - $0002), E             ; 011A: DD 73 FE
-ld (IX - $0001), D             ; 011D: DD 72 FF
-ld E, (IX - $0002)             ; 0120: DD 5E FE
-ld D, (IX - $0001)             ; 0123: DD 56 FF
+ld (IX - $0008), E             ; 011A: DD 73 F8
+ld (IX - $0007), D             ; 011D: DD 72 F9
+ld E, (IX - $0008)             ; 0120: DD 5E F8
+ld D, (IX - $0007)             ; 0123: DD 56 F9
 ex DE, HL                      ; 0126: EB
 __zax_epilogue_0:
 pop DE                         ; 0127: D1
@@ -34,11 +34,11 @@ main:
 push IX                        ; 012F: DD E5
 ld IX, $0000                   ; 0131: DD 21 00 00
 add IX, SP                     ; 0135: DD 39
-ld HL, $0000                   ; 0137: 21 00 00
-push HL                        ; 013A: E5
-push AF                        ; 013B: F5
-push BC                        ; 013C: C5
-push DE                        ; 013D: D5
+push AF                        ; 0137: F5
+push BC                        ; 0138: C5
+push DE                        ; 0139: D5
+ld HL, $0000                   ; 013A: 21 00 00
+push HL                        ; 013D: E5
 ld HL, $0005                   ; 013E: 21 05 00
 push HL                        ; 0141: E5
 call inc_one                   ; 0142: CD 00 00
@@ -46,8 +46,8 @@ inc SP                         ; 0145: 33
 inc SP                         ; 0146: 33
 push DE                        ; 0147: D5
 ex DE, HL                      ; 0148: EB
-ld (IX - $0002), E             ; 0149: DD 73 FE
-ld (IX - $0001), D             ; 014C: DD 72 FF
+ld (IX - $0008), E             ; 0149: DD 73 F8
+ld (IX - $0007), D             ; 014C: DD 72 F9
 ex DE, HL                      ; 014F: EB
 pop DE                         ; 0150: D1
 __zax_epilogue_1:
