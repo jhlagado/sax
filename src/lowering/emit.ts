@@ -3575,8 +3575,35 @@ export function emitProgram(
         spTrackingValid = true;
         spTrackingInvalidatedByMutation = false;
 
-        const shouldPreserveTypedBoundary = true;
         const localDecls = item.locals?.decls ?? [];
+        const preserveSet = (() => {
+          const kind = resolveScalarKind(item.returnType);
+          const isFlags = (item as { returnFlags?: boolean }).returnFlags === true;
+          let base: string[] = [];
+          switch (kind) {
+            case 'byte':
+            case 'word':
+            case 'addr':
+            case undefined: // default to conservative for unknown
+              base = ['AF', 'BC', 'DE'];
+              break;
+            case 'long':
+              base = ['AF', 'BC'];
+              break;
+            case 'verylong':
+              base = ['AF'];
+              break;
+            case 'void':
+              base = ['AF', 'BC', 'DE'];
+              break;
+          }
+          if (isFlags) {
+            base = base.filter((r) => r !== 'AF');
+          }
+          // HL is always volatile; ensure not preserved.
+          return base.filter((r) => r !== 'HL');
+        })();
+        const shouldPreserveTypedBoundary = preserveSet.length > 0;
         let localSlotCount = 0;
         const localScalarInitializers: Array<{
           name: string;
@@ -3584,7 +3611,7 @@ export function emitProgram(
           span: SourceSpan;
           scalarKind: 'byte' | 'word' | 'addr';
         }> = [];
-        const preserveBytes = shouldPreserveTypedBoundary ? 6 : 0;
+        const preserveBytes = preserveSet.length * 2;
         for (let li = 0; li < localDecls.length; li++) {
           const decl = localDecls[li]!;
           const declLower = decl.name.toLowerCase();
@@ -3725,9 +3752,9 @@ export function emitProgram(
             confidence: 'high',
           };
           try {
-            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'AF' }], item.span);
-            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span);
-            emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'DE' }], item.span);
+            for (const reg of preserveSet) {
+              emitInstr('push', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
+            }
           } finally {
             currentCodeSegmentTag = prevTag;
           }
@@ -5670,9 +5697,13 @@ export function emitProgram(
             });
             traceLabel(codeOffset, epilogueLabel);
             if (shouldPreserveTypedBoundary) {
-              emitInstr('pop', [{ kind: 'Reg', span: item.span, name: 'DE' }], item.span);
-              emitInstr('pop', [{ kind: 'Reg', span: item.span, name: 'BC' }], item.span);
-              emitInstr('pop', [{ kind: 'Reg', span: item.span, name: 'AF' }], item.span);
+              for (let ri = preserveSet.length - 1; ri >= 0; ri--) {
+                emitInstr(
+                  'pop',
+                  [{ kind: 'Reg', span: item.span, name: preserveSet[ri]! }],
+                  item.span,
+                );
+              }
             }
             if (hasStackSlots) {
               emitInstr(

@@ -233,6 +233,7 @@ export interface ExternFuncNode extends BaseNode {
   name: string;
   params: ParamNode[];
   returnType: TypeExprNode;
+  returnFlags?: boolean;
   at: ImmExprNode;
 }
 
@@ -245,6 +246,7 @@ export interface FuncDeclNode extends BaseNode {
   exported: boolean;
   params: ParamNode[];
   returnType: TypeExprNode;
+  returnFlags?: boolean;
   locals?: VarBlockNode;
   asm: AsmBlockNode;
 }

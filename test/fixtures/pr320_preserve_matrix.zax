@@ -1,0 +1,23 @@
+func ret_void(): void
+  ret
+end
+
+func ret_void_flags(): void flags
+  ret
+end
+
+func ret_byte(): byte
+  ret
+end
+
+func ret_byte_flags(): byte flags
+  ret
+end
+
+func ret_word(): word
+  ret
+end
+
+func ret_word_flags(): word flags
+  ret
+end

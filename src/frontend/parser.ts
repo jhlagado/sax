@@ -1791,7 +1791,10 @@ export function parseModuleFile(
     const params = parseParamsFromText(modulePath, paramsText, stmtSpan, diagnostics);
     if (!params) return undefined;
 
-    const retTypeText = m[1]!.trim();
+    const rawRetType = m[1]!.trim();
+    const retFlagsMatch = /^(.*?)(\s+flags)?$/i.exec(rawRetType);
+    const retTypeText = retFlagsMatch?.[1]?.trim() ?? rawRetType;
+    const returnFlags = !!retFlagsMatch?.[2];
     const returnType = parseTypeExprFromText(retTypeText, stmtSpan, {
       allowInferredArrayLength: false,
     });
@@ -1826,6 +1829,7 @@ export function parseModuleFile(
       name,
       params,
       returnType,
+      ...(returnFlags ? { returnFlags: true } : {}),
       at,
     };
   }
@@ -2431,7 +2435,10 @@ export function parseModuleFile(
         continue;
       }
 
-      const retTypeText = retMatch[1]!.trim();
+      const rawRetType = retMatch[1]!.trim();
+      const retFlagsMatch = /^(.*?)(\s+flags)?$/i.exec(rawRetType);
+      const retTypeText = retFlagsMatch?.[1]?.trim() ?? rawRetType;
+      const returnFlags = !!retFlagsMatch?.[2];
       const returnType = parseTypeExprFromText(retTypeText, headerSpan, {
         allowInferredArrayLength: false,
       });
@@ -2637,6 +2644,7 @@ export function parseModuleFile(
             exported,
             params,
             returnType,
+            ...(returnFlags ? { returnFlags: true } : {}),
             ...(locals ? { locals } : {}),
             asm,
           };
