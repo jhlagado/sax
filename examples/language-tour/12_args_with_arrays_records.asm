@@ -69,27 +69,28 @@ push IX                        ; 0150: DD E5
 ld IX, $0000                   ; 0152: DD 21 00 00
 add IX, SP                     ; 0156: DD 39
 push HL                        ; 0158: E5
-push DE                        ; 0159: D5
+push AF                        ; 0159: F5
 push BC                        ; 015A: C5
-push AF                        ; 015B: F5
-ld HL, $0003                   ; 015C: 21 03 00
-push HL                        ; 015F: E5
-call read_byte_at              ; 0160: CD 00 00
-inc SP                         ; 0163: 33
+push DE                        ; 015B: D5
+push HL                        ; 015C: E5
+ld HL, $0003                   ; 015D: 21 03 00
+push HL                        ; 0160: E5
+call read_byte_at              ; 0161: CD 00 00
 inc SP                         ; 0164: 33
-ld HL, $0001                   ; 0165: 21 01 00
-push HL                        ; 0168: E5
-call read_word_at              ; 0169: CD 00 00
-inc SP                         ; 016C: 33
+inc SP                         ; 0165: 33
+ld HL, $0001                   ; 0166: 21 01 00
+push HL                        ; 0169: E5
+call read_word_at              ; 016A: CD 00 00
 inc SP                         ; 016D: 33
+inc SP                         ; 016E: 33
 __zax_epilogue_2:
-pop AF                         ; 016E: F1
-pop BC                         ; 016F: C1
+pop HL                         ; 016F: E1
 pop DE                         ; 0170: D1
-pop HL                         ; 0171: E1
-ld SP, IX                      ; 0172: DD F9
-pop IX                         ; 0174: DD E1
-ret                            ; 0176: C9
+pop BC                         ; 0171: C1
+pop AF                         ; 0172: F1
+ld SP, IX                      ; 0173: DD F9
+pop IX                         ; 0175: DD E1
+ret                            ; 0177: C9
 ; func main end
 
 ; symbols:
@@ -98,6 +99,6 @@ ret                            ; 0176: C9
 ; label read_word_at = $0125
 ; label __zax_epilogue_1 = $0148
 ; label main = $0150
-; label __zax_epilogue_2 = $016E
+; label __zax_epilogue_2 = $016F
 ; data sample_bytes = $0178
 ; data sample_words = $0188

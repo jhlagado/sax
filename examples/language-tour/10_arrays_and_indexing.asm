@@ -53,25 +53,25 @@ push IX                        ; 0135: DD E5
 ld IX, $0000                   ; 0137: DD 21 00 00
 add IX, SP                     ; 013B: DD 39
 push HL                        ; 013D: E5
-push AF                        ; 013E: F5
-ld HL, $0002                   ; 013F: 21 02 00
-ex (SP), HL                    ; 0142: E3
-push DE                        ; 0143: D5
-push BC                        ; 0144: C5
-push AF                        ; 0145: F5
+ld HL, $0002                   ; 013E: 21 02 00
+ex (SP), HL                    ; 0141: E3
+push AF                        ; 0142: F5
+push BC                        ; 0143: C5
+push DE                        ; 0144: D5
+push HL                        ; 0145: E5
 call first_byte                ; 0146: CD 00 00
-ld e, (ix+disp)                ; 0149: DD 5E F6
-ld d, (ix+disp+1)              ; 014C: DD 56 F7
+ld e, (ix+disp)                ; 0149: DD 5E FE
+ld d, (ix+disp+1)              ; 014C: DD 56 FF
 ex de, hl                      ; 014F: EB
 push HL                        ; 0150: E5
 call read_word_at              ; 0151: CD 00 00
 inc SP                         ; 0154: 33
 inc SP                         ; 0155: 33
 __zax_epilogue_2:
-pop AF                         ; 0156: F1
-pop BC                         ; 0157: C1
-pop DE                         ; 0158: D1
-pop HL                         ; 0159: E1
+pop HL                         ; 0156: E1
+pop DE                         ; 0157: D1
+pop BC                         ; 0158: C1
+pop AF                         ; 0159: F1
 ld SP, IX                      ; 015A: DD F9
 pop IX                         ; 015C: DD E1
 ret                            ; 015E: C9

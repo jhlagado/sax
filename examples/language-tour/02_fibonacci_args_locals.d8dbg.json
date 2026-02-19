@@ -16,7 +16,7 @@
         },
         {
           "start": 256,
-          "end": 463,
+          "end": 464,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
@@ -226,21 +226,21 @@
         },
         {
           "start": 433,
-          "end": 445,
+          "end": 446,
           "lstLine": 40,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 445,
-          "end": 454,
+          "start": 446,
+          "end": 455,
           "lstLine": 41,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 454,
-          "end": 463,
+          "start": 455,
+          "end": 464,
           "lstLine": 40,
           "kind": "code",
           "confidence": "high"
@@ -292,7 +292,7 @@
         {
           "name": "__zax_epilogue_5",
           "kind": "label",
-          "address": 454,
+          "address": 455,
           "line": 40,
           "scope": "local"
         }
@@ -302,7 +302,7 @@
   "segments": [
     {
       "start": 256,
-      "end": 463
+      "end": 464
     }
   ],
   "fileList": [
@@ -360,7 +360,7 @@
     {
       "name": "__zax_epilogue_5",
       "kind": "label",
-      "address": 454,
+      "address": 455,
       "file": "02_fibonacci_args_locals.zax",
       "line": 40,
       "scope": "local"

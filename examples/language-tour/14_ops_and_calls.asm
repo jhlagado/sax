@@ -28,12 +28,12 @@ push IX                        ; 011F: DD E5
 ld IX, $0000                   ; 0121: DD 21 00 00
 add IX, SP                     ; 0125: DD 39
 push HL                        ; 0127: E5
-push AF                        ; 0128: F5
-ld HL, $0000                   ; 0129: 21 00 00
-ex (SP), HL                    ; 012C: E3
-push DE                        ; 012D: D5
-push BC                        ; 012E: C5
-push AF                        ; 012F: F5
+ld HL, $0000                   ; 0128: 21 00 00
+ex (SP), HL                    ; 012B: E3
+push AF                        ; 012C: F5
+push BC                        ; 012D: C5
+push DE                        ; 012E: D5
+push HL                        ; 012F: E5
 ld A, (sample_byte)            ; 0130: 3A 00 00
 ld HL, $0017                   ; 0133: 21 17 00
 push HL                        ; 0136: E5
@@ -42,15 +42,15 @@ inc SP                         ; 013A: 33
 inc SP                         ; 013B: 33
 push DE                        ; 013C: D5
 ex DE, HL                      ; 013D: EB
-ld (IX - $000A), E             ; 013E: DD 73 F6
-ld (IX - $0009), D             ; 0141: DD 72 F7
+ld (IX - $0002), E             ; 013E: DD 73 FE
+ld (IX - $0001), D             ; 0141: DD 72 FF
 ex DE, HL                      ; 0144: EB
 pop DE                         ; 0145: D1
 __zax_epilogue_1:
-pop AF                         ; 0146: F1
-pop BC                         ; 0147: C1
-pop DE                         ; 0148: D1
-pop HL                         ; 0149: E1
+pop HL                         ; 0146: E1
+pop DE                         ; 0147: D1
+pop BC                         ; 0148: C1
+pop AF                         ; 0149: F1
 ld SP, IX                      ; 014A: DD F9
 pop IX                         ; 014C: DD E1
 ret                            ; 014E: C9

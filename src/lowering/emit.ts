@@ -3692,7 +3692,7 @@ export function emitProgram(
           let base: string[] = [];
           switch (kind) {
             case 'void':
-              base = ['AF', 'BC', 'DE']; // HL preserved separately via saved slot
+              base = ['AF', 'BC', 'DE', 'HL'];
               break;
             case 'long':
               base = ['AF', 'BC'];
@@ -3735,8 +3735,7 @@ export function emitProgram(
               );
               continue;
             }
-            const baseOffset = isVoidSpecial ? savedHlBytes + preserveBytes : preserveBytes;
-            const localIxDisp = -(baseOffset + 2 * (localSlotCount + 1));
+            const localIxDisp = -(2 * (localSlotCount + 1));
             stackSlotOffsets.set(declLower, localIxDisp);
             stackSlotTypes.set(declLower, decl.typeExpr);
             localSlotCount++;
@@ -3860,8 +3859,6 @@ export function emitProgram(
           };
           try {
             if (isVoidSpecial) {
-              // Allocate local slot above saved-HL using a neutral push (AF).
-              emitInstr('push', [{ kind: 'Reg', span: init.span, name: 'AF' }], init.span); // dummy
               const initValue =
                 init.expr !== undefined ? evalImmExpr(init.expr, env, diagnostics) : 0;
               if (init.expr !== undefined && initValue === undefined) {
@@ -3909,7 +3906,7 @@ export function emitProgram(
             currentCodeSegmentTag = prevTag;
           }
         }
-        if (shouldPreserveTypedBoundary) {
+        if (shouldPreserveTypedBoundary && isVoidSpecial) {
           const prevTag = currentCodeSegmentTag;
           currentCodeSegmentTag = {
             file: item.span.file,
@@ -3919,10 +3916,25 @@ export function emitProgram(
             confidence: 'high',
           };
           try {
-            const pushOrder = isVoidSpecial
-              ? ['DE', 'BC', 'AF'].filter((r) => preserveSet.includes(r))
-              : preserveSet;
+            const pushOrder = ['AF', 'BC', 'DE', 'HL'].filter((r) => preserveSet.includes(r));
             for (const reg of pushOrder) {
+              emitInstr('push', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
+            }
+          } finally {
+            currentCodeSegmentTag = prevTag;
+          }
+        }
+        if (shouldPreserveTypedBoundary && !isVoidSpecial) {
+          const prevTag = currentCodeSegmentTag;
+          currentCodeSegmentTag = {
+            file: item.span.file,
+            line: item.span.start.line,
+            column: item.span.start.column,
+            kind: 'code',
+            confidence: 'high',
+          };
+          try {
+            for (const reg of preserveSet) {
               emitInstr('push', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
             }
           } finally {
@@ -5837,15 +5849,12 @@ export function emitProgram(
             });
             traceLabel(codeOffset, epilogueLabel);
             const popOrder = isVoidSpecial
-              ? ['AF', 'BC', 'DE']
+              ? ['HL', 'DE', 'BC', 'AF']
               : preserveSet.slice().reverse();
             for (const reg of popOrder) {
               if (preserveSet.includes(reg)) {
                 emitInstr('pop', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
               }
-            }
-            if (isVoidSpecial) {
-              emitInstr('pop', [{ kind: 'Reg', span: item.span, name: 'HL' }], item.span);
             }
             if (hasStackSlots) {
               emitInstr(

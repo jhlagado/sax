@@ -11,10 +11,19 @@ function prologuePushes(text: string, label: string): string[] {
   const lines = text.split('\n');
   const start = lines.findIndex((l) => l.trim().toLowerCase() === `${label.toLowerCase()}:`);
   if (start === -1) return [];
+  const preserveSet = new Set(['AF', 'BC', 'DE', 'HL']);
   const pushes: string[] = [];
+  let skippedSavedHl = false;
   for (let i = start + 1; i < Math.min(lines.length, start + 12); i++) {
     const m = /push\s+([A-Za-z]+)/i.exec(lines[i]!);
-    if (m) pushes.push(m[1]!.toUpperCase());
+    if (m) {
+      const reg = m[1]!.toUpperCase();
+      if (reg === 'HL' && !skippedSavedHl) {
+        skippedSavedHl = true;
+        continue;
+      }
+      if (preserveSet.has(reg)) pushes.push(reg);
+    }
     else if (pushes.length > 0) break;
   }
   return pushes;
@@ -43,7 +52,5 @@ describe('PR320 preserve matrix', () => {
 
     expect(prologuePushes(text, 'ret_long')).toEqual(['AF', 'BC']);
     expect(prologuePushes(text, 'ret_long_flags')).toEqual(['BC']);
-
-    expect(text.toUpperCase()).not.toContain('PUSH IX'); // sanity check unchanged
   });
 });

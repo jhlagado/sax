@@ -48,14 +48,14 @@ ld H, $0000                    ; 013E: 26 00
 inc L                          ; 0140: 2C
 push DE                        ; 0141: D5
 ex DE, HL                      ; 0142: EB
-ld (IX - $0008), E             ; 0143: DD 73 F8
-ld (IX - $0007), D             ; 0146: DD 72 F9
+ld (IX - $0002), E             ; 0143: DD 73 FE
+ld (IX - $0001), D             ; 0146: DD 72 FF
 ex DE, HL                      ; 0149: EB
 pop DE                         ; 014A: D1
 push DE                        ; 014B: D5
 ex DE, HL                      ; 014C: EB
-ld E, (IX - $0008)             ; 014D: DD 5E F8
-ld D, (IX - $0007)             ; 0150: DD 56 F9
+ld E, (IX - $0002)             ; 014D: DD 5E FE
+ld D, (IX - $0001)             ; 0150: DD 56 FF
 ex DE, HL                      ; 0153: EB
 pop DE                         ; 0154: D1
 __zax_epilogue_1:
@@ -72,12 +72,12 @@ push IX                        ; 015D: DD E5
 ld IX, $0000                   ; 015F: DD 21 00 00
 add IX, SP                     ; 0163: DD 39
 push HL                        ; 0165: E5
-push AF                        ; 0166: F5
-ld HL, $0000                   ; 0167: 21 00 00
-ex (SP), HL                    ; 016A: E3
-push DE                        ; 016B: D5
-push BC                        ; 016C: C5
-push AF                        ; 016D: F5
+ld HL, $0000                   ; 0166: 21 00 00
+ex (SP), HL                    ; 0169: E3
+push AF                        ; 016A: F5
+push BC                        ; 016B: C5
+push DE                        ; 016C: D5
+push HL                        ; 016D: E5
 ld HL, $0014                   ; 016E: 21 14 00
 push HL                        ; 0171: E5
 ld HL, $000A                   ; 0172: 21 0A 00
@@ -89,8 +89,8 @@ inc SP                         ; 017B: 33
 inc SP                         ; 017C: 33
 push DE                        ; 017D: D5
 ex DE, HL                      ; 017E: EB
-ld (IX - $000A), E             ; 017F: DD 73 F6
-ld (IX - $0009), D             ; 0182: DD 72 F7
+ld (IX - $0002), E             ; 017F: DD 73 FE
+ld (IX - $0001), D             ; 0182: DD 72 FF
 ex DE, HL                      ; 0185: EB
 pop DE                         ; 0186: D1
 ld HL, $0007                   ; 0187: 21 07 00
@@ -99,10 +99,10 @@ call bump_byte                 ; 018B: CD 00 00
 inc SP                         ; 018E: 33
 inc SP                         ; 018F: 33
 __zax_epilogue_2:
-pop AF                         ; 0190: F1
-pop BC                         ; 0191: C1
-pop DE                         ; 0192: D1
-pop HL                         ; 0193: E1
+pop HL                         ; 0190: E1
+pop DE                         ; 0191: D1
+pop BC                         ; 0192: C1
+pop AF                         ; 0193: F1
 ld SP, IX                      ; 0194: DD F9
 pop IX                         ; 0196: DD E1
 ret                            ; 0198: C9

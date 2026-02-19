@@ -22,8 +22,8 @@ describe('PR330: frame access + synthetic epilogue rules', () => {
 
     expect(text).toContain('LD E, (IX + $0004)');
     expect(text).toContain('LD D, (IX + $0005)');
-    expect(text).toContain('LD (IX - $000A), E');
-    expect(text).toContain('LD (IX - $0009), D');
+    expect(text).toContain('LD (IX - $0002), E');
+    expect(text).toContain('LD (IX - $0001), D');
     expect(text).not.toMatch(/LD\s+L, \(IX/i);
     expect(text).not.toMatch(/LD\s+H, \(IX/i);
   });

@@ -16,10 +16,10 @@ push DE                        ; 0112: D5
 ld E, (IX + $0004)             ; 0113: DD 5E 04
 ld D, (IX + $0005)             ; 0116: DD 56 05
 inc DE                         ; 0119: 13
-ld (IX - $0008), E             ; 011A: DD 73 F8
-ld (IX - $0007), D             ; 011D: DD 72 F9
-ld E, (IX - $0008)             ; 0120: DD 5E F8
-ld D, (IX - $0007)             ; 0123: DD 56 F9
+ld (IX - $0002), E             ; 011A: DD 73 FE
+ld (IX - $0001), D             ; 011D: DD 72 FF
+ld E, (IX - $0002)             ; 0120: DD 5E FE
+ld D, (IX - $0001)             ; 0123: DD 56 FF
 ex DE, HL                      ; 0126: EB
 __zax_epilogue_0:
 pop DE                         ; 0127: D1
@@ -35,12 +35,12 @@ push IX                        ; 012F: DD E5
 ld IX, $0000                   ; 0131: DD 21 00 00
 add IX, SP                     ; 0135: DD 39
 push HL                        ; 0137: E5
-push AF                        ; 0138: F5
-ld HL, $0000                   ; 0139: 21 00 00
-ex (SP), HL                    ; 013C: E3
-push DE                        ; 013D: D5
-push BC                        ; 013E: C5
-push AF                        ; 013F: F5
+ld HL, $0000                   ; 0138: 21 00 00
+ex (SP), HL                    ; 013B: E3
+push AF                        ; 013C: F5
+push BC                        ; 013D: C5
+push DE                        ; 013E: D5
+push HL                        ; 013F: E5
 ld HL, $0005                   ; 0140: 21 05 00
 push HL                        ; 0143: E5
 call inc_one                   ; 0144: CD 00 00
@@ -48,15 +48,15 @@ inc SP                         ; 0147: 33
 inc SP                         ; 0148: 33
 push DE                        ; 0149: D5
 ex DE, HL                      ; 014A: EB
-ld (IX - $000A), E             ; 014B: DD 73 F6
-ld (IX - $0009), D             ; 014E: DD 72 F7
+ld (IX - $0002), E             ; 014B: DD 73 FE
+ld (IX - $0001), D             ; 014E: DD 72 FF
 ex DE, HL                      ; 0151: EB
 pop DE                         ; 0152: D1
 __zax_epilogue_1:
-pop AF                         ; 0153: F1
-pop BC                         ; 0154: C1
-pop DE                         ; 0155: D1
-pop HL                         ; 0156: E1
+pop HL                         ; 0153: E1
+pop DE                         ; 0154: D1
+pop BC                         ; 0155: C1
+pop AF                         ; 0156: F1
 ld SP, IX                      ; 0157: DD F9
 pop IX                         ; 0159: DD E1
 ret                            ; 015B: C9

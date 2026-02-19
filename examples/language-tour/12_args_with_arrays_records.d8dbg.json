@@ -16,7 +16,7 @@
         },
         {
           "start": 256,
-          "end": 375,
+          "end": 400,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
@@ -58,38 +58,31 @@
         },
         {
           "start": 336,
-          "end": 348,
+          "end": 349,
           "lstLine": 13,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 348,
-          "end": 357,
+          "start": 349,
+          "end": 358,
           "lstLine": 14,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 357,
-          "end": 366,
+          "start": 358,
+          "end": 367,
           "lstLine": 15,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 366,
-          "end": 375,
+          "start": 367,
+          "end": 376,
           "lstLine": 13,
           "kind": "code",
           "confidence": "high"
-        },
-        {
-          "start": 376,
-          "end": 400,
-          "lstLine": 0,
-          "kind": "unknown",
-          "confidence": "low"
         }
       ],
       "symbols": [
@@ -131,7 +124,7 @@
         {
           "name": "__zax_epilogue_2",
           "kind": "label",
-          "address": 366,
+          "address": 367,
           "line": 13,
           "scope": "local"
         },
@@ -155,10 +148,6 @@
   "segments": [
     {
       "start": 256,
-      "end": 375
-    },
-    {
-      "start": 376,
       "end": 400
     }
   ],
@@ -209,7 +198,7 @@
     {
       "name": "__zax_epilogue_2",
       "kind": "label",
-      "address": 366,
+      "address": 367,
       "file": "12_args_with_arrays_records.zax",
       "line": 13,
       "scope": "local"
