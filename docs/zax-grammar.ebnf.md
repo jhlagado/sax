@@ -93,7 +93,7 @@ hex_decl        = "hex" , identifier , "from" , string_lit ;
 
 ```ebnf
 func_decl       = [ "export" ] , "func" , identifier , "(" , [ param_list ] , ")" ,
-                  ":" , ret_type , newline , [ local_var_block ] , instr_stream , "end" ;
+                  ":" , ret_type , [ "flags" ] , newline , [ local_var_block ] , instr_stream , "end" ;
 
 ret_type        = "void" | type_expr ;
 param_list      = param , { "," , param } ;
