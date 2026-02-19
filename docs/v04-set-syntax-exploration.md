@@ -44,6 +44,8 @@ A non-enum argument. `bitmask(42)` or `bitmask(someConst)` where `someConst` is 
 
 An argument that resolves to an enum member with value ≥ 16 is accepted but produces a warning (see 2.2 above).
 
+Additionally, the compiler should warn at call sites where a `bitmask()` result is consumed by an `imm8` operand and the enum member's value is > 7. In this case the bit falls outside the low 8 bits and will be silently zeroed by truncation, producing a mask of `$00` — almost certainly not what the programmer intended. This is distinct from the ≥ 16 warning above: a member with value 9 fits in `imm16` (bit 9 = `$0200`) but truncates to zero in `imm8` context. The diagnostic should identify the call site, the member name, and the fact that the resulting `imm8` mask is zero.
+
 ### 2.5 Argument Form and the Qualified-Name Question
 
 The current spec (Section 4.3) introduces enum member names into the global namespace as bare identifiers. Qualified access (`Mode.Read`) is not supported in v0.1. This means the v0.4 form of `bitmask` accepts bare member names:
@@ -99,7 +101,17 @@ const ModeCount = enum_count(Mode)   ; = 3
 
 The argument is a **type name**, not a value. This is syntactically distinct from every other const-expression operand in ZAX, which are all values. The parser must recognize `enum_count(Mode)` as a special form where `Mode` resolves to an enum type, not to a value in the global namespace.
 
-`enum_count(Read)` where `Read` is an enum member (not a type) is a compile error. The diagnostic should say that `enum_count` expects an enum type name, not a member or value.
+`enum_count(Read)` where `Read` is an enum member (not a type) is a compile error. The diagnostic should say that `enum_count` expects an enum type name, not a member or value. Concrete example for implementers and test fixtures:
+
+```
+enum Mode Read, Write, Append
+
+const bad = enum_count(Read)
+; → error: enum_count expects an enum type name, got enum member 'Read' (of type 'Mode')
+;   help: did you mean enum_count(Mode)?
+```
+
+The "did you mean" suggestion is optional but straightforward to produce since the compiler already knows which enum a member belongs to.
 
 ### 3.3 Use Cases
 
