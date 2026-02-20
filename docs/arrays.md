@@ -329,7 +329,7 @@ The table above leads to a few rules of thumb that ZAX programmers should intern
 - Avoid IX-relative loads inside the loop when a hoisted pointer will do.
 
 **Not recommended in hot loops**
-- Local+local base/index (double IX loads per access).
+- Local+local base/index (double IX loads per access; likely to exceed runtime-atom budget; hoist one side into a register instead).
 - Nested `(HL)` indirection for indices inside the loop.
 - Odd element sizes that need long multiply chains.
 
@@ -350,6 +350,8 @@ The compiler's lowering strategy for effective-address expressions should follow
 **Fifth: widen 8-bit offsets cheaply.** For unsigned 8-bit indices (the normal case for array indexing), zero-extension is `ld d, 0; ld e, r` — two instructions, 11 T-states. For the `(HL)` index form allowed by the spec (where the index is a byte read from memory at HL), the compiler must emit the load and widening as part of the sequence.
 
 **Sixth: preserve registers per the lowering contract.** If the lowering sequence uses DE or BC as scratch, and the programmer's code has a live value in that pair, the compiler must save and restore it. This adds push/pop overhead but is required by the preservation guarantee in Section 6.1.1 of the spec.
+
+**Runtime-atom budget note:** Local+local base/index should count as high cost and may be rejected or warned unless the programmer hoists one operand into a register outside the loop.
 
 ---
 
