@@ -4324,9 +4324,9 @@ export function emitProgram(
               const calleeName = callable.node.name;
               const returnType =
                 callable.kind === 'func' ? callable.node.returnType : callable.node.returnType;
-              // Internal typed calls: callee-save in prologue/epilogue.
-              // Extern typed calls: no automatic preservation; caller may choose to save explicitly.
-              const preservedRegs: string[] = [];
+              // Caller-side preservation is never injected for typed calls (extern or internal);
+              // preservation is handled at the callee boundary.
+              const restorePreservedRegs = (): boolean => true;
               if (args.length !== params.length) {
                 diagAt(
                   diagnostics,
@@ -4431,28 +4431,6 @@ export function emitProgram(
                 if (!name) return undefined;
                 return env.enums.get(name);
               };
-              const restorePreservedRegs = (): boolean => {
-                for (let ri = preservedRegs.length - 1; ri >= 0; ri--) {
-                  if (
-                    !emitInstr(
-                      'pop',
-                      [{ kind: 'Reg', span: asmItem.span, name: preservedRegs[ri]! }],
-                      asmItem.span,
-                    )
-                  ) {
-                    return false;
-                  }
-                }
-                return true;
-              };
-
-              for (const reg of preservedRegs) {
-                if (
-                  !emitInstr('push', [{ kind: 'Reg', span: asmItem.span, name: reg }], asmItem.span)
-                ) {
-                  return;
-                }
-              }
               let ok = true;
               let pushedArgWords = 0;
               for (let ai = args.length - 1; ai >= 0; ai--) {
