@@ -7,16 +7,19 @@ This document is a codegen/lowering design reference.
 
 ## 1. Assumptions Used in These Examples
 
-Examples below assume the policy direction discussed in v0.2 planning:
+Examples below assume the current v0.2 preservation policy:
 
-- typed function calls are preservation-safe by default
-- return channel is `HL` for non-void functions (`L` for byte)
-- `HL` is treated as volatile across all typed calls (including `void` returns)
-- `IX` is used as frame anchor for function argument/local addressing
-- temporary conservative callee-preserved set is `AF`, `BC`, `DE` until volatility inference lands
-- `IX` is reserved for frame management
+- typed function calls are preservation-safe by default (internal `func`)
+- return channel is `HL` for non-void (`L` for byte)
+- preservation depends on return width:
+  - `void`: preserves AF, BC, DE, HL
+  - `byte`/`word`: preserves AF, BC, DE (HL volatile return channel)
+  - `long`: preserves AF, BC (HL:DE return channel)
+  - `verylong`: preserves AF (HL:DE:BC return channel)
+  - `flags` modifier makes AF volatile in addition to the return channel
+- `IX` is used as frame anchor for function argument/local addressing; `IX+d` byte-lane transfers use the `DE` shuttle when the semantic register is `HL`
+- locals are allocated/initialized before preserved registers are pushed
 - caller cleans pushed arguments after call
-- `IX+d` byte-lane transfers use `DE` shuttle when semantic source/destination is `HL`
 
 ## 2. Frame Layout Model
 
@@ -35,7 +38,7 @@ Frame shape:
 - `IX+4..`: arguments
 - `IX-1..`: locals
 
-Canonical epilogue:
+Canonical epilogue (no preserved registers):
 
 ```asm
 ld sp, ix
@@ -60,12 +63,36 @@ ex de, hl
 ```
 
 Local scalar initializers are lowered in declaration order.
-For word-slot constants at function entry, examples prefer:
+
+Void-function prologue (HL must be preserved, locals-before-preserves):
 
 ```asm
-ld hl, imm16
-push hl
+push ix
+ld   ix,0
+add  ix,sp
+push hl              ; save incoming HL
+; for each local initializer:
+ld   hl, <init>
+ex   (sp), hl        ; init onto stack, saved HL restored to HL
+; then preserves
+push de
+push bc
+push af
 ```
+
+Void-function epilogue:
+
+```asm
+pop af
+pop bc
+pop de
+pop hl               ; discard saved-HL slot
+ld  sp, ix
+pop ix
+ret
+```
+
+Non-void functions keep HL volatile and do not use the swap pattern; they push only the preserved set implied by the return width.
 
 ## 3. Worked Example A: Echo Call With Local Storage
 
