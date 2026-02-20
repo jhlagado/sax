@@ -22,10 +22,10 @@ func ret_word_flags(): word flags
   ret
 end
 
-func ret_long(): long
+func ret_long(): HL,DE
   ret
 end
 
-func ret_long_flags(): long flags
+func ret_long_flags(): HL,DE,AF
   ret
 end
