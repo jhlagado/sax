@@ -3,11 +3,11 @@ data
   sample_words: word[4] = { 100, 200, 300, 400 }
 
 func read_byte_at(index_value: word): byte
-  ld a, (sample_bytes[index_value])
+  ld a, sample_bytes[index_value]
 end
 
 func read_word_at(index_value: word): word
-  ld hl, (sample_words[index_value])
+  ld hl, sample_words[index_value]
 end
 
 export func main(): void
