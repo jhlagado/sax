@@ -93,9 +93,14 @@ hex_decl        = "hex" , identifier , "from" , string_lit ;
 
 ```ebnf
 func_decl       = [ "export" ] , "func" , identifier , "(" , [ param_list ] , ")" ,
-                  ":" , ret_type , [ "flags" ] , newline , [ local_var_block ] , instr_stream , "end" ;
+                  ":" , ret_regs , newline , [ local_var_block ] , instr_stream , "end" ;
 
-ret_type        = "void" | type_expr ;
+ret_regs        = "none"
+                | reg_ret_list ;
+
+reg_ret_list    = reg_ret_item , { "," , reg_ret_item } ;
+reg_ret_item    = "HL" | "DE" | "BC" | "AF"
+                | "word" | "byte" | "long" | "verylong" ;  (* aliases; canonical form is registers *)
 param_list      = param , { "," , param } ;
 param           = identifier , ":" , type_expr ;
 
