@@ -898,39 +898,37 @@ Function-body block termination (v0.1):
 - Arguments are passed on the stack, each argument occupying 16 bits.
 - Caller pushes arguments right-to-left (last argument pushed first).
 - Caller cleans up the arguments after return.
-- Return type surface forms:
-  - `func name(...): <returnType>`
-  - `func name(...): <returnType> flags`
-  - `extern func name(...): <returnType>`
-  - `extern func name(...): <returnType> flags`
-  - `op` does **not** accept return types or `flags`.
-- Return values and preservation (v0.2):
+- Return declaration surface forms (v0.2 register-based):
+  - `func name(...): none` (void)
+  - `func name(...): HL`
+  - `func name(...): HL,DE`
+  - `func name(...): HL,DE,BC`
+  - optional `AF` may be added to any of the above to publish flags (e.g., `func foo(): HL,AF`)
+  - `extern func` accepts the same forms; `op` does **not** accept return registers.
+- Aliases (for brevity; canonical form is register-based):
+  - `word`  ≡ `HL`
+  - `byte`  ≡ `HL` (return in L; H undefined)
+  - `long`  ≡ `HL,DE`
+  - `verylong`* ≡ `HL,DE,BC`
+  - `flags` modifier on the old surface is equivalent to including `AF` in the return set.
+- Return sets and preservation (internal typed calls):
 
-| Return type | Return channel        | Callee preserves |
-|-------------|-----------------------|------------------|
-| `void`      | none                  | AF, BC, DE, HL     |
-| `byte`      | `L` (H undefined)     | AF, BC, DE         |
-| `word`      | `HL`                  | AF, BC, DE         |
-| `long`      | `HL:DE` (little-end.) | AF, BC             |
-| `verylong`* | `HL:DE:BC`            | AF                 |
+| Return registers    | Callee preserves |
+|---------------------|------------------|
+| none (void)         | AF, BC, DE, HL   |
+| HL                  | AF, BC, DE       |
+| HL,AF               | BC, DE           |
+| HL,DE               | AF, BC           |
+| HL,DE,AF            | BC               |
+| HL,DE,BC            | AF               |
+| HL,DE,BC,AF         | (none)           |
 
-*`verylong` is speculative/future; not yet implemented.
+*`HL,DE,BC` was previously called `verylong` (speculative/future).
 
-Return type modifier (`flags`):
-- Syntax: `...): <returnType> flags` (allowed on `func` and `extern func`; not on `op`)
-- Meaning: callee publishes condition flags; AF becomes volatile in addition to the return channel.
-- Preservation with `flags`:
-  - void+flags: preserves BC, DE, HL; AF volatile.
-  - byte+flags: preserves BC, DE; AF and HL volatile (return in L).
-  - word+flags: preserves BC, DE; AF and HL volatile (return in HL).
-  - long+flags: preserves BC; AF, HL, DE volatile (return HL:DE).
-  - verylong+flags: preserves none of AF/BC/DE/HL (return HL:DE:BC).
 - Register/flag volatility (typed call boundary, v0.2):
   - typed **internal** `func` calls are preservation-safe at the language boundary.
-  - For `void`, the callee preserves HL (in addition to AF, BC, DE). For non-void, HL is the return channel and is volatile.
-  - preservation set is the table above minus the return channel and any `flags` modifier effects.
-  - return type drives which registers are **not** preserved by the callee.
-  - `extern func` calls are **not** preservation-safe unless explicitly declared (ABI/clobber annotations planned).
+  - preservation set is mechanically: {AF, BC, DE, HL} minus the declared return registers (IX is always preserved).
+  - `extern func` calls are **not** preservation-safe unless explicitly declared (ABI/clobber annotations planned); return registers are still the observable channels.
   - this boundary guarantee is compiler-generated for internal `func` bodies; explicit raw Z80 `call` mnemonics remain raw assembly semantics.
 
 Notes (v0.2):
