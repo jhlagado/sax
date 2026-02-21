@@ -17,11 +17,11 @@ This playbook replaces the previous split across:
 
 ### 1.1 Decision Hierarchy
 
-| Level | Source                             | Role                                  |
-| ----- | ---------------------------------- | ------------------------------------- |
-| 1     | `docs/zax-spec.md`                 | Canonical language authority          |
-| 2     | `docs/v02-transition-decisions.md` | Transition rationale/history          |
-| 3     | This playbook                      | Execution and implementation guidance |
+| Level | Source                 | Role                                  |
+| ----- | ---------------------- | ------------------------------------- |
+| 1     | `docs/zax-spec.md`     | Canonical language authority          |
+| 2     | (retired) transition notes | Historical rationale (no active doc)    |
+| 3     | This playbook          | Execution and implementation guidance |
 
 Conflict rule: if guidance here conflicts with `docs/zax-spec.md`, the spec wins.
 
@@ -31,7 +31,7 @@ Execution priority is derived from normative language in `docs/zax-spec.md`, not
 
 - Queue A (Conformance): `MUST` / required behavior in `docs/zax-spec.md`.
 - Queue B (Advisory): `SHOULD`, optional warnings, and quality improvements.
-- Transition items from `docs/v02-transition-decisions.md` enter execution only after mapping to Queue A or Queue B.
+- Transition-only ideas must be mapped to Queue A/B via issues before execution.
 
 Priority rule:
 
@@ -76,7 +76,7 @@ Use one of the following tags on every scoped issue/PR:
 
 This roadmap replaces optimistic status tracking with a risk-first plan.
 
-Normative behavior is defined by `docs/zax-spec.md`. `docs/v02-transition-decisions.md` is transition rationale only. This roadmap is execution planning, not a language authority.
+Normative behavior is defined by `docs/zax-spec.md`. Transition rationale documents are retired. This roadmap is execution planning, not a language authority.
 
 Core policy:
 
@@ -137,7 +137,7 @@ Team rule for in-flight work:
 
 - Every PR touching language/lowering semantics must include one priority tag: `NORMATIVE-MUST`, `NORMATIVE-SHOULD`, or `TRANSITION-NOTE`.
 - Queue B work must not displace Queue A sequencing.
-- `docs/v02-transition-decisions.md` provides rationale; it does not by itself set implementation priority.
+- Transition rationale (historical) does not by itself set implementation priority.
 
 ---
 
