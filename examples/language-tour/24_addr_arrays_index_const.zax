@@ -1,0 +1,16 @@
+data
+  arr_b: byte[4] = { 1, 2, 3, 4 }
+  arr_w: word[3] = { 10, 20, 30 }
+
+func touch_arrays_const(): HL
+  ld a, (arr_b[2])
+  ld (arr_b[1]), a
+
+  ld hl, (arr_w[0])
+  ld (arr_w[2]), hl
+  ld hl, (arr_w[1])
+end
+
+export func main()
+  touch_arrays_const
+end

@@ -1,0 +1,196 @@
+{
+  "format": "d8-debug-map",
+  "version": 1,
+  "arch": "z80",
+  "addressWidth": 16,
+  "endianness": "little",
+  "files": {
+    "21_addr_scalars_locals.zax": {
+      "segments": [
+        {
+          "start": 256,
+          "end": 264,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 256,
+          "end": 335,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
+        },
+        {
+          "start": 264,
+          "end": 269,
+          "lstLine": 3,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 269,
+          "end": 274,
+          "lstLine": 4,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 274,
+          "end": 278,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 278,
+          "end": 281,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 281,
+          "end": 282,
+          "lstLine": 8,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 282,
+          "end": 285,
+          "lstLine": 9,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 285,
+          "end": 293,
+          "lstLine": 11,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 293,
+          "end": 294,
+          "lstLine": 12,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 294,
+          "end": 302,
+          "lstLine": 13,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 302,
+          "end": 311,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 311,
+          "end": 323,
+          "lstLine": 16,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 323,
+          "end": 326,
+          "lstLine": 17,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 326,
+          "end": 335,
+          "lstLine": 16,
+          "kind": "code",
+          "confidence": "high"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "touch_locals",
+          "kind": "label",
+          "address": 256,
+          "line": 1,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_0",
+          "kind": "label",
+          "address": 302,
+          "line": 1,
+          "scope": "local"
+        },
+        {
+          "name": "main",
+          "kind": "label",
+          "address": 311,
+          "line": 16,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_1",
+          "kind": "label",
+          "address": 326,
+          "line": 16,
+          "scope": "local"
+        }
+      ]
+    }
+  },
+  "segments": [
+    {
+      "start": 256,
+      "end": 335
+    }
+  ],
+  "fileList": [
+    "21_addr_scalars_locals.zax"
+  ],
+  "symbols": [
+    {
+      "name": "touch_locals",
+      "kind": "label",
+      "address": 256,
+      "file": "21_addr_scalars_locals.zax",
+      "line": 1,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_0",
+      "kind": "label",
+      "address": 302,
+      "file": "21_addr_scalars_locals.zax",
+      "line": 1,
+      "scope": "local"
+    },
+    {
+      "name": "main",
+      "kind": "label",
+      "address": 311,
+      "file": "21_addr_scalars_locals.zax",
+      "line": 16,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_1",
+      "kind": "label",
+      "address": 326,
+      "file": "21_addr_scalars_locals.zax",
+      "line": 16,
+      "scope": "local"
+    }
+  ],
+  "generator": {
+    "tool": "zax",
+    "entrySymbol": "main",
+    "entryAddress": 311
+  }
+}

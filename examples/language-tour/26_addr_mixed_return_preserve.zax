@@ -1,0 +1,12 @@
+func preserve_and_store(input_word: word)
+  var
+    local_word: word = $0102
+  end
+
+  ld local_word, input_word
+  ld hl, local_word
+end
+
+export func main()
+  preserve_and_store $7777
+end

@@ -1,0 +1,154 @@
+{
+  "format": "d8-debug-map",
+  "version": 1,
+  "arch": "z80",
+  "addressWidth": 16,
+  "endianness": "little",
+  "files": {
+    "22_addr_scalars_args.zax": {
+      "segments": [
+        {
+          "start": 256,
+          "end": 267,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 256,
+          "end": 326,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
+        },
+        {
+          "start": 267,
+          "end": 275,
+          "lstLine": 2,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 275,
+          "end": 281,
+          "lstLine": 3,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 281,
+          "end": 282,
+          "lstLine": 4,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 282,
+          "end": 290,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 290,
+          "end": 302,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 302,
+          "end": 317,
+          "lstLine": 8,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 317,
+          "end": 326,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "add_store_args",
+          "kind": "label",
+          "address": 256,
+          "line": 1,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_0",
+          "kind": "label",
+          "address": 282,
+          "line": 1,
+          "scope": "local"
+        },
+        {
+          "name": "main",
+          "kind": "label",
+          "address": 290,
+          "line": 7,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_1",
+          "kind": "label",
+          "address": 317,
+          "line": 7,
+          "scope": "local"
+        }
+      ]
+    }
+  },
+  "segments": [
+    {
+      "start": 256,
+      "end": 326
+    }
+  ],
+  "fileList": [
+    "22_addr_scalars_args.zax"
+  ],
+  "symbols": [
+    {
+      "name": "add_store_args",
+      "kind": "label",
+      "address": 256,
+      "file": "22_addr_scalars_args.zax",
+      "line": 1,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_0",
+      "kind": "label",
+      "address": 282,
+      "file": "22_addr_scalars_args.zax",
+      "line": 1,
+      "scope": "local"
+    },
+    {
+      "name": "main",
+      "kind": "label",
+      "address": 290,
+      "file": "22_addr_scalars_args.zax",
+      "line": 7,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_1",
+      "kind": "label",
+      "address": 317,
+      "file": "22_addr_scalars_args.zax",
+      "line": 7,
+      "scope": "local"
+    }
+  ],
+  "generator": {
+    "tool": "zax",
+    "entrySymbol": "main",
+    "entryAddress": 290
+  }
+}

@@ -5,7 +5,7 @@
   "addressWidth": 16,
   "endianness": "little",
   "files": {
-    "03_globals_and_aliases.zax": {
+    "24_addr_arrays_index_const.zax": {
       "segments": [
         {
           "start": 256,
@@ -16,7 +16,7 @@
         },
         {
           "start": 256,
-          "end": 343,
+          "end": 326,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
@@ -30,64 +30,64 @@
         },
         {
           "start": 270,
-          "end": 278,
-          "lstLine": 5,
+          "end": 273,
+          "lstLine": 7,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 278,
-          "end": 290,
+          "start": 273,
+          "end": 276,
           "lstLine": 9,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 290,
-          "end": 301,
+          "start": 276,
+          "end": 279,
           "lstLine": 10,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 301,
-          "end": 310,
-          "lstLine": 9,
+          "start": 279,
+          "end": 282,
+          "lstLine": 11,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 310,
-          "end": 322,
-          "lstLine": 13,
+          "start": 282,
+          "end": 290,
+          "lstLine": 5,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 322,
-          "end": 331,
-          "lstLine": 18,
+          "start": 290,
+          "end": 302,
+          "lstLine": 14,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 331,
-          "end": 334,
-          "lstLine": 19,
+          "start": 302,
+          "end": 305,
+          "lstLine": 15,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 334,
-          "end": 343,
-          "lstLine": 13,
+          "start": 305,
+          "end": 314,
+          "lstLine": 14,
           "kind": "code",
           "confidence": "high"
         }
       ],
       "symbols": [
         {
-          "name": "read_counter",
+          "name": "touch_arrays_const",
           "kind": "label",
           "address": 256,
           "line": 5,
@@ -96,45 +96,37 @@
         {
           "name": "__zax_epilogue_0",
           "kind": "label",
-          "address": 270,
+          "address": 282,
           "line": 5,
-          "scope": "local"
-        },
-        {
-          "name": "write_counter",
-          "kind": "label",
-          "address": 278,
-          "line": 9,
-          "scope": "global"
-        },
-        {
-          "name": "__zax_epilogue_1",
-          "kind": "label",
-          "address": 301,
-          "line": 9,
           "scope": "local"
         },
         {
           "name": "main",
           "kind": "label",
-          "address": 310,
-          "line": 13,
+          "address": 290,
+          "line": 14,
           "scope": "global"
         },
         {
-          "name": "__zax_epilogue_2",
+          "name": "__zax_epilogue_1",
           "kind": "label",
-          "address": 334,
-          "line": 13,
+          "address": 305,
+          "line": 14,
           "scope": "local"
         },
         {
-          "name": "counter",
-          "kind": "var",
-          "address": 344,
+          "name": "arr_b",
+          "kind": "data",
+          "address": 314,
           "line": 2,
-          "scope": "global",
-          "size": 2
+          "scope": "global"
+        },
+        {
+          "name": "arr_w",
+          "kind": "data",
+          "address": 318,
+          "line": 3,
+          "scope": "global"
         }
       ]
     }
@@ -142,74 +134,65 @@
   "segments": [
     {
       "start": 256,
-      "end": 343
+      "end": 326
     }
   ],
   "fileList": [
-    "03_globals_and_aliases.zax"
+    "24_addr_arrays_index_const.zax"
   ],
   "symbols": [
     {
-      "name": "read_counter",
+      "name": "touch_arrays_const",
       "kind": "label",
       "address": 256,
-      "file": "03_globals_and_aliases.zax",
+      "file": "24_addr_arrays_index_const.zax",
       "line": 5,
       "scope": "global"
     },
     {
       "name": "__zax_epilogue_0",
       "kind": "label",
-      "address": 270,
-      "file": "03_globals_and_aliases.zax",
+      "address": 282,
+      "file": "24_addr_arrays_index_const.zax",
       "line": 5,
-      "scope": "local"
-    },
-    {
-      "name": "write_counter",
-      "kind": "label",
-      "address": 278,
-      "file": "03_globals_and_aliases.zax",
-      "line": 9,
-      "scope": "global"
-    },
-    {
-      "name": "__zax_epilogue_1",
-      "kind": "label",
-      "address": 301,
-      "file": "03_globals_and_aliases.zax",
-      "line": 9,
       "scope": "local"
     },
     {
       "name": "main",
       "kind": "label",
-      "address": 310,
-      "file": "03_globals_and_aliases.zax",
-      "line": 13,
+      "address": 290,
+      "file": "24_addr_arrays_index_const.zax",
+      "line": 14,
       "scope": "global"
     },
     {
-      "name": "__zax_epilogue_2",
+      "name": "__zax_epilogue_1",
       "kind": "label",
-      "address": 334,
-      "file": "03_globals_and_aliases.zax",
-      "line": 13,
+      "address": 305,
+      "file": "24_addr_arrays_index_const.zax",
+      "line": 14,
       "scope": "local"
     },
     {
-      "name": "counter",
-      "kind": "var",
-      "address": 344,
-      "file": "03_globals_and_aliases.zax",
+      "name": "arr_b",
+      "kind": "data",
+      "address": 314,
+      "file": "24_addr_arrays_index_const.zax",
       "line": 2,
-      "scope": "global",
-      "size": 2
+      "scope": "global"
+    },
+    {
+      "name": "arr_w",
+      "kind": "data",
+      "address": 318,
+      "file": "24_addr_arrays_index_const.zax",
+      "line": 3,
+      "scope": "global"
     }
   ],
   "generator": {
     "tool": "zax",
     "entrySymbol": "main",
-    "entryAddress": 310
+    "entryAddress": 290
   }
 }

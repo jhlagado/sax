@@ -2321,12 +2321,37 @@ export function emitProgram(
         }
       }
 
-      if (!emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
-
       const baseResolved = resolveEa(ea.base, span);
       if (baseResolved?.kind === 'abs') {
-        emitAbs16Fixup(0x21, baseResolved.baseLower, baseResolved.addend, span); // ld hl, nn
+        // HL holds scaled index. Swap to DE, load base into HL, then add.
+        if (
+          !emitInstr(
+            'ex',
+            [
+              { kind: 'Reg', span, name: 'DE' },
+              { kind: 'Reg', span, name: 'HL' },
+            ],
+            span,
+          )
+        )
+          return false;
+        emitAbs16Fixup(0x21, baseResolved.baseLower, baseResolved.addend, span); // ld hl, base addr
+        if (
+          !emitInstr(
+            'add',
+            [
+              { kind: 'Reg', span, name: 'HL' },
+              { kind: 'Reg', span, name: 'DE' },
+            ],
+            span,
+          )
+        ) {
+          return false;
+        }
+        return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
       } else if (baseResolved?.kind === 'stack') {
+        // Save scaled index while we materialize the base into HL.
+        if (!emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
         if (!emitInstr('push', [{ kind: 'Reg', span, name: 'DE' }], span)) return false;
         if (
           !emitInstr('push', [{ kind: 'Reg', span, name: 'IX' }], span) ||
@@ -2350,6 +2375,8 @@ export function emitProgram(
         }
         if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'DE' }], span)) return false;
       } else {
+        // Save scaled index while we compute a non-abs base.
+        if (!emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
         if (!pushEaAddress(ea.base, span)) return false;
         if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
       }
@@ -2409,17 +2436,33 @@ export function emitProgram(
 
     if (r?.kind === 'stack') {
       const disp = r.ixDisp & 0xff;
+      const fmtDisp = (d: number): string =>
+        `(IX${r.ixDisp >= 0 ? '+' : '-'}$${Math.abs(r.ixDisp)
+          .toString(16)
+          .padStart(2, '0')
+          .toUpperCase()})`.replace(
+          '$' + Math.abs(r.ixDisp).toString(16).padStart(2, '0').toUpperCase(),
+          '$' + Math.abs(d).toString(16).padStart(2, '0').toUpperCase(),
+        );
       if (want === 'word') {
-        emitRawCodeBytes(Uint8Array.of(0xdd, 0x5e, disp), span.file, 'ld e, (ix+disp)');
+        emitRawCodeBytes(
+          Uint8Array.of(0xdd, 0x5e, disp),
+          span.file,
+          `ld e, ${fmtDisp(r.ixDisp)}`,
+        );
         emitRawCodeBytes(
           Uint8Array.of(0xdd, 0x56, (disp + 1) & 0xff),
           span.file,
-          'ld d, (ix+disp+1)',
+          `ld d, ${fmtDisp(r.ixDisp + 1)}`,
         );
-        emitRawCodeBytes(Uint8Array.of(0xeb), span.file, 'ex de, hl');
+        emitRawCodeBytes(Uint8Array.of(0xeb), span.file, 'ex de, hl'); // HL = word
         return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
       }
-      emitRawCodeBytes(Uint8Array.of(0xdd, 0x5e, disp), span.file, 'ld e, (ix+disp)');
+      emitRawCodeBytes(
+        Uint8Array.of(0xdd, 0x5e, disp),
+        span.file,
+        `ld e, ${fmtDisp(r.ixDisp)}`,
+      );
       return pushZeroExtendedReg8('E', span);
     }
 
@@ -2848,6 +2891,27 @@ export function emitProgram(
       }
       const s8 = reg8Code.get(src.name.toUpperCase());
       if (s8 !== undefined) {
+        // Fast path: stack slot destination via IX+d (byte store).
+        if (
+          dstResolved?.kind === 'stack' &&
+          dstResolved.ixDisp >= -0x80 &&
+          dstResolved.ixDisp <= 0x7f
+        ) {
+          const disp = dstResolved.ixDisp & 0xff;
+          const fmtDisp = `IX${dstResolved.ixDisp >= 0 ? '+' : '-'}$${Math.abs(
+            dstResolved.ixDisp,
+          )
+            .toString(16)
+            .padStart(2, '0')
+            .toUpperCase()}`;
+          emitRawCodeBytes(
+            Uint8Array.of(0xdd, 0x70 + s8, disp),
+            inst.span.file,
+            `ld (${fmtDisp}), ${src.name.toUpperCase()}`,
+          );
+          return true;
+        }
+
         const preserveA = src.name.toUpperCase() === 'A';
         if (
           preserveA &&
@@ -3102,6 +3166,46 @@ export function emitProgram(
           inst.span.file,
           `ld ${fmtIxDisp(dstHiDisp)}, d`,
         );
+        return true;
+      }
+
+      // src stack slot -> dst absolute/global, via direct IX+d loads (avoid IX address math).
+      if (
+        scalar !== undefined &&
+        srcResolved?.kind === 'stack' &&
+        dstResolved?.kind === 'abs' &&
+        srcResolved.ixDisp >= -0x80 &&
+        srcResolved.ixDisp <= 0x7f
+      ) {
+        const srcLo = srcResolved.ixDisp & 0xff;
+        const srcHi = (srcResolved.ixDisp + 1) & 0xff;
+        const fmtDisp = (disp: number): string =>
+          `IX${disp >= 0 ? '+' : '-'}$${Math.abs(disp).toString(16).padStart(2, '0').toUpperCase()}`;
+
+        if (scalar === 'byte') {
+          emitRawCodeBytes(
+            Uint8Array.of(0xdd, 0x7e, srcLo),
+            inst.span.file,
+            `ld a, (${fmtDisp(srcResolved.ixDisp)})`,
+          );
+          emitAbs16Fixup(0x32, dstResolved.baseLower, dstResolved.addend, inst.span); // ld (nn), a
+          return true;
+        }
+
+        // word: load via DE shuttle, move to HL, then store absolute.
+        emitRawCodeBytes(Uint8Array.of(0xeb), inst.span.file, 'ex de, hl');
+        emitRawCodeBytes(
+          Uint8Array.of(0xdd, 0x5e, srcLo),
+          inst.span.file,
+          `ld e, (${fmtDisp(srcResolved.ixDisp)})`,
+        );
+        emitRawCodeBytes(
+          Uint8Array.of(0xdd, 0x56, srcHi),
+          inst.span.file,
+          `ld d, (${fmtDisp(srcResolved.ixDisp + 1)})`,
+        );
+        emitRawCodeBytes(Uint8Array.of(0xeb), inst.span.file, 'ex de, hl');
+        emitAbs16Fixup(0x22, dstResolved.baseLower, dstResolved.addend, inst.span); // ld (nn), hl
         return true;
       }
 

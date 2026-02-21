@@ -1,0 +1,161 @@
+{
+  "format": "d8-debug-map",
+  "version": 1,
+  "arch": "z80",
+  "addressWidth": 16,
+  "endianness": "little",
+  "files": {
+    "26_addr_mixed_return_preserve.zax": {
+      "segments": [
+        {
+          "start": 256,
+          "end": 264,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 256,
+          "end": 332,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
+        },
+        {
+          "start": 264,
+          "end": 269,
+          "lstLine": 3,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 269,
+          "end": 273,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 273,
+          "end": 285,
+          "lstLine": 6,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 285,
+          "end": 293,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 293,
+          "end": 302,
+          "lstLine": 1,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 302,
+          "end": 314,
+          "lstLine": 10,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 314,
+          "end": 323,
+          "lstLine": 11,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 323,
+          "end": 332,
+          "lstLine": 10,
+          "kind": "code",
+          "confidence": "high"
+        }
+      ],
+      "symbols": [
+        {
+          "name": "preserve_and_store",
+          "kind": "label",
+          "address": 256,
+          "line": 1,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_0",
+          "kind": "label",
+          "address": 293,
+          "line": 1,
+          "scope": "local"
+        },
+        {
+          "name": "main",
+          "kind": "label",
+          "address": 302,
+          "line": 10,
+          "scope": "global"
+        },
+        {
+          "name": "__zax_epilogue_1",
+          "kind": "label",
+          "address": 323,
+          "line": 10,
+          "scope": "local"
+        }
+      ]
+    }
+  },
+  "segments": [
+    {
+      "start": 256,
+      "end": 332
+    }
+  ],
+  "fileList": [
+    "26_addr_mixed_return_preserve.zax"
+  ],
+  "symbols": [
+    {
+      "name": "preserve_and_store",
+      "kind": "label",
+      "address": 256,
+      "file": "26_addr_mixed_return_preserve.zax",
+      "line": 1,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_0",
+      "kind": "label",
+      "address": 293,
+      "file": "26_addr_mixed_return_preserve.zax",
+      "line": 1,
+      "scope": "local"
+    },
+    {
+      "name": "main",
+      "kind": "label",
+      "address": 302,
+      "file": "26_addr_mixed_return_preserve.zax",
+      "line": 10,
+      "scope": "global"
+    },
+    {
+      "name": "__zax_epilogue_1",
+      "kind": "label",
+      "address": 323,
+      "file": "26_addr_mixed_return_preserve.zax",
+      "line": 10,
+      "scope": "local"
+    }
+  ],
+  "generator": {
+    "tool": "zax",
+    "entrySymbol": "main",
+    "entryAddress": 302
+  }
+}

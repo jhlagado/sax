@@ -1,0 +1,19 @@
+globals
+  gbyte: byte = $12
+  gword: word = $3456
+
+func bump_globals(): HL
+  ld a, gbyte
+  inc a
+  ld gbyte, a
+
+  ld hl, gword
+  inc hl
+  ld gword, hl
+
+  ld hl, gword
+end
+
+export func main()
+  bump_globals
+end

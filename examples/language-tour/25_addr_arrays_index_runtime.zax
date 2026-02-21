@@ -1,0 +1,19 @@
+data
+  arr_b: byte[5] = { 1, 2, 3, 4, 5 }
+  arr_w: word[4] = { 100, 200, 300, 400 }
+
+func bump_at(idx: word): HL
+  ld hl, (arr_w[idx])
+  inc hl
+  ld (arr_w[idx]), hl
+
+  ld a, (arr_b[idx])
+  inc a
+  ld (arr_b[idx]), a
+
+  ld hl, (arr_w[idx])
+end
+
+export func main()
+  bump_at 1
+end

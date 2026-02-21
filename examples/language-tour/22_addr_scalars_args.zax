@@ -1,0 +1,9 @@
+func add_store_args(left: word, right: word): HL
+  ld hl, left
+  ld de, right
+  add hl, de
+end
+
+export func main()
+  add_store_args 1, 2
+end

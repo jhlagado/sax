@@ -1,0 +1,18 @@
+func touch_locals()
+  var
+    local_b: byte = 7
+    local_w: word = $1111
+  end
+
+  ld a, local_b
+  dec a
+  ld local_b, a
+
+  ld hl, local_w
+  inc hl
+  ld local_w, hl
+end
+
+export func main()
+  touch_locals
+end

@@ -1,0 +1,17 @@
+type RecordA
+  flag: byte
+  value: word
+end
+
+globals
+  rec_a: RecordA = 0
+
+func poke_record(flag_value: byte, word_value: word): HL
+  ld rec_a.flag, flag_value
+  ld rec_a.value, word_value
+  ld hl, rec_a.value
+end
+
+export func main()
+  poke_record 1, $1234
+end
