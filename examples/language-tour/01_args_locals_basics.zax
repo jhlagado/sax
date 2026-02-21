@@ -1,10 +1,10 @@
-func add_words(left_word: word, right_word: word): word
+func add_words(left_word: word, right_word: word): HL
   ld hl, left_word
   ld de, right_word
   add hl, de
 end
 
-func bump_byte(input_byte: byte): byte
+func bump_byte(input_byte: byte): HL
   var
     temp_word: word = 0
   end
@@ -16,7 +16,7 @@ func bump_byte(input_byte: byte): byte
   ld hl, temp_word
 end
 
-export func main(): void
+export func main()
   var
     result_word: word = 0
   end

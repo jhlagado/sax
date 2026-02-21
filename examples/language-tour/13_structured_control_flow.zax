@@ -1,7 +1,7 @@
 globals
   mode_value: byte = 0
 
-func run_once(): void
+func run_once()
   ld a, mode_value
   or a
 
@@ -33,6 +33,6 @@ func run_once(): void
   ld mode_value, a
 end
 
-export func main(): void
+export func main()
   run_once
 end

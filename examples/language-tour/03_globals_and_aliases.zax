@@ -2,15 +2,15 @@ globals
   counter: word = 0
   mirror_counter = counter
 
-func read_counter(): word
+func read_counter(): HL
   ld hl, counter
 end
 
-func write_counter(new_value: word): void
+func write_counter(new_value: word)
   ld counter, new_value
 end
 
-export func main(): void
+export func main()
   var
     local_alias = mirror_counter
   end

@@ -6,17 +6,17 @@ end
 globals
   pair_buf: Pair = 0
 
-func write_pair(lo_value: byte, hi_value: byte): void
+func write_pair(lo_value: byte, hi_value: byte)
   ld pair_buf.lo, lo_value
   ld pair_buf.hi, hi_value
 end
 
-func read_pair_word(): word
+func read_pair_word(): HL
   ld l, pair_buf.lo
   ld h, pair_buf.hi
 end
 
-export func main(): void
+export func main()
   var
     pair_alias = pair_buf
   end

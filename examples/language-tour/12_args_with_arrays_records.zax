@@ -2,15 +2,17 @@ data
   sample_bytes: byte[10] = { 1,2,3,4,5,6,7,8,9,10 }
   sample_words: word[4] = { 100, 200, 300, 400 }
 
-func read_byte_at(index_value: word): byte
+func read_byte_at(index_value: word): HL
   ld a, (sample_bytes[index_value])
+  ld l, a
+  ld h, 0
 end
 
-func read_word_at(index_value: word): word
+func read_word_at(index_value: word): HL
   ld hl, (sample_words[index_value])
 end
 
-export func main(): void
+export func main()
   read_byte_at 3
   read_word_at 1
 end

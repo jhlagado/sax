@@ -16,7 +16,7 @@
         },
         {
           "start": 256,
-          "end": 367,
+          "end": 394,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
@@ -30,73 +30,80 @@
         },
         {
           "start": 270,
-          "end": 278,
+          "end": 271,
+          "lstLine": 7,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 271,
+          "end": 273,
+          "lstLine": 8,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 273,
+          "end": 281,
           "lstLine": 5,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 278,
-          "end": 289,
-          "lstLine": 9,
+          "start": 281,
+          "end": 292,
+          "lstLine": 11,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 289,
-          "end": 313,
-          "lstLine": 10,
+          "start": 292,
+          "end": 316,
+          "lstLine": 12,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 313,
-          "end": 321,
-          "lstLine": 9,
+          "start": 316,
+          "end": 324,
+          "lstLine": 11,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 321,
-          "end": 333,
-          "lstLine": 13,
-          "kind": "code",
-          "confidence": "high"
-        },
-        {
-          "start": 333,
-          "end": 337,
+          "start": 324,
+          "end": 336,
           "lstLine": 15,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 337,
+          "start": 336,
           "end": 340,
-          "lstLine": 18,
+          "lstLine": 17,
           "kind": "code",
           "confidence": "high"
         },
         {
           "start": 340,
-          "end": 353,
-          "lstLine": 19,
+          "end": 343,
+          "lstLine": 20,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 353,
-          "end": 367,
-          "lstLine": 13,
+          "start": 343,
+          "end": 356,
+          "lstLine": 21,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 368,
-          "end": 392,
-          "lstLine": 0,
-          "kind": "unknown",
-          "confidence": "low"
+          "start": 356,
+          "end": 370,
+          "lstLine": 15,
+          "kind": "code",
+          "confidence": "high"
         }
       ],
       "symbols": [
@@ -110,49 +117,49 @@
         {
           "name": "__zax_epilogue_0",
           "kind": "label",
-          "address": 270,
+          "address": 273,
           "line": 5,
           "scope": "local"
         },
         {
           "name": "read_word_at",
           "kind": "label",
-          "address": 278,
-          "line": 9,
+          "address": 281,
+          "line": 11,
           "scope": "global"
         },
         {
           "name": "__zax_epilogue_1",
           "kind": "label",
-          "address": 313,
-          "line": 9,
+          "address": 316,
+          "line": 11,
           "scope": "local"
         },
         {
           "name": "main",
           "kind": "label",
-          "address": 321,
-          "line": 13,
+          "address": 324,
+          "line": 15,
           "scope": "global"
         },
         {
           "name": "__zax_epilogue_2",
           "kind": "label",
-          "address": 353,
-          "line": 13,
+          "address": 356,
+          "line": 15,
           "scope": "local"
         },
         {
           "name": "bytes10",
           "kind": "data",
-          "address": 368,
+          "address": 370,
           "line": 2,
           "scope": "global"
         },
         {
           "name": "words4",
           "kind": "data",
-          "address": 384,
+          "address": 386,
           "line": 3,
           "scope": "global"
         }
@@ -162,11 +169,7 @@
   "segments": [
     {
       "start": 256,
-      "end": 367
-    },
-    {
-      "start": 368,
-      "end": 392
+      "end": 394
     }
   ],
   "fileList": [
@@ -184,7 +187,7 @@
     {
       "name": "__zax_epilogue_0",
       "kind": "label",
-      "address": 270,
+      "address": 273,
       "file": "10_arrays_and_indexing.zax",
       "line": 5,
       "scope": "local"
@@ -192,39 +195,39 @@
     {
       "name": "read_word_at",
       "kind": "label",
-      "address": 278,
+      "address": 281,
       "file": "10_arrays_and_indexing.zax",
-      "line": 9,
+      "line": 11,
       "scope": "global"
     },
     {
       "name": "__zax_epilogue_1",
       "kind": "label",
-      "address": 313,
+      "address": 316,
       "file": "10_arrays_and_indexing.zax",
-      "line": 9,
+      "line": 11,
       "scope": "local"
     },
     {
       "name": "main",
       "kind": "label",
-      "address": 321,
+      "address": 324,
       "file": "10_arrays_and_indexing.zax",
-      "line": 13,
+      "line": 15,
       "scope": "global"
     },
     {
       "name": "__zax_epilogue_2",
       "kind": "label",
-      "address": 353,
+      "address": 356,
       "file": "10_arrays_and_indexing.zax",
-      "line": 13,
+      "line": 15,
       "scope": "local"
     },
     {
       "name": "bytes10",
       "kind": "data",
-      "address": 368,
+      "address": 370,
       "file": "10_arrays_and_indexing.zax",
       "line": 2,
       "scope": "global"
@@ -232,7 +235,7 @@
     {
       "name": "words4",
       "kind": "data",
-      "address": 384,
+      "address": 386,
       "file": "10_arrays_and_indexing.zax",
       "line": 3,
       "scope": "global"
@@ -241,6 +244,6 @@
   "generator": {
     "tool": "zax",
     "entrySymbol": "main",
-    "entryAddress": 321
+    "entryAddress": 324
   }
 }

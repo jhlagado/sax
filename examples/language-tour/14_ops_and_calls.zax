@@ -15,13 +15,13 @@ globals
   sample_byte: byte = 7
   sample_word: word = 100
 
-func add_to_sample(delta_word: word): word
+func add_to_sample(delta_word: word): HL
   ld hl, sample_word
   ld de, delta_word
   add16 hl, de
 end
 
-export func main(): void
+export func main()
   var
     result_word: word = 0
   end
