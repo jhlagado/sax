@@ -2584,6 +2584,38 @@ export function emitProgram(
       }
       const d = reg8Code.get(dst.name.toUpperCase());
       if (d !== undefined) {
+        // Fast path: reg8 <- stack slot via IX+d. L/H need DE shuttle because IX+L/H is illegal.
+        if (
+          srcResolved?.kind === 'stack' &&
+          srcResolved.ixDisp >= -0x80 &&
+          srcResolved.ixDisp <= 0x7f
+        ) {
+          const disp = srcResolved.ixDisp & 0xff;
+          const fmtDisp = `IX${srcResolved.ixDisp >= 0 ? '+' : '-'}$${Math.abs(srcResolved.ixDisp)
+            .toString(16)
+            .padStart(2, '0')
+            .toUpperCase()}`;
+
+          // L via DE shuttle: preserves DE/HL
+          if (dst.name.toUpperCase() === 'L') {
+            emitRawCodeBytes(Uint8Array.of(0xeb), inst.span.file, 'ex de, hl');
+            emitRawCodeBytes(
+              Uint8Array.of(0xdd, 0x5e, disp),
+              inst.span.file,
+              `ld e, (${fmtDisp})`,
+            );
+            emitRawCodeBytes(Uint8Array.of(0x16, 0x00), inst.span.file, 'ld d, $00');
+            emitRawCodeBytes(Uint8Array.of(0xeb), inst.span.file, 'ex de, hl');
+            return true;
+          }
+
+          emitRawCodeBytes(
+            Uint8Array.of(0xdd, 0x46 + (d << 3), disp),
+            inst.span.file,
+            `ld ${dst.name.toUpperCase()}, (${fmtDisp})`,
+          );
+          return true;
+        }
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
         emitRawCodeBytes(
           Uint8Array.of(0x46 + (d << 3)),

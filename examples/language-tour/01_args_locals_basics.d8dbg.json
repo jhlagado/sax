@@ -16,7 +16,7 @@
         },
         {
           "start": 256,
-          "end": 401,
+          "end": 397,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
@@ -72,91 +72,91 @@
         },
         {
           "start": 305,
-          "end": 316,
+          "end": 312,
           "lstLine": 12,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 316,
-          "end": 318,
+          "start": 312,
+          "end": 314,
           "lstLine": 13,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 318,
-          "end": 319,
+          "start": 314,
+          "end": 315,
           "lstLine": 14,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 319,
-          "end": 327,
+          "start": 315,
+          "end": 323,
           "lstLine": 15,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 327,
-          "end": 335,
+          "start": 323,
+          "end": 331,
           "lstLine": 16,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 335,
-          "end": 343,
+          "start": 331,
+          "end": 339,
           "lstLine": 7,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 343,
-          "end": 351,
+          "start": 339,
+          "end": 347,
           "lstLine": 19,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 351,
-          "end": 356,
+          "start": 347,
+          "end": 352,
           "lstLine": 21,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 356,
-          "end": 360,
+          "start": 352,
+          "end": 356,
           "lstLine": 19,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 360,
-          "end": 375,
+          "start": 356,
+          "end": 371,
           "lstLine": 24,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 375,
-          "end": 383,
+          "start": 371,
+          "end": 379,
           "lstLine": 25,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 383,
-          "end": 392,
+          "start": 379,
+          "end": 388,
           "lstLine": 27,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 392,
-          "end": 401,
+          "start": 388,
+          "end": 397,
           "lstLine": 19,
           "kind": "code",
           "confidence": "high"
@@ -187,21 +187,21 @@
         {
           "name": "__zax_epilogue_1",
           "kind": "label",
-          "address": 335,
+          "address": 331,
           "line": 7,
           "scope": "local"
         },
         {
           "name": "main",
           "kind": "label",
-          "address": 343,
+          "address": 339,
           "line": 19,
           "scope": "global"
         },
         {
           "name": "__zax_epilogue_2",
           "kind": "label",
-          "address": 392,
+          "address": 388,
           "line": 19,
           "scope": "local"
         }
@@ -211,7 +211,7 @@
   "segments": [
     {
       "start": 256,
-      "end": 401
+      "end": 397
     }
   ],
   "fileList": [
@@ -245,7 +245,7 @@
     {
       "name": "__zax_epilogue_1",
       "kind": "label",
-      "address": 335,
+      "address": 331,
       "file": "01_args_locals_basics.zax",
       "line": 7,
       "scope": "local"
@@ -253,7 +253,7 @@
     {
       "name": "main",
       "kind": "label",
-      "address": 343,
+      "address": 339,
       "file": "01_args_locals_basics.zax",
       "line": 19,
       "scope": "global"
@@ -261,7 +261,7 @@
     {
       "name": "__zax_epilogue_2",
       "kind": "label",
-      "address": 392,
+      "address": 388,
       "file": "01_args_locals_basics.zax",
       "line": 19,
       "scope": "local"
@@ -270,6 +270,6 @@
   "generator": {
     "tool": "zax",
     "entrySymbol": "main",
-    "entryAddress": 343
+    "entryAddress": 339
   }
 }
