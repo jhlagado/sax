@@ -20,6 +20,8 @@ Examples below assume the current v0.2 preservation policy:
 - `IX` is used as frame anchor for function argument/local addressing; `IX+d` byte-lane transfers use the `DE` shuttle when the semantic register is `HL`
 - locals are allocated/initialized before preserved registers are pushed
 - caller cleans pushed arguments after call
+- callee-preserve push order: `AF`, `BC`, `DE`, `HL` minus declared return registers; epilogue pops in reverse
+- synthetic epilogue is required when locals or preserves exist; all `ret`/`ret <cc>` are rewritten to jump to it
 
 ## 2. Frame Layout Model
 
@@ -132,57 +134,72 @@ end
 
 ```asm
 ; ZAX lowered .asm trace
-; range: $0000..$0044 (end exclusive)
 
 ; func echo begin
 echo:
-PUSH IX                        ; 0000: DD E5
-LD IX, $0000                   ; 0002: DD 21 00 00
-ADD IX, SP                     ; 0006: DD 39
-PUSH AF                        ; 0008: F5
-PUSH BC                        ; 0009: C5
-PUSH DE                        ; 000A: D5
-LD L, (IX+$04)                 ; 000B: DD 6E 04
-LD H, (IX+$05)                 ; 000E: DD 66 05
-POP DE                         ; 0011: D1
-POP BC                         ; 0012: C1
-POP AF                         ; 0013: F1
-LD SP, IX                      ; 0014: F9
-POP IX                         ; 0015: DD E1
-RET                            ; 0017: C9
+PUSH IX
+LD IX, $0000
+ADD IX, SP
+PUSH AF
+PUSH BC
+PUSH DE
+EX DE, HL
+LD E, (IX+$04)
+LD D, (IX+$05)
+EX DE, HL
+__zax_epilogue_0:
+POP DE
+POP BC
+POP AF
+LD SP, IX
+POP IX
+RET
 ; func echo end
 
 ; func main begin
 main:
-PUSH IX                        ; 0018: DD E5
-LD IX, $0000                   ; 001A: DD 21 00 00
-ADD IX, SP                     ; 001E: DD 39
-DEC SP                         ; 0020: 3B
-DEC SP                         ; 0021: 3B
-PUSH AF                        ; 0022: F5
-PUSH BC                        ; 0023: C5
-PUSH DE                        ; 0024: D5
-LD HL, $1234                   ; 0025: 21 34 12
-PUSH HL                        ; 0028: E5
-CALL echo                      ; 0029: CD 00 00
-INC SP                         ; 002C: 33
-INC SP                         ; 002D: 33
-LD (IX-$02), L                 ; 002E: DD 75 FE
-LD (IX-$01), H                 ; 0031: DD 74 FF
-LD L, (IX-$02)                 ; 0034: DD 6E FE
-LD H, (IX-$01)                 ; 0037: DD 66 FF
-LD (out), HL                   ; 003A: 22 00 10
-POP DE                         ; 003D: D1
-POP BC                         ; 003E: C1
-POP AF                         ; 003F: F1
-LD SP, IX                      ; 0040: F9
-POP IX                         ; 0041: DD E1
-RET                            ; 0043: C9
+PUSH IX
+LD IX, $0000
+ADD IX, SP
+DEC SP
+DEC SP
+PUSH AF
+PUSH BC
+PUSH DE
+PUSH HL
+LD HL, $1234
+PUSH HL
+CALL echo
+INC SP
+INC SP
+PUSH DE
+EX DE, HL
+LD (IX-$02), E
+LD (IX-$01), D
+EX DE, HL
+POP DE
+PUSH DE
+EX DE, HL
+LD E, (IX-$02)
+LD D, (IX-$01)
+EX DE, HL
+POP DE
+LD (out), HL
+__zax_epilogue_1:
+POP HL
+POP DE
+POP BC
+POP AF
+LD SP, IX
+POP IX
+RET
 ; func main end
 
 ; symbols:
-; label echo = $0000
-; label main = $0018
+; label echo = <auto>
+; label __zax_epilogue_0 = <auto>
+; label main = <auto>
+; label __zax_epilogue_1 = <auto>
 ; var out = $1000
 ```
 
@@ -190,6 +207,7 @@ Note:
 
 - caller argument cleanup is shown with `inc sp` to avoid clobbering preserved registers.
 - if a caller marks a register dead, `pop`-based cleanup can be legal as an optimization.
+- synthetic epilogues are present; any `ret`/`ret <cc>` in the bodies would be rewritten to jump to the epilogue labels.
 
 ## 4. Worked Example B: Locals + Nested Call
 
@@ -234,21 +252,37 @@ DEC SP
 PUSH AF
 PUSH BC
 PUSH DE
+PUSH HL
 
 LD HL, $0100
-LD (IX-$02), L
-LD (IX-$01), H
+PUSH DE
+EX DE, HL
+LD (IX-$02), E
+LD (IX-$01), D
+EX DE, HL
+POP DE
 
-LD L, (IX-$02)
-LD H, (IX-$01)
+PUSH DE
+EX DE, HL
+LD E, (IX-$02)
+LD D, (IX-$01)
+EX DE, HL
+POP DE
+
 PUSH HL
 CALL add1
 INC SP
 INC SP
 
-LD (IX-$02), L
-LD (IX-$01), H
+PUSH DE
+EX DE, HL
+LD (IX-$02), E
+LD (IX-$01), D
+EX DE, HL
+POP DE
 
+__zax_epilogue_0:
+POP HL
 POP DE
 POP BC
 POP AF
@@ -262,7 +296,7 @@ RET
 
 | Function kind | Return type | Boundary-visible changed regs     | Preserved regs (target)            |
 | ------------- | ----------- | --------------------------------- | ---------------------------------- |
-| typed `func`  | `void`      | `HL` (undefined on return)        | `AF`, `BC`, `DE`, `IX`             |
+| typed `func`  | `void`      | none (no return value)            | `AF`, `BC`, `DE`, `HL`, `IX`       |
 | typed `func`  | byte        | `L` (with `HL` volatile)          | non-return boundary regs preserved |
 | typed `func`  | word/addr   | `HL`                              | non-return boundary regs preserved |
 | `extern`      | any         | per declared ABI/clobber contract | per declared ABI/clobber contract  |
