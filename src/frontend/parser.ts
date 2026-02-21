@@ -2651,13 +2651,13 @@ export function parseModuleFile(
           const funcNode: FuncDeclNode = {
             kind: 'FuncDecl',
             span: funcSpan,
-          name,
-          exported,
-          params,
-          ...(returnRegs ? { returnRegs } : {}),
-          ...(locals ? { locals } : {}),
-          asm,
-        };
+            name,
+            exported,
+            params,
+            ...(returnRegs ? { returnRegs } : {}),
+            ...(locals ? { locals } : {}),
+            asm,
+          };
           items.push(funcNode);
           i++;
           break;

@@ -2599,11 +2599,7 @@ export function emitProgram(
           // L via DE shuttle: preserves DE/HL
           if (dst.name.toUpperCase() === 'L') {
             emitRawCodeBytes(Uint8Array.of(0xeb), inst.span.file, 'ex de, hl');
-            emitRawCodeBytes(
-              Uint8Array.of(0xdd, 0x5e, disp),
-              inst.span.file,
-              `ld e, (${fmtDisp})`,
-            );
+            emitRawCodeBytes(Uint8Array.of(0xdd, 0x5e, disp), inst.span.file, `ld e, (${fmtDisp})`);
             emitRawCodeBytes(Uint8Array.of(0x16, 0x00), inst.span.file, 'ld d, $00');
             emitRawCodeBytes(Uint8Array.of(0xeb), inst.span.file, 'ex de, hl');
             return true;
@@ -3819,7 +3815,11 @@ export function emitProgram(
               'ld',
               [
                 { kind: 'Reg', span: item.span, name: 'IX' },
-                { kind: 'Imm', span: item.span, expr: { kind: 'ImmLiteral', span: item.span, value: 0 } },
+                {
+                  kind: 'Imm',
+                  span: item.span,
+                  expr: { kind: 'ImmLiteral', span: item.span, value: 0 },
+                },
               ],
               item.span,
             );
@@ -3846,7 +3846,8 @@ export function emitProgram(
             confidence: 'high',
           };
           try {
-            const initValue = init.expr !== undefined ? evalImmExpr(init.expr, env, diagnostics) : 0;
+            const initValue =
+              init.expr !== undefined ? evalImmExpr(init.expr, env, diagnostics) : 0;
             if (init.expr !== undefined && initValue === undefined) {
               diagAt(
                 diagnostics,
@@ -3863,7 +3864,11 @@ export function emitProgram(
               emitInstr(
                 'ex',
                 [
-                  { kind: 'Mem', span: init.span, expr: { kind: 'EaName', span: init.span, name: 'SP' } },
+                  {
+                    kind: 'Mem',
+                    span: init.span,
+                    expr: { kind: 'EaName', span: init.span, name: 'SP' },
+                  },
                   { kind: 'Reg', span: init.span, name: 'HL' },
                 ],
                 init.span,
