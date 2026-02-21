@@ -1741,18 +1741,13 @@ export function parseModuleFile(
     text: string,
     stmtSpan: SourceSpan,
     lineNo: number,
-  ): { regs: string[]; flags: boolean } | undefined {
-    let flags = false;
-    let body = text.trim();
-    if (body.toLowerCase().endsWith(' flags')) {
-      flags = true;
-      body = body.slice(0, -' flags'.length).trim();
-    }
+  ): { regs: string[] } | undefined {
+    const body = text.trim();
     const tokens = body
       .split(',')
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
-    if (tokens.length === 0) return { regs: [], flags };
+    if (tokens.length === 0) return { regs: [] };
 
     const allowed = new Set(['AF', 'BC', 'DE', 'HL']);
     const seen = new Set<string>();
@@ -1776,7 +1771,7 @@ export function parseModuleFile(
       }
       seen.add(upper);
     }
-    return { regs: [...seen], flags };
+    return { regs: [...seen] };
   }
 
   function parseExternFuncFromTail(
@@ -1833,10 +1828,8 @@ export function parseModuleFile(
     const atText = afterClose.slice(atIdx + 4).trim();
 
     let returnRegs: string[] | undefined;
-    let returnFlags: boolean | undefined;
     if (retTextRaw.length === 0) {
       returnRegs = [];
-      returnFlags = false;
     } else {
       if (!retTextRaw.startsWith(':')) {
         diagInvalidHeaderLine(
@@ -1851,7 +1844,6 @@ export function parseModuleFile(
       const parsed = parseReturnRegsFromText(regText, stmtSpan, lineNo);
       if (!parsed) return undefined;
       returnRegs = parsed.regs;
-      returnFlags = parsed.flags;
     }
 
     const paramsText = header.slice(openParen + 1, closeParen);
@@ -1867,7 +1859,6 @@ export function parseModuleFile(
       name,
       params,
       returnRegs,
-      ...(returnFlags ? { returnFlags } : {}),
       at,
     };
   }
@@ -2457,10 +2448,8 @@ export function parseModuleFile(
       const headerSpan = span(file, lineStartOffset, lineEndOffset);
       const afterClose = header.slice(closeParen + 1).trimStart();
       let returnRegs: string[] | undefined;
-      let returnFlags: boolean | undefined;
       if (afterClose.length === 0) {
         returnRegs = [];
-        returnFlags = false;
       } else {
         const retMatch = /^:\s*(.+)$/.exec(afterClose);
         if (!retMatch) {
@@ -2477,7 +2466,6 @@ export function parseModuleFile(
           continue;
         }
         returnRegs = parsedRegs.regs;
-        returnFlags = parsedRegs.flags;
       }
 
       const paramsText = header.slice(openParen + 1, closeParen);
@@ -2667,7 +2655,6 @@ export function parseModuleFile(
           exported,
           params,
           ...(returnRegs ? { returnRegs } : {}),
-          ...(returnFlags ? { returnFlags } : {}),
           ...(locals ? { locals } : {}),
           asm,
         };

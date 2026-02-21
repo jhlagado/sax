@@ -1,5 +1,6 @@
 section code at $0100
 
+; Return flags modifier is no longer accepted — kept as negative fixture should emit errors
 func ret_byte_flags(): HL flags
   ld a, $12
   ret

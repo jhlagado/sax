@@ -3700,12 +3700,8 @@ export function emitProgram(
 
         const localDecls = item.locals?.decls ?? [];
         const returnRegs = (item.returnRegs ?? []).map((r) => r.toUpperCase());
-        const returnFlags = (item as any).returnFlags ? true : false;
         const basePreserveOrder: string[] = ['AF', 'BC', 'DE', 'HL'];
         let preserveSet = basePreserveOrder.filter((r) => !returnRegs.includes(r));
-        if (returnFlags) {
-          preserveSet = preserveSet.filter((r) => r !== 'AF');
-        }
         const preserveBytes = preserveSet.length * 2;
         const shouldPreserveTypedBoundary = preserveSet.length > 0;
         const hlPreserved = preserveSet.includes('HL');
