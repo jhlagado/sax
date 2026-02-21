@@ -11,10 +11,14 @@ Status: non-normative companion to `docs/zax-spec.md` §8.2. Intended for develo
 
 ## 2. Surface Syntax (recap)
 
-- Canonical: `func name(...): <register-list>` where each entry is one of `HL`, `DE`, `BC`, `AF`.
-- Return lists publish the volatile registers. Preservation = {AF, BC, DE, HL} \ ReturnSet.
-- No aliases/keywords: `void/byte/word/long/verylong/none/flags` are rejected.
-- Omitting the colon means “no returns” (preserve all). `extern func` uses the same form; `op` has no return declaration.
+- Canonical: `func name(...): <return-reg-list>` where the list is one of:
+  - `none` (void)
+  - `HL`
+  - `HL,DE`
+  - `HL,DE,BC`
+  - Any of the above with `AF` appended (publishes flags)
+- Zero-syntax: `func name(...)` (no colon) is equivalent to `: none` — preserves AF/BC/DE/HL.
+- `extern func` uses the same form; `op` has no return declaration.
 
 ## 3. Preservation Matrix (derived)
 
@@ -61,7 +65,7 @@ pop ix
 ret
 ```
 
-### 4.2 No-return / HL-preserved cases (HL not in returns)
+### 4.2 Void / HL-preserved cases (none, HL not in returns)
 
 Problem: locals initialized via HL would clobber the incoming HL before it’s saved.
 
@@ -124,11 +128,19 @@ ret
 
 ## 7. Migration Notes
 
-- Legacy aliases (`void/none/byte/word/long/verylong/flags`) are no longer accepted. Declare explicit registers instead:
-  - No returns: `func f()` (omit the colon).
-  - Single return: `func f(): HL`.
-  - Wider returns: `func f(): HL,DE` or `func f(): HL,DE,BC`.
-  - Flags: append `AF` to the list if the function intentionally publishes flags.
+- Old `: long` / `: verylong` map to `: HL,DE` / `: HL,DE,BC`.
+- Old `flags` modifier maps to adding `AF` to the return list.
+- Consider a diagnostic phase to steer users toward register lists; aliases may be removed in v0.3.
+
+Planned simplification (v0.3):
+
+- Remove `byte/word/long/verylong/flags/void` keywords. Canonical forms become:
+  - `func f()` (preserve-all; no return registers)
+  - `func f(): HL`
+  - `func f(): HL,DE`
+  - `func f(): HL,DE,BC`
+  - Optional `AF` in the list for publishing flags (e.g., `func f(): HL,AF`).
+- Update all docs/examples/fixtures to register lists; keep aliases only as legacy diagnostics.
 
 ## 8. Tests to Add/Update
 
