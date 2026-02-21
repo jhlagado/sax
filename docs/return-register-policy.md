@@ -34,6 +34,10 @@ Preserve = {AF, BC, DE, HL} \ ReturnSet (IX always preserved).
 Extern typed calls: same return registers, but preservation is caller-responsible unless an explicit ABI is provided.
 
 ## 4. Prologue/Epilogue Strategies
+Rule of thumb: decide based on whether **HL is preserved**.
+- If HL is in the return set (volatile): use the simple strategy.
+- If HL is preserved (not in the return set): use the swap strategy.
+
 ### 4.1 Non-void (HL volatile)
 - Locals-before-preserves ordering is fine: use HL for initializers, then push preserves (AF/BC/DE as needed).
 Example (HL return):
