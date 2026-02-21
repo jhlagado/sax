@@ -3126,6 +3126,46 @@ export function emitProgram(
         return true;
       }
 
+      // src stack slot -> dst absolute/global, via direct IX+d loads (avoid IX address math).
+      if (
+        scalar !== undefined &&
+        srcResolved?.kind === 'stack' &&
+        dstResolved?.kind === 'abs' &&
+        srcResolved.ixDisp >= -0x80 &&
+        srcResolved.ixDisp <= 0x7f
+      ) {
+        const srcLo = srcResolved.ixDisp & 0xff;
+        const srcHi = (srcResolved.ixDisp + 1) & 0xff;
+        const fmtDisp = (disp: number): string =>
+          `IX${disp >= 0 ? '+' : '-'}$${Math.abs(disp).toString(16).padStart(2, '0').toUpperCase()}`;
+
+        if (scalar === 'byte') {
+          emitRawCodeBytes(
+            Uint8Array.of(0xdd, 0x7e, srcLo),
+            inst.span.file,
+            `ld a, (${fmtDisp(srcResolved.ixDisp)})`,
+          );
+          emitAbs16Fixup(0x32, dstResolved.baseLower, dstResolved.addend, inst.span); // ld (nn), a
+          return true;
+        }
+
+        // word: load via DE shuttle, move to HL, then store absolute.
+        emitRawCodeBytes(Uint8Array.of(0xeb), inst.span.file, 'ex de, hl');
+        emitRawCodeBytes(
+          Uint8Array.of(0xdd, 0x5e, srcLo),
+          inst.span.file,
+          `ld e, (${fmtDisp(srcResolved.ixDisp)})`,
+        );
+        emitRawCodeBytes(
+          Uint8Array.of(0xdd, 0x56, srcHi),
+          inst.span.file,
+          `ld d, (${fmtDisp(srcResolved.ixDisp + 1)})`,
+        );
+        emitRawCodeBytes(Uint8Array.of(0xeb), inst.span.file, 'ex de, hl');
+        emitAbs16Fixup(0x22, dstResolved.baseLower, dstResolved.addend, inst.span); // ld (nn), hl
+        return true;
+      }
+
       if (!scalar) return false;
       if (scalar === 'byte') {
         if (!materializeEaAddressToHL(src.expr, inst.span)) return false;
