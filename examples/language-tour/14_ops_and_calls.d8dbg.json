@@ -16,7 +16,7 @@
         },
         {
           "start": 256,
-          "end": 339,
+          "end": 333,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
@@ -51,42 +51,49 @@
         },
         {
           "start": 287,
-          "end": 299,
+          "end": 295,
           "lstLine": 24,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 299,
-          "end": 303,
+          "start": 295,
+          "end": 300,
           "lstLine": 26,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 303,
-          "end": 306,
+          "start": 300,
+          "end": 304,
+          "lstLine": 24,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 304,
+          "end": 307,
           "lstLine": 29,
           "kind": "macro",
           "confidence": "high"
         },
         {
-          "start": 306,
-          "end": 315,
+          "start": 307,
+          "end": 316,
           "lstLine": 30,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 315,
-          "end": 325,
+          "start": 316,
+          "end": 324,
           "lstLine": 31,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 325,
-          "end": 339,
+          "start": 324,
+          "end": 333,
           "lstLine": 24,
           "kind": "code",
           "confidence": "high"
@@ -117,14 +124,14 @@
         {
           "name": "__zax_epilogue_1",
           "kind": "label",
-          "address": 325,
+          "address": 324,
           "line": 24,
           "scope": "local"
         },
         {
           "name": "sample_byte",
           "kind": "var",
-          "address": 340,
+          "address": 334,
           "line": 15,
           "scope": "global",
           "size": 1
@@ -132,7 +139,7 @@
         {
           "name": "sample_word",
           "kind": "var",
-          "address": 341,
+          "address": 335,
           "line": 16,
           "scope": "global",
           "size": 2
@@ -143,7 +150,7 @@
   "segments": [
     {
       "start": 256,
-      "end": 339
+      "end": 333
     }
   ],
   "fileList": [
@@ -177,7 +184,7 @@
     {
       "name": "__zax_epilogue_1",
       "kind": "label",
-      "address": 325,
+      "address": 324,
       "file": "14_ops_and_calls.zax",
       "line": 24,
       "scope": "local"
@@ -185,7 +192,7 @@
     {
       "name": "sample_byte",
       "kind": "var",
-      "address": 340,
+      "address": 334,
       "file": "14_ops_and_calls.zax",
       "line": 15,
       "scope": "global",
@@ -194,7 +201,7 @@
     {
       "name": "sample_word",
       "kind": "var",
-      "address": 341,
+      "address": 335,
       "file": "14_ops_and_calls.zax",
       "line": 16,
       "scope": "global",

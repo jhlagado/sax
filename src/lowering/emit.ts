@@ -2598,8 +2598,6 @@ export function emitProgram(
         if (srcResolved?.kind === 'stack') {
           const lo = srcResolved.ixDisp;
           const hi = srcResolved.ixDisp + 1;
-          if (!emitInstr('push', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span))
-            return false;
           if (
             !emitInstr(
               'ex',
@@ -2638,7 +2636,7 @@ export function emitProgram(
             )
           )
             return false;
-          return emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span);
+          return true;
         }
         const r = resolveEa(src.expr, inst.span);
         if (r?.kind === 'abs') {
@@ -2857,8 +2855,6 @@ export function emitProgram(
         if (dstResolved?.kind === 'stack') {
           const lo = dstResolved.ixDisp;
           const hi = dstResolved.ixDisp + 1;
-          if (!emitInstr('push', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span))
-            return false;
           if (
             !emitInstr(
               'ex',
@@ -2897,7 +2893,7 @@ export function emitProgram(
             )
           )
             return false;
-          return emitInstr('pop', [{ kind: 'Reg', span: inst.span, name: 'DE' }], inst.span);
+          return true;
         }
         const r = resolveEa(dst.expr, inst.span);
         if (r?.kind === 'abs') {

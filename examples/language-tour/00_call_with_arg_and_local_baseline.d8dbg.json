@@ -9,29 +9,36 @@
       "segments": [
         {
           "start": 256,
-          "end": 267,
+          "end": 264,
           "lstLine": 1,
           "kind": "code",
           "confidence": "high"
         },
         {
           "start": 256,
-          "end": 357,
+          "end": 346,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
         },
         {
-          "start": 267,
-          "end": 271,
+          "start": 264,
+          "end": 268,
           "lstLine": 3,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 271,
-          "end": 275,
+          "start": 268,
+          "end": 272,
           "lstLine": 4,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 272,
+          "end": 275,
+          "lstLine": 1,
           "kind": "code",
           "confidence": "high"
         },
@@ -72,13 +79,27 @@
         },
         {
           "start": 295,
-          "end": 308,
+          "end": 303,
           "lstLine": 1,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 308,
+          "start": 303,
+          "end": 311,
+          "lstLine": 14,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 311,
+          "end": 316,
+          "lstLine": 16,
+          "kind": "code",
+          "confidence": "high"
+        },
+        {
+          "start": 316,
           "end": 320,
           "lstLine": 14,
           "kind": "code",
@@ -86,28 +107,21 @@
         },
         {
           "start": 320,
-          "end": 324,
-          "lstLine": 16,
-          "kind": "code",
-          "confidence": "high"
-        },
-        {
-          "start": 324,
-          "end": 333,
+          "end": 329,
           "lstLine": 19,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 333,
-          "end": 343,
+          "start": 329,
+          "end": 337,
           "lstLine": 20,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 343,
-          "end": 357,
+          "start": 337,
+          "end": 346,
           "lstLine": 14,
           "kind": "code",
           "confidence": "high"
@@ -131,14 +145,14 @@
         {
           "name": "main",
           "kind": "label",
-          "address": 308,
+          "address": 303,
           "line": 14,
           "scope": "global"
         },
         {
           "name": "__zax_epilogue_1",
           "kind": "label",
-          "address": 343,
+          "address": 337,
           "line": 14,
           "scope": "local"
         }
@@ -148,7 +162,7 @@
   "segments": [
     {
       "start": 256,
-      "end": 357
+      "end": 346
     }
   ],
   "fileList": [
@@ -174,7 +188,7 @@
     {
       "name": "main",
       "kind": "label",
-      "address": 308,
+      "address": 303,
       "file": "00_call_with_arg_and_local_baseline.zax",
       "line": 14,
       "scope": "global"
@@ -182,7 +196,7 @@
     {
       "name": "__zax_epilogue_1",
       "kind": "label",
-      "address": 343,
+      "address": 337,
       "file": "00_call_with_arg_and_local_baseline.zax",
       "line": 14,
       "scope": "local"
@@ -191,6 +205,6 @@
   "generator": {
     "tool": "zax",
     "entrySymbol": "main",
-    "entryAddress": 308
+    "entryAddress": 303
   }
 }

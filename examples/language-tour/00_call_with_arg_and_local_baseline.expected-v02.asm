@@ -46,12 +46,10 @@ push HL                        ; 0143: E5
 call inc_one                   ; 0144: CD 00 00
 inc SP                         ; 0147: 33
 inc SP                         ; 0148: 33
-push DE                        ; 0149: D5
 ex DE, HL                      ; 014A: EB
 ld (IX - $0002), E             ; 014B: DD 73 FE
 ld (IX - $0001), D             ; 014E: DD 72 FF
 ex DE, HL                      ; 0151: EB
-pop DE                         ; 0152: D1
 __zax_epilogue_1:
 pop HL                         ; 0153: E1
 pop DE                         ; 0154: D1
