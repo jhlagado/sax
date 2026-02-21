@@ -898,24 +898,18 @@ Function-body block termination (v0.1):
 - Arguments are passed on the stack, each argument occupying 16 bits.
 - Caller pushes arguments right-to-left (last argument pushed first).
 - Caller cleans up the arguments after return.
-- Return declaration surface forms (v0.2 register-based):
-  - `func name(...): none` (void)
+- Return declaration surface forms (register-based):
+  - `func name(...)` (no return clause): preserves AF, BC, DE, HL
   - `func name(...): HL`
   - `func name(...): HL,DE`
   - `func name(...): HL,DE,BC`
-  - optional `AF` may be added to any of the above to publish flags (e.g., `func foo(): HL,AF`)
+  - any of the above may include `AF` (e.g., `func foo(): HL,AF`)
   - `extern func` accepts the same forms; `op` does **not** accept return registers.
-- Aliases (for brevity; canonical form is register-based):
-  - `word`  ≡ `HL`
-  - `byte`  ≡ `HL` (return in L; H undefined)
-  - `long`  ≡ `HL,DE`
-  - `verylong`* ≡ `HL,DE,BC`
-  - `flags` modifier on the old surface is equivalent to including `AF` in the return set.
 - Return sets and preservation (internal typed calls):
 
 | Return registers    | Callee preserves |
 |---------------------|------------------|
-| none (void)         | AF, BC, DE, HL   |
+| (no return clause)  | AF, BC, DE, HL   |
 | HL                  | AF, BC, DE       |
 | HL,AF               | BC, DE           |
 | HL,DE               | AF, BC           |
