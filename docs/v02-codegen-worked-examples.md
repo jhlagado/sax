@@ -10,13 +10,9 @@ This document is a codegen/lowering design reference.
 Examples below assume the current v0.2 preservation policy:
 
 - typed function calls are preservation-safe by default (internal `func`)
-- return channel is `HL` for non-void (`L` for byte)
-- preservation depends on return width:
-  - `void`: preserves AF, BC, DE, HL
-  - `byte`/`word`: preserves AF, BC, DE (HL volatile return channel)
-  - `long`: preserves AF, BC (HL:DE return channel)
-  - `verylong`: preserves AF (HL:DE:BC return channel)
-  - `flags` modifier makes AF volatile in addition to the return channel
+- return declaration forms: (none), `: HL`, `: HL,AF`, `: HL,DE`, `: HL,DE,AF`, `: HL,DE,BC`, `: HL,DE,BC,AF`
+- return channel is exactly the declared registers
+- preservation rule: preserve set = {AF, BC, DE, HL} minus the declared return registers (IX always preserved); AF is volatile only when listed; HL is preserved only when there is no return clause
 - `IX` is used as frame anchor for function argument/local addressing; `IX+d` byte-lane transfers use the `DE` shuttle when the semantic register is `HL`
 - locals are allocated/initialized before preserved registers are pushed
 - caller cleans pushed arguments after call
@@ -94,7 +90,7 @@ pop ix
 ret
 ```
 
-Non-void functions keep HL volatile and do not use the swap pattern; they push only the preserved set implied by the return width.
+Non-void functions keep HL volatile and do not use the swap pattern; they push only the preserved set implied by the declared return registers.
 
 ## 3. Worked Example A: Echo Call With Local Storage
 
@@ -292,14 +288,20 @@ RET
 ; func main end
 ```
 
-## 5. Preservation Policy Table (Design Target)
+## 5. Preservation Policy (Design Target)
 
-| Function kind | Return type | Boundary-visible changed regs     | Preserved regs (target)            |
-| ------------- | ----------- | --------------------------------- | ---------------------------------- |
-| typed `func`  | `void`      | none (no return value)            | `AF`, `BC`, `DE`, `HL`, `IX`       |
-| typed `func`  | byte        | `L` (with `HL` volatile)          | non-return boundary regs preserved |
-| typed `func`  | word/addr   | `HL`                              | non-return boundary regs preserved |
-| `extern`      | any         | per declared ABI/clobber contract | per declared ABI/clobber contract  |
+Rule of thumb: preserve set = {AF, BC, DE, HL} minus the declared return registers (IX is always preserved). Return channel = declared return set.
+
+| Function kind | Return registers | Preserved regs (target)                   |
+| ------------- | ---------------- | ----------------------------------------- |
+| typed `func`  | (none)           | AF, BC, DE, HL, IX                        |
+| typed `func`  | HL               | AF, BC, DE, IX                            |
+| typed `func`  | HL,AF            | BC, DE, IX                                |
+| typed `func`  | HL,DE            | AF, BC, IX                                |
+| typed `func`  | HL,DE,AF         | BC, IX                                    |
+| typed `func`  | HL,DE,BC         | AF, IX                                    |
+| typed `func`  | HL,DE,BC,AF      | IX                                        |
+| `extern`      | any              | caller-responsible unless ABI is declared |
 
 ## 6. Transition Note: Volatility Inference
 
