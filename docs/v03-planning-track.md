@@ -6,9 +6,7 @@ Normative language behavior for shipped versions remains in `docs/zax-spec.md`.
 
 ## 1. Inputs from v0.2 Closeout
 
-- v0.2 status and reopened-gate record: `docs/v02-status-snapshot-2026-02-15.md`
-- v0.2 codegen verification gate: `docs/v02-codegen-verification.md`
-- transition history and deferred decisions: `docs/v02-transition-decisions.md`
+- v0.2 codegen reference and invariants: `docs/v02-codegen-reference.md`
 
 ## 2. Initial Candidate Themes
 

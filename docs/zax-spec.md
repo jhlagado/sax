@@ -10,7 +10,7 @@ ZAX aims to make assembly code easier to read and refactor by providing:
 - structured control flow inside function/op instruction streams (`if`/`while`/`repeat`/`select`)
 - `op`: inline “macro-instructions” with operand matching
 
-Normative status for v0.2: this document is the sole normative language source. `docs/v02-transition-decisions.md` is a non-normative transition record and does not override this specification.
+Normative status for v0.2: this document is the sole normative language source. Historical transition rationale documents have been retired and do not override this specification.
 
 Grammar companion: `docs/zax-grammar.ebnf.md` provides a single-file syntax reference. If any grammar text diverges from this specification, this specification wins.
 
@@ -21,9 +21,8 @@ Anything not defined here is undefined behavior or a compile error in v0.2.
 ## Authority (Normative)
 
 - `docs/zax-spec.md` is the only normative language authority.
-- Supporting documents (`docs/zax-dev-playbook.md`, `docs/v02-transition-decisions.md`) are non-normative and must not introduce conflicting language rules.
-- `docs/v02-transition-decisions.md` captures transition rationale and sequencing. It is not a second normative source.
-- If supporting text conflicts with this document, this document wins.
+- Supporting documents (`docs/zax-dev-playbook.md`, `docs/v02-codegen-reference.md`, `docs/return-register-policy.md`, `docs/v02-codegen-worked-examples.md`) are non-normative and must not introduce conflicting language rules.
+- Historical transition rationale documents are retired; if any surviving text conflicts with this document, this document wins.
 
 ---
 

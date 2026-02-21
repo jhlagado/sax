@@ -7,17 +7,16 @@ This document is a codegen/lowering design reference.
 
 ## 1. Assumptions Used in These Examples
 
-Examples below assume the current v0.2 preservation policy:
+Examples below assume the current v0.2 preservation policy (register-list returns):
 
-- typed function calls are preservation-safe by default (internal `func`)
-- return declaration forms: (none), `: HL`, `: HL,AF`, `: HL,DE`, `: HL,DE,AF`, `: HL,DE,BC`, `: HL,DE,BC,AF`
-- return channel is exactly the declared registers
-- preservation rule: preserve set = {AF, BC, DE, HL} minus the declared return registers (IX always preserved); AF is volatile only when listed; HL is preserved only when there is no return clause
-- `IX` is used as frame anchor for function argument/local addressing; `IX+d` byte-lane transfers use the `DE` shuttle when the semantic register is `HL`
-- locals are allocated/initialized before preserved registers are pushed
-- caller cleans pushed arguments after call
-- callee-preserve push order: `AF`, `BC`, `DE`, `HL` minus declared return registers; epilogue pops in reverse
-- synthetic epilogue is required when locals or preserves exist; all `ret`/`ret <cc>` are rewritten to jump to it
+- Typed internal `func` calls are preservation-safe by default; typed `extern func` calls are not preservation-safe unless an ABI is declared.
+- Return declaration surface: no return clause (preserve-all), `: HL`, `: HL,DE`, `: HL,DE,BC`, with optional `AF` appended to publish flags. Byte results use the low byte of `HL`.
+- Preservation set is `{AF, BC, DE, HL} \ ReturnSet`; including `AF` in the return list makes flags volatile.
+- `IX` is the frame anchor; any `IX+d` word transfer involving `HL` must shuttle through `DE` (never `IX+H/L`).
+- Locals are allocated/initialized before preserved registers are pushed; when `HL` is preserved (no `HL` in the return list), use the per-local swap init (`push hl` / `ld hl,imm` / `ex (sp),hl`).
+- Caller cleans pushed arguments after the call.
+- Callee-preserve push order: `AF`, `BC`, `DE`, `HL` minus declared return registers; epilogue pops in reverse, then `ld sp,ix`, `pop ix`, `ret`.
+- Synthetic epilogue is required when locals or preserves exist; all `ret`/`ret <cc>` rewrite to jump there.
 
 ## 2. Frame Layout Model
 
@@ -62,7 +61,7 @@ ex de, hl
 
 Local scalar initializers are lowered in declaration order.
 
-Void-function prologue (HL must be preserved, locals-before-preserves):
+No-return-clause prologue (HL preserved, locals-before-preserves):
 
 ```asm
 push ix
@@ -78,7 +77,7 @@ push bc
 push af
 ```
 
-Void-function epilogue:
+No-return-clause epilogue:
 
 ```asm
 pop af
@@ -90,7 +89,7 @@ pop ix
 ret
 ```
 
-Non-void functions keep HL volatile and do not use the swap pattern; they push only the preserved set implied by the declared return registers.
+Functions that return via `HL` (or include `HL` in the return list) keep `HL` volatile and do not use the swap pattern; they push only the preserved set implied by the declared return registers.
 
 ## 3. Worked Example A: Echo Call With Local Storage
 
@@ -103,11 +102,11 @@ section var at $1000
 globals
   out: word
 
-func echo(value_word: word): word
+func echo(value_word: word): HL
   LD HL, value_word
 end
 
-export func main(): void
+export func main()
   var
     tmp: word
   end
@@ -130,72 +129,73 @@ end
 
 ```asm
 ; ZAX lowered .asm trace
+; range: $0000..$0052 (end exclusive)
 
 ; func echo begin
 echo:
-PUSH IX
-LD IX, $0000
-ADD IX, SP
-PUSH AF
-PUSH BC
-PUSH DE
-EX DE, HL
-LD E, (IX+$04)
-LD D, (IX+$05)
-EX DE, HL
+PUSH IX                        ; 0000: DD E5
+LD IX, $0000                   ; 0002: DD 21 00 00
+ADD IX, SP                     ; 0006: DD 39
+PUSH AF                        ; 0008: F5
+PUSH BC                        ; 0009: C5
+PUSH DE                        ; 000A: D5
+EX DE, HL                      ; 000B: EB
+LD E, (IX+$04)                 ; 000C: DD 5E 04
+LD D, (IX+$05)                 ; 000F: DD 56 05
+EX DE, HL                      ; 0012: EB
 __zax_epilogue_0:
-POP DE
-POP BC
-POP AF
-LD SP, IX
-POP IX
-RET
+POP DE                         ; 0013: D1
+POP BC                         ; 0014: C1
+POP AF                         ; 0015: F1
+LD SP, IX                      ; 0016: F9
+POP IX                         ; 0018: DD E1
+RET                            ; 001A: C9
 ; func echo end
 
 ; func main begin
 main:
-PUSH IX
-LD IX, $0000
-ADD IX, SP
-DEC SP
-DEC SP
-PUSH AF
-PUSH BC
-PUSH DE
-PUSH HL
-LD HL, $1234
-PUSH HL
-CALL echo
-INC SP
-INC SP
-PUSH DE
-EX DE, HL
-LD (IX-$02), E
-LD (IX-$01), D
-EX DE, HL
-POP DE
-PUSH DE
-EX DE, HL
-LD E, (IX-$02)
-LD D, (IX-$01)
-EX DE, HL
-POP DE
-LD (out), HL
+PUSH IX                        ; 001B: DD E5
+LD IX, $0000                   ; 001D: DD 21 00 00
+ADD IX, SP                     ; 0021: DD 39
+DEC SP                         ; 0023: 3B
+DEC SP                         ; 0024: 3B
+PUSH AF                        ; 0025: F5
+PUSH BC                        ; 0026: C5
+PUSH DE                        ; 0027: D5
+PUSH HL                        ; 0028: E5
+LD HL, $1234                   ; 0029: 21 34 12
+PUSH HL                        ; 002C: E5
+CALL echo                      ; 002D: CD 00 00
+INC SP                         ; 0030: 33
+INC SP                         ; 0031: 33
+PUSH DE                        ; 0032: D5
+EX DE, HL                      ; 0033: EB
+LD (IX-$02), E                 ; 0034: DD 73 FE
+LD (IX-$01), D                 ; 0037: DD 72 FF
+EX DE, HL                      ; 003A: EB
+POP DE                         ; 003B: D1
+PUSH DE                        ; 003C: D5
+EX DE, HL                      ; 003D: EB
+LD E, (IX-$02)                 ; 003E: DD 5E FE
+LD D, (IX-$01)                 ; 0041: DD 56 FF
+EX DE, HL                      ; 0044: EB
+POP DE                         ; 0045: D1
+LD (out), HL                   ; 0046: 22 00 10
 __zax_epilogue_1:
-POP HL
-POP DE
-POP BC
-POP AF
-LD SP, IX
-POP IX
-RET
+POP HL                         ; 0049: E1
+POP DE                         ; 004A: D1
+POP BC                         ; 004B: C1
+POP AF                         ; 004C: F1
+LD SP, IX                      ; 004D: F9
+POP IX                         ; 004F: DD E1
+RET                            ; 0051: C9
 ; func main end
 
 ; symbols:
-; label echo = <auto>
-; label __zax_epilogue_0 = <auto>
-; label main = <auto>
-; label __zax_epilogue_1 = <auto>
+; label echo = $0000
+; label __zax_epilogue_0 = $0013
+; label main = $001B
+; label __zax_epilogue_1 = $0049
 ; var out = $1000
 ```
 
@@ -203,19 +203,18 @@ Note:
 
 - caller argument cleanup is shown with `inc sp` to avoid clobbering preserved registers.
 - if a caller marks a register dead, `pop`-based cleanup can be legal as an optimization.
-- synthetic epilogues are present; any `ret`/`ret <cc>` in the bodies would be rewritten to jump to the epilogue labels.
 
 ## 4. Worked Example B: Locals + Nested Call
 
 ### B.1 Source (`.zax`)
 
 ```zax
-func add1(input_value: word): word
+func add1(input_value: word): HL
   LD HL, input_value
   INC HL
 end
 
-export func main(): void
+export func main()
   var
     temp_word: word
   end
@@ -250,6 +249,7 @@ PUSH BC
 PUSH DE
 PUSH HL
 
+; init temp_word = $0100
 LD HL, $0100
 PUSH DE
 EX DE, HL
@@ -258,6 +258,7 @@ LD (IX-$01), D
 EX DE, HL
 POP DE
 
+; load temp_word for call
 PUSH DE
 EX DE, HL
 LD E, (IX-$02)
@@ -270,6 +271,7 @@ CALL add1
 INC SP
 INC SP
 
+; store result back to temp_word
 PUSH DE
 EX DE, HL
 LD (IX-$02), E
@@ -288,20 +290,14 @@ RET
 ; func main end
 ```
 
-## 5. Preservation Policy (Design Target)
+## 5. Preservation Policy Table (Design Target)
 
-Rule of thumb: preserve set = {AF, BC, DE, HL} minus the declared return registers (IX is always preserved). Return channel = declared return set.
-
-| Function kind | Return registers | Preserved regs (target)                   |
-| ------------- | ---------------- | ----------------------------------------- |
-| typed `func`  | (none)           | AF, BC, DE, HL, IX                        |
-| typed `func`  | HL               | AF, BC, DE, IX                            |
-| typed `func`  | HL,AF            | BC, DE, IX                                |
-| typed `func`  | HL,DE            | AF, BC, IX                                |
-| typed `func`  | HL,DE,AF         | BC, IX                                    |
-| typed `func`  | HL,DE,BC         | AF, IX                                    |
-| typed `func`  | HL,DE,BC,AF      | IX                                        |
-| `extern`      | any              | caller-responsible unless ABI is declared |
+| Function kind | Return type | Boundary-visible changed regs     | Preserved regs (target)            |
+| ------------- | ----------- | --------------------------------- | ---------------------------------- |
+| typed `func`  | `void`      | none (no return value)            | `AF`, `BC`, `DE`, `HL`, `IX`       |
+| typed `func`  | byte        | `L` (with `HL` volatile)          | non-return boundary regs preserved |
+| typed `func`  | word/addr   | `HL`                              | non-return boundary regs preserved |
+| `extern`      | any         | per declared ABI/clobber contract | per declared ABI/clobber contract  |
 
 ## 6. Transition Note: Volatility Inference
 
@@ -352,7 +348,7 @@ This is especially important once functions have locals and multiple control-flo
 ### C.1 Source (`.zax`)
 
 ```zax
-func fib(target_count: word): word
+func fib(target_count: word): HL
   var
     prev_value: word = $0000
     curr_value: word = $0001
@@ -501,7 +497,7 @@ globals
 Local alias example (allowed):
 
 ```zax
-func use_admins(): void
+func use_admins()
   var
     admin_list = admins            ; reference initializer only (inferred type)
   end
@@ -513,7 +509,7 @@ end
 Local composite allocation example (rejected for now):
 
 ```zax
-func bad_local_composite(): void
+func bad_local_composite()
   var
     scratch_people: Person[4]      ; error: local composite storage not supported in current ABI
   end
@@ -532,7 +528,7 @@ globals
   glob1: word = 23
   glob2 = glob1
 
-func func1(input_word: word): word
+func func1(input_word: word): HL
   var
     local1: word = 0
     local2 = glob1
@@ -567,7 +563,7 @@ op touch(addr: ea)
   LD A, (addr)
 end
 
-func main(): void
+func main()
   LD A, p.lo            ; value context: reads byte at p.lo
   LD p.lo, A            ; store context: writes byte to p.lo
   touch p.lo            ; ea context: passes address of p.lo
@@ -602,17 +598,17 @@ Example: globals array passed to both flexible and fixed signatures
 globals
   sample_bytes: byte[10] = { 1,2,3,4,5,6,7,8,9,10 }
 
-func sum_fixed_10(values: byte[10]): word
+func sum_fixed_10(values: byte[10]): HL
   ; fixed contract: exactly 10 bytes expected
   ; ...
 end
 
-func sum_any(values: byte[]): word
+func sum_any(values: byte[]): HL
   ; flexible contract: element type byte, length not encoded in signature
   ; ...
 end
 
-export func main(): void
+export func main()
   sum_fixed_10 sample_bytes   ; valid: exact-length match
   sum_any sample_bytes        ; valid: [10] -> [] widening
 end
@@ -624,11 +620,11 @@ Negative example: narrowing without proof
 globals
   inferred_view = sample_bytes
 
-func needs_ten(values: byte[10]): word
+func needs_ten(values: byte[10]): HL
   ; ...
 end
 
-export func main_bad(): void
+export func main_bad()
   needs_ten inferred_view      ; error unless compiler can prove length is 10
 end
 ```
