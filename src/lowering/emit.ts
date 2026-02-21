@@ -2321,12 +2321,37 @@ export function emitProgram(
         }
       }
 
-      if (!emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
-
       const baseResolved = resolveEa(ea.base, span);
       if (baseResolved?.kind === 'abs') {
-        emitAbs16Fixup(0x21, baseResolved.baseLower, baseResolved.addend, span); // ld hl, nn
+        // HL holds scaled index. Swap to DE, load base into HL, then add.
+        if (
+          !emitInstr(
+            'ex',
+            [
+              { kind: 'Reg', span, name: 'DE' },
+              { kind: 'Reg', span, name: 'HL' },
+            ],
+            span,
+          )
+        )
+          return false;
+        emitAbs16Fixup(0x21, baseResolved.baseLower, baseResolved.addend, span); // ld hl, base addr
+        if (
+          !emitInstr(
+            'add',
+            [
+              { kind: 'Reg', span, name: 'HL' },
+              { kind: 'Reg', span, name: 'DE' },
+            ],
+            span,
+          )
+        ) {
+          return false;
+        }
+        return emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span);
       } else if (baseResolved?.kind === 'stack') {
+        // Save scaled index while we materialize the base into HL.
+        if (!emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
         if (!emitInstr('push', [{ kind: 'Reg', span, name: 'DE' }], span)) return false;
         if (
           !emitInstr('push', [{ kind: 'Reg', span, name: 'IX' }], span) ||
@@ -2350,6 +2375,8 @@ export function emitProgram(
         }
         if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'DE' }], span)) return false;
       } else {
+        // Save scaled index while we compute a non-abs base.
+        if (!emitInstr('push', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
         if (!pushEaAddress(ea.base, span)) return false;
         if (!emitInstr('pop', [{ kind: 'Reg', span, name: 'HL' }], span)) return false;
       }

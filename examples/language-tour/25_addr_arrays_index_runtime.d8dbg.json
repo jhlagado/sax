@@ -16,87 +16,94 @@
         },
         {
           "start": 256,
-          "end": 432,
+          "end": 411,
           "lstLine": 0,
           "kind": "unknown",
           "confidence": "low"
         },
         {
           "start": 267,
-          "end": 291,
+          "end": 290,
           "lstLine": 6,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 291,
-          "end": 292,
+          "start": 290,
+          "end": 291,
           "lstLine": 7,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 292,
-          "end": 315,
+          "start": 291,
+          "end": 313,
           "lstLine": 8,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 315,
-          "end": 333,
+          "start": 313,
+          "end": 330,
           "lstLine": 10,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 333,
-          "end": 334,
+          "start": 330,
+          "end": 331,
           "lstLine": 11,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 334,
-          "end": 354,
+          "start": 331,
+          "end": 350,
           "lstLine": 12,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 354,
-          "end": 378,
+          "start": 350,
+          "end": 373,
           "lstLine": 14,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 378,
-          "end": 386,
+          "start": 373,
+          "end": 381,
           "lstLine": 5,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 386,
-          "end": 398,
+          "start": 381,
+          "end": 393,
           "lstLine": 17,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 398,
-          "end": 407,
+          "start": 393,
+          "end": 402,
           "lstLine": 18,
           "kind": "code",
           "confidence": "high"
         },
         {
-          "start": 407,
-          "end": 416,
+          "start": 402,
+          "end": 411,
           "lstLine": 17,
           "kind": "code",
           "confidence": "high"
+        },
+        {
+          "start": 412,
+          "end": 428,
+          "lstLine": 0,
+          "kind": "unknown",
+          "confidence": "low"
         }
       ],
       "symbols": [
@@ -110,35 +117,35 @@
         {
           "name": "__zax_epilogue_0",
           "kind": "label",
-          "address": 378,
+          "address": 373,
           "line": 5,
           "scope": "local"
         },
         {
           "name": "main",
           "kind": "label",
-          "address": 386,
+          "address": 381,
           "line": 17,
           "scope": "global"
         },
         {
           "name": "__zax_epilogue_1",
           "kind": "label",
-          "address": 407,
+          "address": 402,
           "line": 17,
           "scope": "local"
         },
         {
           "name": "arr_b",
           "kind": "data",
-          "address": 416,
+          "address": 412,
           "line": 2,
           "scope": "global"
         },
         {
           "name": "arr_w",
           "kind": "data",
-          "address": 424,
+          "address": 420,
           "line": 3,
           "scope": "global"
         }
@@ -148,7 +155,11 @@
   "segments": [
     {
       "start": 256,
-      "end": 432
+      "end": 411
+    },
+    {
+      "start": 412,
+      "end": 428
     }
   ],
   "fileList": [
@@ -166,7 +177,7 @@
     {
       "name": "__zax_epilogue_0",
       "kind": "label",
-      "address": 378,
+      "address": 373,
       "file": "25_addr_arrays_index_runtime.zax",
       "line": 5,
       "scope": "local"
@@ -174,7 +185,7 @@
     {
       "name": "main",
       "kind": "label",
-      "address": 386,
+      "address": 381,
       "file": "25_addr_arrays_index_runtime.zax",
       "line": 17,
       "scope": "global"
@@ -182,7 +193,7 @@
     {
       "name": "__zax_epilogue_1",
       "kind": "label",
-      "address": 407,
+      "address": 402,
       "file": "25_addr_arrays_index_runtime.zax",
       "line": 17,
       "scope": "local"
@@ -190,7 +201,7 @@
     {
       "name": "arr_b",
       "kind": "data",
-      "address": 416,
+      "address": 412,
       "file": "25_addr_arrays_index_runtime.zax",
       "line": 2,
       "scope": "global"
@@ -198,7 +209,7 @@
     {
       "name": "arr_w",
       "kind": "data",
-      "address": 424,
+      "address": 420,
       "file": "25_addr_arrays_index_runtime.zax",
       "line": 3,
       "scope": "global"
@@ -207,6 +218,6 @@
   "generator": {
     "tool": "zax",
     "entrySymbol": "main",
-    "entryAddress": 386
+    "entryAddress": 381
   }
 }
