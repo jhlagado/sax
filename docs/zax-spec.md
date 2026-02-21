@@ -45,9 +45,9 @@ const MsgLen = 5
 data
   msg: byte[5] = "HELLO"
 
-extern func bios_putc(ch: byte): void at $F003
+extern func bios_putc(ch: byte) at $F003
 
-export func main(): void
+export func main()
   var
     p: addr
   end
