@@ -11,9 +11,13 @@ describe('PR322: return flags modifier support', () => {
     const start = lines.findIndex((l) => l.trim().toLowerCase() === `${label.toLowerCase()}:`);
     if (start === -1) return [];
     const pushes: string[] = [];
+    const preserveSet = new Set(['AF', 'BC', 'DE', 'HL']);
     for (let i = start + 1; i < Math.min(lines.length, start + 12); i++) {
       const m = /push\s+([A-Za-z]+)/i.exec(lines[i]!);
-      if (m) pushes.push(m[1]!.toUpperCase());
+      if (m) {
+        const reg = m[1]!.toUpperCase();
+        if (preserveSet.has(reg)) pushes.push(reg);
+      }
       else if (pushes.length > 0) break;
     }
     return pushes;

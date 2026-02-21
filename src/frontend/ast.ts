@@ -232,8 +232,7 @@ export interface ExternFuncNode extends BaseNode {
   kind: 'ExternFunc';
   name: string;
   params: ParamNode[];
-  returnType: TypeExprNode;
-  returnFlags?: boolean;
+  returnRegs?: string[]; // register list; empty/undefined means no register returns
   at: ImmExprNode;
 }
 
@@ -245,8 +244,7 @@ export interface FuncDeclNode extends BaseNode {
   name: string;
   exported: boolean;
   params: ParamNode[];
-  returnType: TypeExprNode;
-  returnFlags?: boolean;
+  returnRegs?: string[];
   locals?: VarBlockNode;
   asm: AsmBlockNode;
 }

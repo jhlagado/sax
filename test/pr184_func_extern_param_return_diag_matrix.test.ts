@@ -17,9 +17,13 @@ describe('PR184 parser: func/extern parameter and return diagnostics matrix', ()
 
     expect(messages).toContain('Invalid parameter declaration: expected <name>: <type>');
     expect(messages).toContain('Invalid parameter type "[byte]": expected <type>');
-    expect(messages).toContain('Invalid func return type "[word]": expected <type>');
+    expect(messages).toContain(
+      'Invalid return register "[word]": expected HL, DE, BC, or AF.',
+    );
     expect(messages).toContain('Invalid op parameter declaration: expected <name>: <matcher>');
-    expect(messages).toContain('Invalid extern func return type "[word]": expected <type>');
+    expect(messages).toContain(
+      'Invalid return register "[word]": expected HL, DE, BC, or AF.',
+    );
 
     expect(messages.some((m) => m.includes('Unsupported type in parameter declaration'))).toBe(
       false,

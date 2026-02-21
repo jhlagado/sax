@@ -1,24 +1,24 @@
-func ret_void(): void
+func ret_void()
   ret
 end
 
-func ret_void_flags(): void flags
+func ret_void_flags(): AF
   ret
 end
 
-func ret_byte(): byte
+func ret_byte(): HL
   ret
 end
 
-func ret_byte_flags(): byte flags
+func ret_byte_flags(): HL, AF
   ret
 end
 
-func ret_word(): word
+func ret_word(): HL
   ret
 end
 
-func ret_word_flags(): word flags
+func ret_word_flags(): HL, AF
   ret
 end
 

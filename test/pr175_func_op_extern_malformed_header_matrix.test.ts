@@ -19,7 +19,7 @@ describe('PR175 parser: malformed func/op/extern header matrix', () => {
       'Invalid func header line "func main(": expected <name>(...): <retType>',
     );
     expect(messages).toContain('Invalid func name "9bad": expected <identifier>.');
-    expect(messages).toContain('Invalid func header: missing return type');
+    expect(messages).toContain('Unterminated func "ok": expected function body before "op"');
 
     expect(messages).toContain('Invalid op header line "op": expected <name>(...)');
     expect(messages).toContain('Invalid op header line "op macro(": expected <name>(...)');
@@ -31,10 +31,10 @@ describe('PR175 parser: malformed func/op/extern header matrix', () => {
       'Invalid extern base name "const": collides with a top-level keyword.',
     );
     expect(messages).toContain(
-      'Invalid extern func declaration line "func": expected <name>(...): <retType> at <imm16>',
+      'Invalid extern func declaration line "func": expected <name>(...)[ : <retRegs> ] at <imm16>',
     );
     expect(messages).toContain(
-      'Invalid extern func declaration line "func x(a: byte) at $1234": expected <name>(...): <retType> at <imm16>',
+      'Invalid extern func declaration line "func x(a: byte) at $1234": expected <name>(...)[ : <retRegs> ] at <imm16>',
     );
     expect(messages).toContain(
       'Invalid extern func name "const": collides with a top-level keyword.',

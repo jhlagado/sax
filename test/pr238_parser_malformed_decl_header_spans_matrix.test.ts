@@ -47,7 +47,11 @@ describe('PR238 parser malformed declaration header span matrix', () => {
             column: 1,
           },
           { message: 'Invalid func name "9bad": expected <identifier>.', line: 3, column: 1 },
-          { message: 'Invalid func header: missing return type', line: 4, column: 1 },
+          {
+            message: 'Unterminated func "ok": expected function body before "op"',
+            line: 6,
+            column: 1,
+          },
           { message: 'Invalid op header line "op": expected <name>(...)', line: 6, column: 1 },
           {
             message: 'Invalid op header line "op macro(": expected <name>(...)',
@@ -68,13 +72,13 @@ describe('PR238 parser malformed declaration header span matrix', () => {
           },
           {
             message:
-              'Invalid extern func declaration line "func": expected <name>(...): <retType> at <imm16>',
+              'Invalid extern func declaration line "func": expected <name>(...)[ : <retRegs> ] at <imm16>',
             line: 15,
             column: 1,
           },
           {
             message:
-              'Invalid extern func declaration line "func x(a: byte) at $1234": expected <name>(...): <retType> at <imm16>',
+              'Invalid extern func declaration line "func x(a: byte) at $1234": expected <name>(...)[ : <retRegs> ] at <imm16>',
             line: 16,
             column: 1,
           },

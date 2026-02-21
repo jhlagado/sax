@@ -3671,48 +3671,9 @@ export function emitProgram(
         spTrackingInvalidatedByMutation = false;
 
         const localDecls = item.locals?.decls ?? [];
-        const retKind: 'byte' | 'word' | 'addr' | 'long' | 'verylong' | 'void' | undefined =
-          (() => {
-            if (item.returnType.kind === 'TypeName') {
-              const rtName = item.returnType.name.toLowerCase();
-              if (rtName === 'void') return 'void';
-              if (rtName === 'long') return 'long';
-              if (rtName === 'verylong') return 'verylong';
-              return resolveScalarKind(item.returnType);
-            }
-            return resolveScalarKind(item.returnType);
-          })();
-        const isVoidReturn = retKind === 'void';
-        const isVoidSpecial = isVoidReturn;
-        // One saved-HL slot only for void/void+flags.
-        const savedHlBytes = isVoidReturn ? 2 : 0;
-        const preserveSet = (() => {
-          const kind = retKind;
-          const isFlags = item.returnFlags === true;
-          let base: string[] = [];
-          switch (kind) {
-            case 'void':
-              base = ['AF', 'BC', 'DE', 'HL'];
-              break;
-            case 'long':
-              base = ['AF', 'BC'];
-              break;
-            case 'verylong':
-              base = ['AF'];
-              break;
-            case 'byte':
-            case 'word':
-            case 'addr':
-            case undefined:
-            default:
-              base = ['AF', 'BC', 'DE'];
-              break;
-          }
-          if (isFlags) {
-            base = base.filter((r) => r !== 'AF');
-          }
-          return base;
-        })();
+        const returnRegs = (item.returnRegs ?? []).map((r) => r.toUpperCase());
+        const basePreserveOrder: string[] = ['AF', 'BC', 'DE', 'HL'];
+        const preserveSet = basePreserveOrder.filter((r) => !returnRegs.includes(r));
         const preserveBytes = preserveSet.length * 2;
         const shouldPreserveTypedBoundary = preserveSet.length > 0;
         let localSlotCount = 0;
@@ -3735,7 +3696,7 @@ export function emitProgram(
               );
               continue;
             }
-            const localIxDisp = -(2 * (localSlotCount + 1));
+            const localIxDisp = -(preserveBytes + 2 * (localSlotCount + 1));
             stackSlotOffsets.set(declLower, localIxDisp);
             stackSlotTypes.set(declLower, decl.typeExpr);
             localSlotCount++;
@@ -3777,9 +3738,10 @@ export function emitProgram(
           }
           stackSlotTypes.set(declLower, inferred);
         }
-        const frameSize = localSlotCount * 2 + savedHlBytes;
+        const localBytes = localSlotCount * 2;
+        const frameSize = localBytes + preserveBytes;
         const argc = item.params.length;
-        const hasStackSlots = frameSize > 0 || argc > 0;
+        const hasStackSlots = frameSize > 0 || argc > 0 || preserveBytes > 0;
         for (let paramIndex = 0; paramIndex < argc; paramIndex++) {
           const p = item.params[paramIndex]!;
           const base = 4 + 2 * paramIndex;
@@ -3839,9 +3801,23 @@ export function emitProgram(
               ],
               item.span,
             );
-            if (isVoidSpecial) {
-              // Save incoming HL
-              emitInstr('push', [{ kind: 'Reg', span: item.span, name: 'HL' }], item.span);
+          } finally {
+            currentCodeSegmentTag = prevTag;
+          }
+        }
+
+        if (shouldPreserveTypedBoundary) {
+          const prevTag = currentCodeSegmentTag;
+          currentCodeSegmentTag = {
+            file: item.span.file,
+            line: item.span.start.line,
+            column: item.span.start.column,
+            kind: 'code',
+            confidence: 'high',
+          };
+          try {
+            for (const reg of preserveSet) {
+              emitInstr('push', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
             }
           } finally {
             currentCodeSegmentTag = prevTag;
@@ -3858,85 +3834,18 @@ export function emitProgram(
             confidence: 'high',
           };
           try {
-            if (isVoidSpecial) {
-              const initValue =
-                init.expr !== undefined ? evalImmExpr(init.expr, env, diagnostics) : 0;
-              if (init.expr !== undefined && initValue === undefined) {
-                diagAt(
-                  diagnostics,
-                  init.span,
-                  `Failed to evaluate local initializer for "${init.name}".`,
-                );
-                continue;
-              }
-              const narrowed =
-                init.scalarKind === 'byte' ? initValue! & 0xff : initValue! & 0xffff;
-              if (!loadImm16ToHL(narrowed, init.span)) continue;
-              emitInstr(
-                'ex',
-                [
-                  {
-                    kind: 'Mem',
-                    span: init.span,
-                    expr: { kind: 'EaName', span: init.span, name: 'SP' },
-                  },
-                  { kind: 'Reg', span: init.span, name: 'HL' },
-                ],
+            const initValue = init.expr !== undefined ? evalImmExpr(init.expr, env, diagnostics) : 0;
+            if (init.expr !== undefined && initValue === undefined) {
+              diagAt(
+                diagnostics,
                 init.span,
+                `Failed to evaluate local initializer for "${init.name}".`,
               );
-            } else {
-              if (!init.expr) {
-                emitInstr('push', [{ kind: 'Reg', span: init.span, name: 'BC' }], init.span);
-                continue;
-              }
-              const initValue = evalImmExpr(init.expr, env, diagnostics);
-              if (initValue === undefined) {
-                diagAt(
-                  diagnostics,
-                  init.span,
-                  `Failed to evaluate local initializer for "${init.name}".`,
-                );
-                continue;
-              }
-              const narrowed = init.scalarKind === 'byte' ? initValue & 0xff : initValue & 0xffff;
-              if (!loadImm16ToHL(narrowed, init.span)) continue;
-              emitInstr('push', [{ kind: 'Reg', span: init.span, name: 'HL' }], init.span);
+              continue;
             }
-          } finally {
-            currentCodeSegmentTag = prevTag;
-          }
-        }
-        if (shouldPreserveTypedBoundary && isVoidSpecial) {
-          const prevTag = currentCodeSegmentTag;
-          currentCodeSegmentTag = {
-            file: item.span.file,
-            line: item.span.start.line,
-            column: item.span.start.column,
-            kind: 'code',
-            confidence: 'high',
-          };
-          try {
-            const pushOrder = ['AF', 'BC', 'DE', 'HL'].filter((r) => preserveSet.includes(r));
-            for (const reg of pushOrder) {
-              emitInstr('push', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
-            }
-          } finally {
-            currentCodeSegmentTag = prevTag;
-          }
-        }
-        if (shouldPreserveTypedBoundary && !isVoidSpecial) {
-          const prevTag = currentCodeSegmentTag;
-          currentCodeSegmentTag = {
-            file: item.span.file,
-            line: item.span.start.line,
-            column: item.span.start.column,
-            kind: 'code',
-            confidence: 'high',
-          };
-          try {
-            for (const reg of preserveSet) {
-              emitInstr('push', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
-            }
+            const narrowed = init.scalarKind === 'byte' ? initValue! & 0xff : initValue! & 0xffff;
+            if (!loadImm16ToHL(narrowed, init.span)) continue;
+            emitInstr('push', [{ kind: 'Reg', span: init.span, name: 'HL' }], init.span);
           } finally {
             currentCodeSegmentTag = prevTag;
           }
@@ -4322,8 +4231,6 @@ export function emitProgram(
               const args = asmItem.operands;
               const params = callable.kind === 'func' ? callable.node.params : callable.node.params;
               const calleeName = callable.node.name;
-              const returnType =
-                callable.kind === 'func' ? callable.node.returnType : callable.node.returnType;
               // Caller-side preservation is never injected for typed calls (extern or internal);
               // preservation is handled at the callee boundary.
               const restorePreservedRegs = (): boolean => true;
@@ -5826,13 +5733,29 @@ export function emitProgram(
               scope: 'local',
             });
             traceLabel(codeOffset, epilogueLabel);
-            const popOrder = isVoidSpecial
-              ? ['HL', 'DE', 'BC', 'AF']
-              : preserveSet.slice().reverse();
-            for (const reg of popOrder) {
-              if (preserveSet.includes(reg)) {
-                emitInstr('pop', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
+            if (localBytes > 0) {
+              if (loadImm16ToHL(localBytes, item.span)) {
+                emitInstr(
+                  'add',
+                  [
+                    { kind: 'Reg', span: item.span, name: 'HL' },
+                    { kind: 'Reg', span: item.span, name: 'SP' },
+                  ],
+                  item.span,
+                );
+                emitInstr(
+                  'ld',
+                  [
+                    { kind: 'Reg', span: item.span, name: 'SP' },
+                    { kind: 'Reg', span: item.span, name: 'HL' },
+                  ],
+                  item.span,
+                );
               }
+            }
+            const popOrder = preserveSet.slice().reverse();
+            for (const reg of popOrder) {
+              emitInstr('pop', [{ kind: 'Reg', span: item.span, name: reg }], item.span);
             }
             if (hasStackSlots) {
               emitInstr(
