@@ -133,6 +133,6 @@ Planned simplification (v0.3):
 - Void prologue swap: assert HL is not clobbered by local initializers (see pattern above).
 - Array/record lowering: ensure temp preserves and destination-only mutation with new preservation rules.
 
-## 9. Open Questions (for follow-up)
-- `byte` alias is slated for removal; width/encoding is left to the programmer via explicit register returns.
-- Extern declarations may use the same return-register notation to publish return channels; preservation remains caller-responsible unless an explicit ABI is provided by the extern implementation.
+## 9. Notes
+- `byte` alias will be removed; programmers choose registers explicitly for return width.
+- Extern declarations use the same return-register notation to publish return channels. Preservation stays caller-responsible unless the extern ABI explicitly states otherwise.
