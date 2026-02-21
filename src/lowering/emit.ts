@@ -2848,6 +2848,27 @@ export function emitProgram(
       }
       const s8 = reg8Code.get(src.name.toUpperCase());
       if (s8 !== undefined) {
+        // Fast path: stack slot destination via IX+d (byte store).
+        if (
+          dstResolved?.kind === 'stack' &&
+          dstResolved.ixDisp >= -0x80 &&
+          dstResolved.ixDisp <= 0x7f
+        ) {
+          const disp = dstResolved.ixDisp & 0xff;
+          const fmtDisp = `IX${dstResolved.ixDisp >= 0 ? '+' : '-'}$${Math.abs(
+            dstResolved.ixDisp,
+          )
+            .toString(16)
+            .padStart(2, '0')
+            .toUpperCase()}`;
+          emitRawCodeBytes(
+            Uint8Array.of(0xdd, 0x70 + s8, disp),
+            inst.span.file,
+            `ld (${fmtDisp}), ${src.name.toUpperCase()}`,
+          );
+          return true;
+        }
+
         const preserveA = src.name.toUpperCase() === 'A';
         if (
           preserveA &&
