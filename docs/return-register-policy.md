@@ -23,7 +23,7 @@ Preserve = {AF, BC, DE, HL} \ ReturnSet (IX always preserved).
 
 | Declared returns  | Preserved regs |
 |-------------------|----------------|
-| none              | AF, BC, DE, HL |
+| (no returns)      | AF, BC, DE, HL |
 | HL                | AF, BC, DE     |
 | HL,AF             | BC, DE         |
 | HL,DE             | AF, BC         |
